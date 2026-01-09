@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>创世纪引擎 V62.0 - 博士·梦想圆满·终极版</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;800&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.0/Sortable.min.js"></script>
+</head>
+<body class="theme-cyberpunk">
+    <div class="main-container">
+        <header class="main-header">
+            <div>
+                <h1><i class="fas fa-atom"></i> 创世纪引擎 V62.0</h1>
+                <p>博士·梦想圆满·终极版</p>
+            </div>
+            
+            <div class="user-auth-section">
+                
+                <div class="theme-switcher">
+                    <button class="theme-btn active" data-theme="cyberpunk" title="赛博朋克主题"><i class="fas fa-robot"></i></button>
+                    <button class="theme-btn" data-theme="fantasy" title="西方奇幻主题"><i class="fas fa-scroll"></i></button>
+                </div>
+                <span id="welcome-message">请先登录</span>
+                <button id="login-btn" class="settings-btn">登录</button>
+                <button id="register-btn" class="settings-btn">注册</button>
+                <button id="logout-btn" class="settings-btn hidden">登出</button>
+                <button id="project-manager-btn" class="settings-btn" title="项目管理"><i class="fas fa-folder-open"></i> 项目</button>
+                <button id="toggle-database-btn" class="settings-btn" title="隐藏资料库"><i class="fas fa-database"></i></button>
+                <button id="api-settings-btn" class="settings-btn" title="API设置"><i class="fas fa-cog"></i></button>
+            </div>
+        </header>
+        
+        <div id="app-content" class="disabled">
+            <nav class="main-nav-tabs">
+                <button class="main-tab active" data-target="inspiration-panel"><i class="fas fa-lightbulb"></i> 1. 灵感蓝图</button>
+                <button class="main-tab" data-target="writing-panel"><i class="fas fa-feather-alt"></i> 2. 大纲与正文写作</button>
+                <button class="main-tab database-tab" data-target="canon-panel"><i class="fas fa-book-open"></i> 叙事圣典</button>
+                <button class="main-tab database-tab" data-target="character-panel"><i class="fas fa-book-user"></i> 角色系统</button>
+                <button class="main-tab database-tab" data-target="archetype-panel"><i class="fas fa-theater-masks"></i> 角色原型</button>
+                <button class="main-tab database-tab" data-target="plot-panel"><i class="fas fa-sitemap"></i> 情节系统</button>
+                <button class="main-tab database-tab" data-target="emotion-panel"><i class="fas fa-chart-line"></i> 情绪系统</button>
+                <button class="main-tab" data-target="promax-panel"><i class="fas fa-bamboo"></i> 智能创作</button>
+                <button class="main-tab" data-target="short-panel"><i class="fas fa-pen-nib"></i> 短篇写作</button>
+           </nav>
+
+            <main>
+                <div id="inspiration-panel" class="tab-content active"></div>
+                <div id="writing-panel" class="tab-content"></div>
+                <div id="canon-panel" class="tab-content document-panel"></div>
+                <div id="character-panel" class="tab-content document-panel"></div>
+                <div id="archetype-panel" class="tab-content document-panel"></div>
+                <div id="plot-panel" class="tab-content document-panel"></div>
+                <div id="emotion-panel" class="tab-content document-panel"></div>
+                <div id="promax-panel" class="tab-content">
+                   <iframe src="网页promax/Gemini聊天室.html" style="width:100%; height: calc(100vh - 100px); border:none;"></iframe>
+               </div>
+               <div id="short-panel" class="tab-content">
+                   <iframe src="丐版短篇/index.html" style="width:100%; height: calc(100vh - 100px); border:none;"></iframe>
+               </div>
+           </main>
+        </div>
+    </div>
+
+    <div id="api-settings-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h2><i class="fas fa-cogs"></i> API 设置</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="api-provider">选择API服务商</label>
+                    <select id="api-provider">
+                        <option value="gemini">Google Gemini</option>
+                        <option value="claude">Anthropic Claude</option> <option value="openai">OpenAI</option>
+                        <option value="deepseek">DeepSeek</option>
+                        <option value="siliconflow">硅基流动</option>
+                        <option value="ollama">Ollama (本地)</option>
+                        <option value="custom">自定义</option>
+                    </select>
+                </div>
+                <div class="form-group api-setting hidden" id="api-gemini-model-group"><label for="api-gemini-model">选择 Gemini 模型</label><select id="api-gemini-model"><option value="gemini-1.5-flash">gemini-1.5-flash</option><option value="gemini-1.5-pro">gemini-1.5-pro</option></select></div>
+                <div class="form-group api-setting hidden" id="api-claude-model-group"><label for="api-claude-model">选择 Claude 模型</label><select id="api-claude-model"><option value="claude-3-opus-20240229">Claude 3 Opus</option><option value="claude-3-sonnet-20240229">Claude 3 Sonnet</option><option value="claude-3-haiku-20240307">Claude 3 Haiku</option></select></div>
+                <div class="form-group api-setting hidden" id="api-deepseek-model-group"><label for="api-deepseek-model">选择 DeepSeek 模型</label><select id="api-deepseek-model"><option value="deepseek-chat">deepseek-chat</option><option value="deepseek-coder">deepseek-coder</option></select></div>
+                <div class="form-group api-setting" id="api-key-group"><label for="api-key">API Key</label><input type="password" id="api-key" placeholder="在此处粘贴您的 API Key"></div>
+                <div class="form-group api-setting hidden" id="api-base-url-group"><label for="api-base-url">API Base URL</label><input type="text" id="api-base-url" placeholder="例如: http://localhost:11434/v1"></div>
+                <div class="form-group api-setting hidden" id="api-model-name-group"><label for="api-model-name">模型名称</label><input type="text" id="api-model-name" placeholder="例如: llama3:latest"></div>
+                <small>您的API密钥将仅保存在您的浏览器本地。</small>
+            </div>
+            <div class="modal-footer"><span id="settings-status"></span><button id="save-settings-btn" class="action-btn">保存设置</button></div>
+        </div>
+    </div>
+    <div id="project-manager-modal" class="modal-overlay hidden">
+        <div class="modal-content large">
+            <div class="modal-header"><h2><i class="fas fa-folder-open"></i> 项目管理中心</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body"><div id="project-list-container"></div></div>
+            <div class="modal-footer"><span id="project-status-message"></span><button id="save-current-project-btn" class="action-btn"><i class="fas fa-save"></i> 保存当前工作</button><button id="save-as-new-project-btn" class="settings-btn"><i class="fas fa-plus"></i> 另存为新项目</button></div>
+        </div>
+    </div>
+    <div id="character-editor-modal" class="modal-overlay hidden">
+        <div class="modal-content large">
+            <div class="modal-header"><h2 id="modal-editor-title">创建新人物</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body">
+                <input type="hidden" id="modal-char-id">
+                <div class="char-generator-layout">
+                    <div class="char-gen-controls"><div class="form-group"><label for="modal-char-name">姓名</label><input type="text" id="modal-char-name"></div><div class="form-group"><label for="modal-char-gender">性别</label><input type="text" id="modal-char-gender"></div><div class="form-group"><label for="modal-char-age">年龄</label><input type="text" id="modal-char-age"></div><div class="form-group"><label for="modal-char-traits">核心特点</label><textarea id="modal-char-traits" rows="5"></textarea></div></div>
+                    <div class="char-gen-display"><div class="form-group"><label for="modal-char-appearance">外貌</label><textarea id="modal-char-appearance" rows="3"></textarea></div><div class="form-group"><label for="modal-char-attire">服饰</label><textarea id="modal-char-attire" rows="3"></textarea></div><div class="form-group"><label for="modal-char-personality">性格</label><textarea id="modal-char-personality" rows="4"></textarea></div></div>
+                </div>
+                <div class="form-group" style="margin-top: 15px;"><label for="modal-char-flaw">原始缺陷</label><textarea id="modal-char-flaw" rows="3"></textarea></div>
+                <div class="form-group"><label for="modal-char-conflict">冲突矛盾点</label><textarea id="modal-char-conflict" rows="3"></textarea></div>
+            </div>
+            <div class="modal-footer"><button id="save-char-from-modal-btn" class="action-btn">保存人物</button></div>
+        </div>
+    </div>
+    <div id="notification-container"></div>
+
+    <div id="summary-modal" class="modal-overlay hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2><i class="fas fa-book-reader"></i> 中循环总结与迭代</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>AI生成的剧情总结 (可编辑)</label>
+                    <textarea id="summary-prose" rows="8" placeholder="AI将在此处总结刚刚完成的章节内容..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>AI生成的角色状态更新 (可编辑)</label>
+                    <textarea id="summary-char-status" rows="8" placeholder="AI将在此处更新角色的状态..."></textarea>
+                </div>
+                 <div class="form-group">
+                    <label>AI生成的新线索与伏笔 (可编辑)</label>
+                    <textarea id="summary-new-clues" rows="5" placeholder="AI将在此处构思新的伏笔..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="confirm-summary-btn" class="action-btn"><i class="fas fa-arrow-right"></i> 确认总结，生成下一部分大纲</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="import-blueprint-modal" class="modal-overlay hidden">
+        <div class="modal-content large">
+            <div class="modal-header">
+                <h2><i class="fas fa-upload"></i> 导入外部大纲</h2>
+                <button class="close-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="blueprint-import-textarea">请在此处粘贴您的HTML格式的故事大纲：</label>
+                    <textarea id="blueprint-import-textarea" rows="20" placeholder="请确保大纲包含 <section id='world-bible'> 和 <section id='story-blueprint'> 两个部分。"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="cancel-import-btn" class="settings-btn">取消</button>
+                <button id="confirm-import-btn" class="action-btn">确认导入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 重构后的项目管理模态框 -->
+    <div id="save-as-new-project-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h2><i class="fas fa-plus"></i> 另存为新项目</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body"><div class="form-group"><label for="new-project-name-input">请输入新项目的名称:</label><input type="text" id="new-project-name-input" placeholder="例如：我的史诗级作品"></div></div>
+            <div class="modal-footer"><button class="settings-btn close-btn">取消</button><button id="confirm-save-as-new-btn" class="action-btn">确认保存</button></div>
+        </div>
+    </div>
+    
+    <div id="rename-project-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h2><i class="fas fa-edit"></i> 重命名项目</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body"><div class="form-group"><label for="rename-project-name-input">请输入新的项目名称:</label><input type="text" id="rename-project-name-input"></div></div>
+            <div class="modal-footer"><button class="settings-btn close-btn">取消</button><button id="confirm-rename-btn" class="action-btn">确认重命名</button></div>
+        </div>
+    </div>
+
+    <div id="delete-project-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h2><i class="fas fa-trash-alt"></i> 删除项目确认</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body"><p>您确定要永久删除项目 “<strong id="delete-project-name-display"></strong>” 吗？此操作无法撤销。</p></div>
+            <div class="modal-footer"><button class="settings-btn close-btn">取消</button><button id="confirm-delete-btn" class="action-btn" style="background-color: var(--error-color);">确认删除</button></div>
+        </div>
+    </div>
+
+    <div id="overwrite-project-modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header"><h2><i class="fas fa-save"></i> 保存项目确认</h2><button class="close-btn">&times;</button></div>
+            <div class="modal-body"><p>项目 “<strong id="overwrite-project-name-display"></strong>” 已存在。您确定要覆盖它吗？</p></div>
+            <div class="modal-footer"><button class="settings-btn close-btn">取消</button><button id="confirm-overwrite-btn" class="action-btn">确认覆盖</button></div>
+        </div>
+    </div>
+
+    <script src="js/data/灵感与世界观数据.js"></script>
+    <script src="js/data/角色系统数据.js"></script>
+    <script src="js/data/角色原型数据.js"></script>
+    <script src="js/data/情节系统数据.js"></script>
+    <script src="js/data/情绪系统数据.js"></script>
+    <script src="js/data/叙事圣典数据.js"></script>
+    <script src="js/data/热门灵感模板数据.js"></script>
+    <script src="js/data/prompts.js"></script>
+
+    <script src="js/core/01_状态管理.js"></script>
+    <script src="js/core/02_通用工具.js"></script>
+    <script src="js/core/03_API接口.js"></script>
+    <script src="js/core/04_用户认证.js"></script>
+    <script src="js/core/05_database.js"></script>
+    <script src="js/modules/project_manager.js"></script>
+
+    <script src="js/database/角色系统面板.js"></script>
+    <script src="js/database/角色原型面板.js"></script>
+    <script src="js/database/情节系统面板.js"></script>
+    <script src="js/database/情绪系统面板.js"></script>
+    <script src="js/database/叙事圣典面板.js"></script>
+    
+    <script src="js/modules/01_灵感系统.js"></script>
+    <script src="js/modules/02_正文写作.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
