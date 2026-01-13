@@ -121,20 +121,29 @@
 确保本地已安装 Node.js 18+ 环境。
 
 ### 2. 安装与启动
+```
+git clone https://github.com/your-username/inkspirit-writer-assistant.git
+cd inkspirit-writer-assistant
+```
+
+2. 安装依赖
 ```bash
-# 克隆项目
-git clone https://github.com/your-username/inkspirit-writer.git
-cd inkspirit-writer
-
-# 安装依赖
 npm install
+```
 
-# 启动开发服务器
+3. 启动开发服务器
+```bash
 npm run dev
 ```
 
-### 3. 访问应用
-打开浏览器访问 [http://localhost:3000](http://localhost:3000) 即可开始创作。
+4. 打开浏览器访问 [http://localhost:3000](http://localhost:3000)
+
+## 📁 项目结构
+
+```
+inkspirit-writer-assistant/
+├── app/                    # Next.js App Router
+```
 
 ---
 
