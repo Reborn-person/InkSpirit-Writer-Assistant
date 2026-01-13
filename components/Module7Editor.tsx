@@ -185,7 +185,7 @@ export default function Module7Editor() {
                                   {
                                       id: generateId(),
                                       title,
-                                      type: 'volume',
+                                      type: 'volume' as const,
                                       children: [],
                                       isOpen: true
                                   }
@@ -225,7 +225,7 @@ export default function Module7Editor() {
                                       const chapter: NovelFile = {
                                           id: generateId(),
                                           title: title, // Store raw title
-                                          type: 'chapter',
+                                          type: 'chapter' as const,
                                           content: ''
                                       };
                                       newChapterId = chapter.id;
