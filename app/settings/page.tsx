@@ -14,6 +14,13 @@ export default function SettingsPage() {
   const [ragModel, setRagModel] = useState('deepseek-ai/DeepSeek-R1');
   const [ragStatus, setRagStatus] = useState<TestStatus>('idle');
 
+  // Big Model Configuration (Module 0.5)
+  const [bigModelProvider, setBigModelProvider] = useState('siliconflow');
+  const [bigModelApiKey, setBigModelApiKey] = useState('');
+  const [bigModelBaseUrl, setBigModelBaseUrl] = useState('https://api.siliconflow.cn/v1');
+  const [bigModelModel, setBigModelModel] = useState('deepseek-ai/DeepSeek-V3');
+  const [bigModelStatus, setBigModelStatus] = useState<TestStatus>('idle');
+
   // Writing Configuration
   const [writingProvider, setWritingProvider] = useState('siliconflow');
   const [writingApiKey, setWritingApiKey] = useState('');
@@ -34,6 +41,17 @@ export default function SettingsPage() {
     if (storedRagKey) setRagApiKey(storedRagKey);
     if (storedRagUrl) setRagBaseUrl(storedRagUrl);
     if (storedRagModel) setRagModel(storedRagModel);
+
+    // Load Big Model settings
+    const storedBigModelProvider = StorageManager.get(STORAGE_KEYS.BIG_MODEL_PROVIDER);
+    const storedBigModelKey = StorageManager.get(STORAGE_KEYS.BIG_MODEL_API_KEY);
+    const storedBigModelUrl = StorageManager.get(STORAGE_KEYS.BIG_MODEL_BASE_URL);
+    const storedBigModelModel = StorageManager.get(STORAGE_KEYS.BIG_MODEL_MODEL);
+
+    if (storedBigModelProvider) setBigModelProvider(storedBigModelProvider);
+    if (storedBigModelKey) setBigModelApiKey(storedBigModelKey);
+    if (storedBigModelUrl) setBigModelBaseUrl(storedBigModelUrl);
+    if (storedBigModelModel) setBigModelModel(storedBigModelModel);
 
     // Load Writing settings
     const storedWritingProvider = StorageManager.get(STORAGE_KEYS.WRITING_PROVIDER);
@@ -56,28 +74,54 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const handleProviderChange = (type: 'rag' | 'writing', newProvider: string) => {
-    const isRag = type === 'rag';
-    const setUrl = isRag ? setRagBaseUrl : setWritingBaseUrl;
-    const setModel = isRag ? setRagModel : setWritingModel;
-    const setProvider = isRag ? setRagProvider : setWritingProvider;
+  const handleProviderChange = (type: 'rag' | 'writing' | 'big_model', newProvider: string) => {
+    let setUrl, setModel, setProvider;
+
+    if (type === 'rag') {
+        setUrl = setRagBaseUrl;
+        setModel = setRagModel;
+        setProvider = setRagProvider;
+    } else if (type === 'big_model') {
+        setUrl = setBigModelBaseUrl;
+        setModel = setBigModelModel;
+        setProvider = setBigModelProvider;
+    } else {
+        setUrl = setWritingBaseUrl;
+        setModel = setWritingModel;
+        setProvider = setWritingProvider;
+    }
 
     setProvider(newProvider);
     
     if (newProvider === 'siliconflow') {
       setUrl('https://api.siliconflow.cn/v1');
-      setModel('deepseek-ai/DeepSeek-R1');
+      if (type === 'big_model') {
+          setModel('deepseek-ai/DeepSeek-V3');
+      } else {
+          setModel('deepseek-ai/DeepSeek-R1');
+      }
     } else if (newProvider === 'openai') {
       setUrl('https://api.openai.com/v1');
       setModel('gpt-4o');
     }
   };
 
-  const testConnection = async (type: 'rag' | 'writing') => {
-    const isRag = type === 'rag';
-    const apiKey = isRag ? ragApiKey : writingApiKey;
-    const baseUrl = isRag ? ragBaseUrl : writingBaseUrl;
-    const setStatus = isRag ? setRagStatus : setWritingStatus;
+  const testConnection = async (type: 'rag' | 'writing' | 'big_model') => {
+    let apiKey, baseUrl, setStatus;
+
+    if (type === 'rag') {
+        apiKey = ragApiKey;
+        baseUrl = ragBaseUrl;
+        setStatus = setRagStatus;
+    } else if (type === 'big_model') {
+        apiKey = bigModelApiKey;
+        baseUrl = bigModelBaseUrl;
+        setStatus = setBigModelStatus;
+    } else {
+        apiKey = writingApiKey;
+        baseUrl = writingBaseUrl;
+        setStatus = setWritingStatus;
+    }
 
     setStatus('loading');
     try {
@@ -105,6 +149,11 @@ export default function SettingsPage() {
     StorageManager.set(STORAGE_KEYS.RAG_API_KEY, ragApiKey);
     StorageManager.set(STORAGE_KEYS.RAG_BASE_URL, ragBaseUrl);
     StorageManager.set(STORAGE_KEYS.RAG_MODEL, ragModel);
+
+    StorageManager.set(STORAGE_KEYS.BIG_MODEL_PROVIDER, bigModelProvider);
+    StorageManager.set(STORAGE_KEYS.BIG_MODEL_API_KEY, bigModelApiKey);
+    StorageManager.set(STORAGE_KEYS.BIG_MODEL_BASE_URL, bigModelBaseUrl);
+    StorageManager.set(STORAGE_KEYS.BIG_MODEL_MODEL, bigModelModel);
 
     StorageManager.set(STORAGE_KEYS.WRITING_PROVIDER, writingProvider);
     StorageManager.set(STORAGE_KEYS.WRITING_API_KEY, writingApiKey);
@@ -197,6 +246,68 @@ export default function SettingsPage() {
                 disabled={ragStatus === 'loading'}
             >
                 {getButtonContent(ragStatus)}
+            </button>
+        </div>
+
+        {/* Big Model Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+                <span className="w-1 h-6 bg-indigo-500 rounded-full"></span>
+                大文本模型 (Big Model)
+            </h2>
+            <p className="text-sm text-gray-500">用于拆书分析、长文本处理 (模块 0.5)</p>
+            
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">服务商</label>
+                <select
+                    value={bigModelProvider}
+                    onChange={(e) => handleProviderChange('big_model', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white"
+                >
+                    <option value="custom">自定义 (Custom)</option>
+                    <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                <input
+                    type="password"
+                    value={bigModelApiKey}
+                    onChange={(e) => setBigModelApiKey(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                    placeholder="sk-..."
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                <input
+                    type="text"
+                    value={bigModelBaseUrl}
+                    onChange={(e) => setBigModelBaseUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                    disabled={bigModelProvider !== 'custom'}
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                <input
+                    type="text"
+                    value={bigModelModel}
+                    onChange={(e) => setBigModelModel(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                />
+            </div>
+
+            <button
+                onClick={() => testConnection('big_model')}
+                className={`w-full py-2 px-4 rounded-lg transition-colors font-medium flex items-center justify-center ${getButtonClass(bigModelStatus)}`}
+                disabled={bigModelStatus === 'loading'}
+            >
+                {getButtonContent(bigModelStatus)}
             </button>
         </div>
 

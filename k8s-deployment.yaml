@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ai-novel-writer
+  labels:
+    app: ai-novel-writer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ai-novel-writer
+  template:
+    metadata:
+      labels:
+        app: ai-novel-writer
+    spec:
+      containers:
+      - name: ai-novel-writer
+        image: ai-novel-writer:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: ai-novel-writer-service
+spec:
+  selector:
+    app: ai-novel-writer
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 3000
+  type: ClusterIP

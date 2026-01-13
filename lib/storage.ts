@@ -7,6 +7,12 @@ export const STORAGE_KEYS = {
   RAG_API_KEY: 'novel_writer_rag_api_key',
   RAG_BASE_URL: 'novel_writer_rag_base_url',
   RAG_MODEL: 'novel_writer_rag_model',
+  
+  BIG_MODEL_PROVIDER: 'novel_writer_big_model_provider',
+  BIG_MODEL_API_KEY: 'novel_writer_big_model_api_key',
+  BIG_MODEL_BASE_URL: 'novel_writer_big_model_base_url',
+  BIG_MODEL_MODEL: 'novel_writer_big_model_model',
+
   WRITING_PROVIDER: 'novel_writer_writing_provider',
   WRITING_API_KEY: 'novel_writer_writing_api_key',
   WRITING_BASE_URL: 'novel_writer_writing_base_url',
@@ -19,6 +25,7 @@ export const STORAGE_KEYS = {
   // 模块7内容
   MODULE7_CONTENT: 'novel_writer_module7_content',
   MODULE7_SUGGESTION: 'novel_writer_module7_suggestion',
+  NOVEL_PROJECTS: 'novel_writer_novel_projects', // New key for book collections
   
   // 项目备份
   PROJECT_BACKUP: 'novel_writer_project_backup',
@@ -159,6 +166,12 @@ export class StorageManager {
     settings[STORAGE_KEYS.RAG_API_KEY] = this.get(STORAGE_KEYS.RAG_API_KEY) || '';
     settings[STORAGE_KEYS.RAG_BASE_URL] = this.get(STORAGE_KEYS.RAG_BASE_URL) || '';
     settings[STORAGE_KEYS.RAG_MODEL] = this.get(STORAGE_KEYS.RAG_MODEL) || '';
+
+    // 大模型设置
+    settings[STORAGE_KEYS.BIG_MODEL_PROVIDER] = this.get(STORAGE_KEYS.BIG_MODEL_PROVIDER) || '';
+    settings[STORAGE_KEYS.BIG_MODEL_API_KEY] = this.get(STORAGE_KEYS.BIG_MODEL_API_KEY) || '';
+    settings[STORAGE_KEYS.BIG_MODEL_BASE_URL] = this.get(STORAGE_KEYS.BIG_MODEL_BASE_URL) || '';
+    settings[STORAGE_KEYS.BIG_MODEL_MODEL] = this.get(STORAGE_KEYS.BIG_MODEL_MODEL) || '';
     
     // Writing设置
     settings[STORAGE_KEYS.WRITING_PROVIDER] = this.get(STORAGE_KEYS.WRITING_PROVIDER) || '';

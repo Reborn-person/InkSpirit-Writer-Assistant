@@ -6,8 +6,8 @@ import { Sidebar } from "@/components/Sidebar";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "AI Novel Writer",
-  description: "AI-powered novel writing assistant",
+  title: '墨灵写作助手 - 墨灵引擎',
+  description: '专为超长篇网文创作打造的AI工作流工具，支持拆书分析、脑洞大纲生成、细纲规划及正文创作。',
 };
 
 export default function RootLayout({
