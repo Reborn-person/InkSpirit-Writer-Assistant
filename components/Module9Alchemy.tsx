@@ -251,28 +251,28 @@ export default function Module9Alchemy() {
   };
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 space-y-8 pb-20">
+    <div className="max-w-[1600px] mx-auto p-4 space-y-8 pb-20 font-serif">
       {/* 顶部：需求输入 */}
-      <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+      <div className="glass-card p-6 rounded-xl animate-fade-in-up">
         <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                    <FlaskConical className="w-6 h-6 text-purple-600" />
+                <div className="p-2 bg-daiqing/10 rounded-lg">
+                    <FlaskConical className="w-6 h-6 text-daiqing" />
                 </div>
                 <div>
-                    <h1 className="text-xl font-bold text-gray-900">提示词炼金工坊</h1>
-                    <p className="text-sm text-gray-500">双模型对抗生成 + 独立评审，打造最强 Prompt</p>
+                    <h1 className="text-xl font-bold text-ink">提示词炼金工坊</h1>
+                    <p className="text-sm text-ink/60">双模型对抗生成 + 独立评审，打造最强 Prompt</p>
                 </div>
             </div>
             
             {/* 目标模块选择器 */}
-            <div className="flex items-center gap-2 bg-gray-50 p-2 rounded-lg border border-gray-200">
-                <LinkIcon className="w-4 h-4 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">炼制目标：</span>
+            <div className="flex items-center gap-2 bg-paper p-2 rounded-lg border border-ink/10">
+                <LinkIcon className="w-4 h-4 text-ink/50" />
+                <span className="text-sm font-medium text-ink/80">炼制目标：</span>
                 <select 
                     value={targetModule}
                     onChange={(e) => handleTargetModuleChange(e.target.value)}
-                    className="text-sm bg-transparent border-none outline-none text-gray-900 font-medium cursor-pointer min-w-[150px]"
+                    className="text-sm bg-transparent border-none outline-none text-ink font-medium cursor-pointer min-w-[150px] font-serif"
                 >
                     <option value="">-- 通用 / 不指定 --</option>
                     {Object.entries(PROMPTS)
@@ -286,44 +286,44 @@ export default function Module9Alchemy() {
         
         <div className="space-y-4">
             <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">你的需求 (Prompt Goal)</label>
+                <label className="block text-sm font-medium text-ink/80 mb-2">你的需求 (Prompt Goal)</label>
                 <textarea 
                     value={userRequirement}
                     onChange={(e) => handleRequirementChange(e.target.value)}
-                    className="w-full h-24 p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 outline-none resize-none"
+                    className="w-full h-24 p-3 bg-white/50 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none resize-none text-ink placeholder:text-ink/30 transition-all"
                     placeholder="例如：写一个能生成克苏鲁风格短篇小说的提示词，要求包含环境描写和san值掉落机制..."
                 />
             </div>
             
-            <div className="flex flex-wrap gap-4 items-center bg-gray-50 p-3 rounded-lg border border-gray-100">
+            <div className="flex flex-wrap gap-4 items-center bg-paper/50 p-3 rounded-lg border border-ink/10">
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded">生成模型 A</span>
+                    <span className="text-xs font-bold text-daiqing bg-daiqing/10 px-2 py-1 rounded">生成模型 A</span>
                     <select 
                         value={genModel1} 
                         onChange={(e) => setGenModel1(e.target.value)}
-                        className="text-sm border border-gray-300 rounded px-2 py-1 outline-none"
+                        className="text-sm border border-ink/20 bg-white/50 rounded px-2 py-1 outline-none text-ink"
                     >
                         {AVAILABLE_MODELS.map(m => <option key={m} value={m}>{m.split('/').pop()}</option>)}
                     </select>
                 </div>
-                <div className="text-gray-300">VS</div>
+                <div className="text-ink/20 font-serif italic">VS</div>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-1 rounded">生成模型 B</span>
+                    <span className="text-xs font-bold text-cinnabar bg-cinnabar/10 px-2 py-1 rounded">生成模型 B</span>
                     <select 
                         value={genModel2} 
                         onChange={(e) => setGenModel2(e.target.value)}
-                        className="text-sm border border-gray-300 rounded px-2 py-1 outline-none"
+                        className="text-sm border border-ink/20 bg-white/50 rounded px-2 py-1 outline-none text-ink"
                     >
                         {AVAILABLE_MODELS.map(m => <option key={m} value={m}>{m.split('/').pop()}</option>)}
                     </select>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-gray-600 bg-gray-100 px-2 py-1 rounded">执行模型</span>
+                    <span className="text-xs font-bold text-ink/60 bg-paper px-2 py-1 rounded border border-ink/5">执行模型</span>
                     <select 
                         value={executionModel} 
                         onChange={(e) => setExecutionModel(e.target.value)}
-                        className="text-sm border border-gray-300 rounded px-2 py-1 outline-none"
+                        className="text-sm border border-ink/20 bg-white/50 rounded px-2 py-1 outline-none text-ink"
                     >
                         {AVAILABLE_MODELS.map(m => <option key={m} value={m}>{m.split('/').pop()}</option>)}
                     </select>
@@ -333,7 +333,7 @@ export default function Module9Alchemy() {
                     <button 
                         onClick={handleGenerateAndReview}
                         disabled={loading || !userRequirement}
-                        className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-2 ml-auto"
+                        className="bg-daiqing text-white px-6 py-2 rounded-lg hover:bg-daiqing/90 disabled:opacity-50 transition-colors flex items-center gap-2 ml-auto shadow-md"
                     >
                         {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
                         一键炼制与评审
@@ -342,32 +342,32 @@ export default function Module9Alchemy() {
             </div>
             
             {/* 评审设置折叠区 */}
-            <div className="border rounded-lg p-3 bg-gray-50">
+            <div className="border border-ink/10 rounded-lg p-3 bg-paper/30">
                 <div 
                     className="flex items-center justify-between cursor-pointer"
                     onClick={() => setShowReviewerPromptEdit(!showReviewerPromptEdit)}
                 >
-                    <div className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                    <div className="flex items-center gap-2 text-sm font-medium text-ink/70">
                         <Settings2 className="w-4 h-4" />
                         评审模型设置 ({reviewerModel.split('/').pop()})
                     </div>
-                    {showReviewerPromptEdit ? <ChevronDown className="w-4 h-4 text-gray-500" /> : <ChevronRight className="w-4 h-4 text-gray-500" />}
+                    {showReviewerPromptEdit ? <ChevronDown className="w-4 h-4 text-ink/40" /> : <ChevronRight className="w-4 h-4 text-ink/40" />}
                 </div>
                 
                 {showReviewerPromptEdit && (
                     <div className="mt-3 space-y-3 animate-fade-in">
                         <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold text-orange-600 bg-orange-50 px-2 py-1 rounded">评审模型</span>
+                            <span className="text-xs font-bold text-ink/60 bg-paper px-2 py-1 rounded border border-ink/5">评审模型</span>
                             <select 
                                 value={reviewerModel} 
                                 onChange={(e) => setReviewerModel(e.target.value)}
-                                className="text-sm border border-gray-300 rounded px-2 py-1 outline-none flex-1"
+                                className="text-sm border border-ink/20 bg-white/50 rounded px-2 py-1 outline-none flex-1 text-ink"
                             >
                                 {AVAILABLE_MODELS.map(m => <option key={m} value={m}>{m.split('/').pop()}</option>)}
                             </select>
                             <div className="relative">
                                 <input type="file" accept=".json,.txt" onChange={handleImportReviewerPrompt} className="absolute inset-0 opacity-0 cursor-pointer" />
-                                <button className="text-xs flex items-center gap-1 bg-white border border-gray-300 px-2 py-1 rounded hover:bg-gray-50">
+                                <button className="text-xs flex items-center gap-1 bg-white/50 border border-ink/20 px-2 py-1 rounded hover:bg-paper text-ink/70">
                                     <Upload className="w-3 h-3" /> 导入评审标准
                                 </button>
                             </div>
@@ -375,7 +375,7 @@ export default function Module9Alchemy() {
                         <textarea 
                             value={reviewerSystemPrompt}
                             onChange={(e) => handleReviewerPromptChange(e.target.value)}
-                            className="w-full h-32 p-2 text-xs border border-gray-300 rounded font-mono"
+                            className="w-full h-32 p-2 text-xs border border-ink/20 bg-white/50 rounded font-mono text-ink/80 focus:ring-1 focus:ring-daiqing/30 outline-none"
                             placeholder="评审模型的 System Prompt..."
                         />
                     </div>
@@ -388,88 +388,88 @@ export default function Module9Alchemy() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* 左侧：方案 A */}
         <div className="flex flex-col gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[500px]">
-                <div className="p-3 border-b border-gray-100 bg-blue-50/50 rounded-t-xl flex justify-between items-center">
-                    <span className="font-semibold text-blue-800">方案 A (由 {genModel1.split('/').pop()} 生成)</span>
+            <div className="glass-card rounded-xl flex flex-col h-[500px]">
+                <div className="p-3 border-b border-ink/5 bg-daiqing/5 rounded-t-xl flex justify-between items-center">
+                    <span className="font-semibold text-daiqing">方案 A (由 {genModel1.split('/').pop()} 生成)</span>
                     <div className="flex items-center gap-1">
                         {targetModule && (
                             <button 
                                 onClick={() => handleApplyToModule(prompt1)}
-                                className="text-xs bg-white border border-blue-200 text-blue-600 px-2 py-1 rounded hover:bg-blue-50 flex items-center gap-1"
+                                className="text-xs bg-white/50 border border-daiqing/20 text-daiqing px-2 py-1 rounded hover:bg-daiqing/10 flex items-center gap-1 transition-colors"
                                 title={`应用到 ${PROMPTS[targetModule as keyof typeof PROMPTS]?.title.split('：')[0]}`}
                             >
                                 <LinkIcon className="w-3 h-3" /> 应用
                             </button>
                         )}
-                        <button onClick={() => navigator.clipboard.writeText(prompt1)} className="p-1 hover:bg-white rounded"><Copy className="w-4 h-4 text-gray-500"/></button>
+                        <button onClick={() => navigator.clipboard.writeText(prompt1)} className="p-1 hover:bg-white/50 rounded text-ink/40 hover:text-ink transition-colors"><Copy className="w-4 h-4"/></button>
                     </div>
                 </div>
-                <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar">
-                    {prompt1 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{prompt1}</ReactMarkdown> : <div className="text-gray-300 text-center mt-20">等待炼制...</div>}
+                <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar text-ink/80">
+                    {prompt1 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{prompt1}</ReactMarkdown> : <div className="text-ink/20 text-center mt-20">等待炼制...</div>}
                 </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 h-[300px] flex flex-col">
-                <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+            <div className="bg-paper/50 p-4 rounded-xl border border-ink/10 h-[300px] flex flex-col">
+                <h3 className="font-bold text-ink/70 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-daiqing"></span>
                     A 的生成演示 (By {executionModel.split('/').pop()})
                 </h3>
-                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar bg-white p-3 rounded border border-gray-100">
-                    {content1 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{content1}</ReactMarkdown> : <span className="text-gray-400">等待生成...</span>}
+                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar bg-white/50 p-3 rounded border border-ink/5 text-ink/80">
+                    {content1 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{content1}</ReactMarkdown> : <span className="text-ink/30">等待生成...</span>}
                 </div>
             </div>
             
-            <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 h-[300px] flex flex-col">
-                <h3 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
-                    <Trophy className="w-4 h-4" />
+            <div className="bg-paper p-4 rounded-xl border border-ink/10 h-[300px] flex flex-col">
+                <h3 className="font-bold text-ink/70 mb-2 flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-cinnabar" />
                     A 的评审报告
                 </h3>
-                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar">
-                    {review1 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{review1}</ReactMarkdown> : <span className="text-gray-400">等待评审...</span>}
+                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar text-ink/80">
+                    {review1 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{review1}</ReactMarkdown> : <span className="text-ink/30">等待评审...</span>}
                 </div>
             </div>
         </div>
 
         {/* 右侧：方案 B */}
         <div className="flex flex-col gap-4">
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[500px]">
-                <div className="p-3 border-b border-gray-100 bg-indigo-50/50 rounded-t-xl flex justify-between items-center">
-                    <span className="font-semibold text-indigo-800">方案 B (由 {genModel2.split('/').pop()} 生成)</span>
+            <div className="glass-card rounded-xl flex flex-col h-[500px]">
+                <div className="p-3 border-b border-ink/5 bg-cinnabar/5 rounded-t-xl flex justify-between items-center">
+                    <span className="font-semibold text-cinnabar">方案 B (由 {genModel2.split('/').pop()} 生成)</span>
                     <div className="flex items-center gap-1">
                         {targetModule && (
                             <button 
                                 onClick={() => handleApplyToModule(prompt2)}
-                                className="text-xs bg-white border border-indigo-200 text-indigo-600 px-2 py-1 rounded hover:bg-indigo-50 flex items-center gap-1"
+                                className="text-xs bg-white/50 border border-cinnabar/20 text-cinnabar px-2 py-1 rounded hover:bg-cinnabar/10 flex items-center gap-1 transition-colors"
                                 title={`应用到 ${PROMPTS[targetModule as keyof typeof PROMPTS]?.title.split('：')[0]}`}
                             >
                                 <LinkIcon className="w-3 h-3" /> 应用
                             </button>
                         )}
-                        <button onClick={() => navigator.clipboard.writeText(prompt2)} className="p-1 hover:bg-white rounded"><Copy className="w-4 h-4 text-gray-500"/></button>
+                        <button onClick={() => navigator.clipboard.writeText(prompt2)} className="p-1 hover:bg-white/50 rounded text-ink/40 hover:text-ink transition-colors"><Copy className="w-4 h-4"/></button>
                     </div>
                 </div>
-                <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar">
-                    {prompt2 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{prompt2}</ReactMarkdown> : <div className="text-gray-300 text-center mt-20">等待炼制...</div>}
+                <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar text-ink/80">
+                    {prompt2 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{prompt2}</ReactMarkdown> : <div className="text-ink/20 text-center mt-20">等待炼制...</div>}
                 </div>
             </div>
 
-            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 h-[300px] flex flex-col">
-                <h3 className="font-bold text-gray-700 mb-2 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-gray-500"></span>
+            <div className="bg-paper/50 p-4 rounded-xl border border-ink/10 h-[300px] flex flex-col">
+                <h3 className="font-bold text-ink/70 mb-2 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-cinnabar"></span>
                     B 的生成演示 (By {executionModel.split('/').pop()})
                 </h3>
-                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar bg-white p-3 rounded border border-gray-100">
-                    {content2 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{content2}</ReactMarkdown> : <span className="text-gray-400">等待生成...</span>}
+                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar bg-white/50 p-3 rounded border border-ink/5 text-ink/80">
+                    {content2 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{content2}</ReactMarkdown> : <span className="text-ink/30">等待生成...</span>}
                 </div>
             </div>
             
-            <div className="bg-orange-50 p-4 rounded-xl border border-orange-100 h-[300px] flex flex-col">
-                <h3 className="font-bold text-orange-800 mb-2 flex items-center gap-2">
-                    <Trophy className="w-4 h-4" />
+            <div className="bg-paper p-4 rounded-xl border border-ink/10 h-[300px] flex flex-col">
+                <h3 className="font-bold text-ink/70 mb-2 flex items-center gap-2">
+                    <Trophy className="w-4 h-4 text-cinnabar" />
                     B 的评审报告
                 </h3>
-                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar">
-                    {review2 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{review2}</ReactMarkdown> : <span className="text-gray-400">等待评审...</span>}
+                <div className="flex-1 overflow-y-auto prose prose-sm max-w-none custom-scrollbar text-ink/80">
+                    {review2 ? <ReactMarkdown remarkPlugins={[remarkGfm]}>{review2}</ReactMarkdown> : <span className="text-ink/30">等待评审...</span>}
                 </div>
             </div>
         </div>

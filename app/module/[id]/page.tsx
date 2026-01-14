@@ -1160,15 +1160,15 @@ export default function ModulePage() {
         return (
           <>
             <div 
-              className={`relative ${isDragging ? 'ring-2 ring-blue-500 ring-offset-2' : ''}`}
+              className={`relative ${isDragging ? 'ring-2 ring-daiqing ring-offset-2' : ''}`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
               <TextArea label="小说内容/片段" value={formData.novelContent} onChange={(v) => handleInputChange('novelContent', v)} rows={8} placeholder="请粘贴需要分析的小说内容或片段，或将 TXT 文件拖入此处..." />
               {isDragging && (
-                <div className="absolute inset-0 bg-blue-50/90 flex items-center justify-center rounded-lg border-2 border-dashed border-blue-400 z-10 pointer-events-none">
-                  <div className="text-blue-600 font-medium flex flex-col items-center gap-2">
+                <div className="absolute inset-0 bg-daiqing/10 flex items-center justify-center rounded-lg border-2 border-dashed border-daiqing z-10 pointer-events-none backdrop-blur-sm">
+                  <div className="text-daiqing font-medium flex flex-col items-center gap-2 font-serif">
                     <Upload className="w-8 h-8" />
                     <span>松开鼠标导入文件</span>
                   </div>
@@ -1184,7 +1184,7 @@ export default function ModulePage() {
                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                        title="导入 TXT 文件 (支持多选)"
                      />
-                    <button className="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 bg-gray-100 hover:bg-blue-50 px-2 py-1 rounded transition-colors">
+                    <button className="flex items-center gap-1 text-xs text-ink/60 hover:text-daiqing bg-paper hover:bg-daiqing/10 px-2 py-1 rounded transition-colors">
                       <Upload className="w-3 h-3" />
                       导入TXT
                     </button>
@@ -1196,16 +1196,16 @@ export default function ModulePage() {
 
             {/* Chapter List Display */}
             {detectedChapters.length > 0 && (
-                <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
-                    <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">识别到的章节 ({detectedChapters.length})</span>
+                <div className="mt-4 border border-ink/10 rounded-lg overflow-hidden">
+                    <div className="bg-paper px-4 py-2 border-b border-ink/10 flex justify-between items-center">
+                        <span className="text-sm font-medium text-ink font-serif">识别到的章节 ({detectedChapters.length})</span>
                     </div>
-                    <div className="max-h-60 overflow-y-auto bg-white p-2">
+                    <div className="max-h-60 overflow-y-auto bg-white/50 p-2 custom-scrollbar">
                         <ul className="space-y-1">
                             {detectedChapters.map((chapter, index) => (
-                                <li key={index} className="text-xs text-gray-600 px-2 py-1 hover:bg-gray-50 rounded truncate flex items-center gap-2">
-                                    <span className="w-6 text-gray-400 text-right">{index + 1}.</span>
-                                    <span>{chapter.title}</span>
+                                <li key={index} className="text-xs text-ink/80 px-2 py-1 hover:bg-paper rounded truncate flex items-center gap-2 transition-colors">
+                                    <span className="w-6 text-ink/40 text-right font-serif">{index + 1}.</span>
+                                    <span className="font-serif">{chapter.title}</span>
                                 </li>
                             ))}
                         </ul>
@@ -1337,11 +1337,11 @@ export default function ModulePage() {
       }`}>
          {/* Top Toolbar for Collapsed States */}
          {(isInputCollapsed || isOutputCollapsed) && (
-              <div className="flex items-center gap-3 animate-fade-in py-2 sticky top-0 z-10 bg-gray-50/80 backdrop-blur-sm p-2 rounded-xl border border-gray-100 shadow-sm">
+              <div className="flex items-center gap-3 animate-fade-in py-2 sticky top-0 z-10 bg-paper/90 backdrop-blur-md p-2 rounded-xl border border-ink/10 shadow-sm">
                  {isInputCollapsed && (
                      <button
                         onClick={handleToggleInputCollapse}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-blue-50 hover:text-blue-600 hover:border-blue-200 shadow-sm transition-all group"
+                        className="flex items-center gap-2 px-4 py-2 bg-white/60 border border-ink/10 text-ink/80 rounded-xl hover:bg-daiqing/10 hover:text-daiqing hover:border-daiqing/20 shadow-sm transition-all group"
                       >
                         <Settings2 className="w-5 h-5 group-hover:rotate-45 transition-transform duration-500" />
                         <span className="font-medium text-sm">展开输入配置</span>
@@ -1351,19 +1351,19 @@ export default function ModulePage() {
                  {isOutputCollapsed && (
                      <button
                         onClick={handleToggleOutputCollapse}
-                        className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-xl hover:bg-green-50 hover:text-green-600 hover:border-green-200 shadow-sm transition-all group"
+                        className="flex items-center gap-2 px-4 py-2 bg-white/60 border border-ink/10 text-ink/80 rounded-xl hover:bg-cinnabar/10 hover:text-cinnabar hover:border-cinnabar/20 shadow-sm transition-all group"
                       >
                         <List className="w-5 h-5" />
                         <span className="font-medium text-sm">展开输出结果</span>
                       </button>
                  )}
 
-                  <div className="h-6 w-px bg-gray-300 mx-1"></div>
+                  <div className="h-6 w-px bg-ink/20 mx-1"></div>
 
                   <button
                       onClick={handleGenerate}
                       disabled={loading}
-                      className="flex items-center gap-2 px-5 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-5 py-2 bg-daiqing text-white rounded-xl hover:bg-daiqing/90 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                        {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
                        <span className="font-medium text-sm">{loading ? '生成中...' : '快速生成'}</span>
@@ -1376,23 +1376,23 @@ export default function ModulePage() {
          <div className={`space-y-6 transition-all duration-300 ${
              isOutputCollapsed ? 'w-full' : 'lg:col-span-2'
          }`}>
-           <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm animate-fade-in-up">
+           <div className="glass-card p-6 rounded-xl animate-fade-in-up">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <span className="w-1 h-6 bg-blue-500 rounded-full"></span>
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-ink">
+                <span className="w-1 h-6 bg-daiqing rounded-full"></span>
                 输入
               </h2>
               <div className="flex items-center gap-2">
                 <button
                     onClick={handleToggleInputCollapse}
-                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-transform duration-300"
+                    className="text-ink/40 hover:text-ink p-1 hover:bg-paper rounded transition-transform duration-300"
                     title="收起输入 (专注输出)"
                 >
                     <ChevronUp className="w-5 h-5" />
                 </button>
                 <button
                     onClick={handlePromptImport}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-2 py-1 rounded transition-colors"
+                    className="flex items-center gap-1 text-xs text-daiqing hover:text-daiqing/80 bg-daiqing/5 hover:bg-daiqing/10 px-2 py-1 rounded transition-colors"
                     title="管理提示词模板"
                 >
                     <FileJson className="w-3 h-3" />
@@ -1405,15 +1405,14 @@ export default function ModulePage() {
                {renderInputs()}
             </div>
 
-            {/* Multi-Model Configuration - Hidden for module0_5 */}
-            {id !== 'module0_5' && (
-            <div className="mt-6 border-t border-gray-100 pt-4">
+            {/* Multi-Model Configuration - Now available for module0_5 too */}
+            <div className="mt-6 border-t border-ink/5 pt-4">
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
                          <button 
                             onClick={handleToggleMultiMode}
                             className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                                isMultiModelMode ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                isMultiModelMode ? 'bg-daiqing/10 text-daiqing' : 'bg-paper text-ink/60 hover:bg-paper/80'
                             }`}
                          >
                             {isMultiModelMode ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
@@ -1423,7 +1422,7 @@ export default function ModulePage() {
                     {isMultiModelMode && (
                         <button
                             onClick={handleAddMultiModel}
-                            className="flex items-center gap-1 text-xs text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded transition-colors"
+                            className="flex items-center gap-1 text-xs text-daiqing hover:text-daiqing/80 bg-daiqing/5 hover:bg-daiqing/10 px-2 py-1 rounded transition-colors"
                         >
                             <Plus className="w-3 h-3" />
                             增加模型
@@ -1434,56 +1433,55 @@ export default function ModulePage() {
                 {isMultiModelMode && (
                     <div className="space-y-3">
                         {multiModels.map((mConfig, index) => (
-                            <div key={mConfig.id} className="bg-gray-50 p-3 rounded-lg border border-gray-200 relative group">
+                            <div key={mConfig.id} className="bg-paper/50 p-3 rounded-lg border border-ink/10 relative group">
                                 <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                     <button 
                                         onClick={() => handleDeleteMultiModel(mConfig.id)}
-                                        className="text-gray-400 hover:text-red-500"
+                                        className="text-ink/30 hover:text-cinnabar"
                                         title="删除模型"
                                     >
                                         <X className="w-4 h-4" />
                                     </button>
                                 </div>
-                                <div className="text-xs font-medium text-gray-500 mb-2">模型 #{index + 1}</div>
+                                <div className="text-xs font-medium text-ink/50 mb-2 font-serif">模型 #{index + 1}</div>
                                 <div className="space-y-2">
                                     <input 
                                         type="text" 
                                         placeholder="API Key"
                                         value={mConfig.apiKey}
                                         onChange={(e) => handleUpdateMultiModel(mConfig.id, 'apiKey', e.target.value)}
-                                        className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        className="w-full text-xs p-2 bg-white/50 border border-ink/20 rounded focus:ring-1 focus:ring-daiqing/50 outline-none text-ink"
                                     />
                                     <input 
                                         type="text" 
                                         placeholder="Base URL"
                                         value={mConfig.baseUrl}
                                         onChange={(e) => handleUpdateMultiModel(mConfig.id, 'baseUrl', e.target.value)}
-                                        className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        className="w-full text-xs p-2 bg-white/50 border border-ink/20 rounded focus:ring-1 focus:ring-daiqing/50 outline-none text-ink"
                                     />
                                     <input 
                                         type="text" 
                                         placeholder="Model Name"
                                         value={mConfig.model}
                                         onChange={(e) => handleUpdateMultiModel(mConfig.id, 'model', e.target.value)}
-                                        className="w-full text-xs p-2 border border-gray-300 rounded focus:ring-1 focus:ring-indigo-500 outline-none"
+                                        className="w-full text-xs p-2 bg-white/50 border border-ink/20 rounded focus:ring-1 focus:ring-daiqing/50 outline-none text-ink"
                                     />
                                 </div>
                             </div>
                         ))}
                         {multiModels.length === 0 && (
-                            <div className="text-center text-xs text-gray-400 py-2">
+                            <div className="text-center text-xs text-ink/40 py-2 font-serif">
                                 点击右上角添加额外模型
                             </div>
                         )}
                     </div>
                 )}
             </div>
-            )}
             
             <button
               onClick={handleGenerate}
               disabled={loading}
-              className="mt-6 w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="mt-6 w-full flex items-center justify-center gap-2 bg-daiqing hover:bg-daiqing/90 text-white py-3 px-4 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg"
             >
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Wand2 className="w-5 h-5" />}
               {loading ? '生成中...' : '生成内容'}
@@ -1502,10 +1500,10 @@ export default function ModulePage() {
         <div className={`space-y-6 transition-all duration-300 ${
             isInputCollapsed ? 'w-full' : 'lg:col-span-3'
         }`}>
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm flex flex-col resize-y overflow-auto min-h-[700px] max-h-[1200px]" style={{resize: 'both'}}>
+          <div className="glass-card p-6 rounded-xl flex flex-col resize-y overflow-auto min-h-[700px] max-h-[1200px]" style={{resize: 'both'}}>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold flex items-center gap-2">
-                <span className="w-1 h-6 bg-green-500 rounded-full"></span>
+              <h2 className="text-lg font-semibold flex items-center gap-2 text-ink">
+                <span className="w-1 h-6 bg-cinnabar rounded-full"></span>
                 输出
               </h2>
               <div className="flex items-center gap-2">
@@ -1514,25 +1512,25 @@ export default function ModulePage() {
                   onClick={() => setShowApiConfigModal(true)}
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs hover:opacity-80 transition-opacity ${
                     apiConfigStatus.valid 
-                      ? 'bg-green-100 text-green-700 border border-green-200' 
+                      ? 'bg-daiqing/10 text-daiqing border border-daiqing/20' 
                       : 'bg-red-100 text-red-700 border border-red-200'
                   }`}
                   title="点击查看详细配置信息"
                 >
                   <div className={`w-2 h-2 rounded-full ${
-                    apiConfigStatus.valid ? 'bg-green-500' : 'bg-red-500'
+                    apiConfigStatus.valid ? 'bg-daiqing' : 'bg-red-500'
                   }`}></div>
                   <span>{apiConfigStatus.valid ? 'API 已配置' : 'API 未配置'}</span>
                 </button>
                 {apiConfigStatus.provider && (
-                  <div className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                  <div className="text-xs text-ink/50 bg-paper px-2 py-1 rounded">
                     {apiConfigStatus.provider}
                   </div>
                 )}
-                <div className="h-4 w-px bg-gray-200 mx-1"></div>
+                <div className="h-4 w-px bg-ink/10 mx-1"></div>
                  <button
                     onClick={handleToggleOutputCollapse}
-                    className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded transition-transform duration-300"
+                    className="text-ink/40 hover:text-ink p-1 hover:bg-paper rounded transition-transform duration-300"
                     title="收起输出 (专注输入)"
                 >
                     <ChevronUp className="w-5 h-5" />
@@ -1548,21 +1546,21 @@ export default function ModulePage() {
                 </button>
                  <button 
                   onClick={handleExportHtml}
-                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                  className="p-2 hover:bg-paper rounded-lg text-ink/50"
                   title="导出HTML"
                 >
                   <Download className="w-4 h-4" />
                 </button>
                  <button 
                   onClick={handleSaveProject}
-                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                  className="p-2 hover:bg-paper rounded-lg text-ink/50"
                   title="保存项目 (JSON)"
                 >
                   <Save className="w-4 h-4" />
                 </button>
                  <button 
                   onClick={() => { navigator.clipboard.writeText(result) }}
-                  className="p-2 hover:bg-gray-100 rounded-lg text-gray-500"
+                  className="p-2 hover:bg-paper rounded-lg text-ink/50"
                   title="复制到剪贴板"
                 >
                   <Copy className="w-4 h-4" />
@@ -1578,14 +1576,14 @@ export default function ModulePage() {
                    // 主模型渲染逻辑
                    if (modelId === 'main') {
                        return (
-                        <div key="main" className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[600px] animate-fade-in-up">
-                            <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-green-50/50 rounded-t-xl">
+                        <div key="main" className="bg-white/40 rounded-xl border border-ink/10 shadow-sm flex flex-col h-[600px] animate-fade-in-up resize-y overflow-hidden">
+                            <div className="p-4 border-b border-ink/5 flex items-center justify-between bg-daiqing/5 rounded-t-xl">
                                 <div className="flex items-center gap-2">
-                                    <span className="flex items-center justify-center w-6 h-6 bg-green-500 text-white text-xs font-bold rounded-full">
+                                    <span className="flex items-center justify-center w-6 h-6 bg-daiqing text-white text-xs font-bold rounded-full font-serif">
                                         主
                                     </span>
-                                    <span className="font-semibold text-gray-800">主模型输出</span>
-                                    <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
+                                    <span className="font-semibold text-ink font-serif">主模型输出</span>
+                                    <span className="text-xs text-ink/50 bg-white/50 px-2 py-0.5 rounded border border-ink/10">
                                         {apiConfigStatus.model || '未选择模型'}
                                     </span>
                                 </div>
@@ -1594,8 +1592,8 @@ export default function ModulePage() {
                                         onClick={() => handleLockOutput('main')}
                                         className={`p-1.5 rounded-lg transition-colors ${
                                             lockedOutputs.includes('main') 
-                                                ? 'bg-green-100 text-green-600 hover:bg-green-200' 
-                                                : 'hover:bg-white text-gray-500'
+                                                ? 'bg-cinnabar/10 text-cinnabar hover:bg-cinnabar/20' 
+                                                : 'hover:bg-white/50 text-ink/40'
                                         }`}
                                         title={lockedOutputs.includes('main') ? "已锁定 (点击解锁)" : "锁定结果"}
                                     >
@@ -1603,14 +1601,14 @@ export default function ModulePage() {
                                     </button>
                                     <button 
                                         onClick={() => { navigator.clipboard.writeText(result) }}
-                                        className="p-1.5 hover:bg-white rounded-lg text-gray-500 transition-colors"
+                                        className="p-1.5 hover:bg-white/50 rounded-lg text-ink/40 transition-colors"
                                         title="复制"
                                     >
                                         <Copy className="w-4 h-4" />
                                     </button>
                                     <button 
                                         onClick={() => handleDiscardAndRegenerate('main')}
-                                        className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg text-gray-400 transition-colors"
+                                        className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg text-ink/30 transition-colors"
                                         title={lockedOutputs.includes('main') ? "隐藏 (不重新生成)" : "重新生成并后移"}
                                     >
                                         <X className="w-4 h-4" />
@@ -1618,24 +1616,24 @@ export default function ModulePage() {
                                 </div>
                             </div>
                             
-                            <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar">
+                            <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar min-h-[300px] text-ink font-serif leading-relaxed">
                                 {generatingIds.includes('main') ? (
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-                                        <Loader2 className="w-6 h-6 animate-spin text-green-500" />
+                                    <div className="flex flex-col items-center justify-center h-full text-ink/40 gap-2">
+                                        <Loader2 className="w-6 h-6 animate-spin text-daiqing" />
                                         <span>正在重新生成...</span>
                                     </div>
                                 ) : result ? (
                                     <ReactMarkdown remarkPlugins={[remarkGfm]}>{result}</ReactMarkdown>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+                                    <div className="flex flex-col items-center justify-center h-full text-ink/30 gap-2">
                                         <span>等待生成...</span>
                                     </div>
                                 )}
                             </div>
                             
-                            <div className="p-3 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+                            <div className="p-3 border-t border-ink/5 bg-paper/30 rounded-b-xl">
                                 <textarea 
-                                    className="w-full h-24 p-2 text-sm bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-green-500 outline-none resize-none"
+                                    className="w-full h-24 p-2 text-sm bg-white/50 border border-ink/10 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none resize-none text-ink placeholder:text-ink/30"
                                     value={result}
                                     onChange={(e) => {
                                         setResult(e.target.value);
@@ -1653,14 +1651,14 @@ export default function ModulePage() {
                    if (!mConfig) return null; // Should not happen if sync is correct
 
                    return (
-                    <div key={mConfig.id} className="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[600px] animate-fade-in-up">
-                        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-indigo-50/50 rounded-t-xl">
+                    <div key={mConfig.id} className="bg-white/40 rounded-xl border border-ink/10 shadow-sm flex flex-col h-[600px] animate-fade-in-up resize-y overflow-hidden">
+                        <div className="p-4 border-b border-ink/5 flex items-center justify-between bg-ink/5 rounded-t-xl">
                             <div className="flex items-center gap-2">
-                                <span className="flex items-center justify-center w-6 h-6 bg-indigo-500 text-white text-xs font-bold rounded-full">
+                                <span className="flex items-center justify-center w-6 h-6 bg-ink text-white text-xs font-bold rounded-full font-serif">
                                     {index + 1}
                                 </span>
-                                <span className="font-semibold text-gray-800">模型 #{index + 1}</span>
-                                <span className="text-xs text-gray-500 bg-white px-2 py-0.5 rounded border border-gray-200">
+                                <span className="font-semibold text-ink font-serif">模型 #{index + 1}</span>
+                                <span className="text-xs text-ink/50 bg-white/50 px-2 py-0.5 rounded border border-ink/10">
                                     {mConfig.model}
                                 </span>
                             </div>
@@ -1669,8 +1667,8 @@ export default function ModulePage() {
                                     onClick={() => handleLockOutput(mConfig.id)}
                                     className={`p-1.5 rounded-lg transition-colors ${
                                         lockedOutputs.includes(mConfig.id) 
-                                            ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' 
-                                            : 'hover:bg-white text-gray-500'
+                                            ? 'bg-cinnabar/10 text-cinnabar hover:bg-cinnabar/20' 
+                                            : 'hover:bg-white/50 text-ink/40'
                                     }`}
                                     title={lockedOutputs.includes(mConfig.id) ? "已锁定 (点击解锁)" : "锁定结果"}
                                 >
@@ -1678,14 +1676,14 @@ export default function ModulePage() {
                                 </button>
                                 <button 
                                     onClick={() => { navigator.clipboard.writeText(multiModelResults[mConfig.id] || '') }}
-                                    className="p-1.5 hover:bg-white rounded-lg text-gray-500 transition-colors"
+                                    className="p-1.5 hover:bg-white/50 rounded-lg text-ink/40 transition-colors"
                                     title="复制"
                                 >
                                     <Copy className="w-4 h-4" />
                                 </button>
                                 <button 
                                     onClick={() => handleDiscardAndRegenerate(mConfig.id)}
-                                    className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg text-gray-400 transition-colors"
+                                    className="p-1.5 hover:bg-red-50 hover:text-red-500 rounded-lg text-ink/30 transition-colors"
                                     title={lockedOutputs.includes(mConfig.id) ? "隐藏 (不重新生成)" : "重新生成并后移"}
                                 >
                                     <X className="w-4 h-4" />
@@ -1693,24 +1691,24 @@ export default function ModulePage() {
                             </div>
                         </div>
                         
-                        <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar">
+                        <div className="flex-1 p-4 overflow-y-auto prose prose-sm max-w-none custom-scrollbar min-h-[300px] text-ink font-serif leading-relaxed">
                             {generatingIds.includes(mConfig.id) ? (
-                                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
-                                    <Loader2 className="w-6 h-6 animate-spin text-indigo-500" />
+                                <div className="flex flex-col items-center justify-center h-full text-ink/40 gap-2">
+                                    <Loader2 className="w-6 h-6 animate-spin text-ink" />
                                     <span>正在重新生成...</span>
                                 </div>
                             ) : multiModelResults[mConfig.id] ? (
                                 <ReactMarkdown remarkPlugins={[remarkGfm]}>{multiModelResults[mConfig.id]}</ReactMarkdown>
                             ) : (
-                                <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
+                                <div className="flex flex-col items-center justify-center h-full text-ink/30 gap-2">
                                     <span>等待生成...</span>
                                 </div>
                             )}
                         </div>
                         
-                        <div className="p-3 border-t border-gray-100 bg-gray-50 rounded-b-xl">
+                        <div className="p-3 border-t border-ink/5 bg-paper/30 rounded-b-xl">
                             <textarea 
-                                className="w-full h-24 p-2 text-sm bg-white border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                                className="w-full h-24 p-2 text-sm bg-white/50 border border-ink/10 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none resize-none text-ink placeholder:text-ink/30"
                                 value={multiModelResults[mConfig.id] || ''}
                                 onChange={(e) => {
                                     const newResults = { ...multiModelResults, [mConfig.id]: e.target.value };
@@ -1731,47 +1729,47 @@ export default function ModulePage() {
 
       {/* Prompt Modal */}
       {showPromptModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className={`bg-white rounded-xl shadow-xl flex flex-col transition-all duration-300 ${
+        <div className="fixed inset-0 bg-ink/20 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={`bg-white/95 backdrop-blur rounded-xl shadow-xl flex flex-col transition-all duration-300 border border-ink/10 ${
             isMaximized 
               ? 'w-full h-full' 
               : 'w-[800px] h-[700px] max-w-[90vw] max-h-[90vh]'
           }`}>
-            <div className="flex items-center justify-between p-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <FileJson className="w-5 h-5 text-blue-600" />
+            <div className="flex items-center justify-between p-4 border-b border-ink/10 bg-paper/50 rounded-t-xl">
+              <h3 className="text-lg font-bold text-ink flex items-center gap-2 font-serif">
+                <FileJson className="w-5 h-5 text-daiqing" />
                 {viewMode === 'list' ? '提示词' : (editingTemplate?.id ? '编辑模板' : '新建模板')}
               </h3>
               <div className="flex items-center gap-2">
                 <button 
                   onClick={() => setIsMaximized(!isMaximized)}
-                  className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded"
+                  className="text-ink/40 hover:text-ink p-1 hover:bg-paper rounded transition-colors"
                   title={isMaximized ? "还原" : "最大化"}
                 >
                   {isMaximized ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
                 </button>
                 <button 
                   onClick={() => setShowPromptModal(false)}
-                  className="text-gray-400 hover:text-gray-600 p-1 hover:bg-gray-100 rounded"
+                  className="text-ink/40 hover:text-ink p-1 hover:bg-paper rounded transition-colors"
                 >
                   <Trash2 className="w-5 h-5 rotate-45" />
                 </button>
               </div>
             </div>
             
-            <div className="p-6 flex-1 overflow-y-auto bg-gray-50">
+            <div className="p-6 flex-1 overflow-y-auto bg-paper/30 custom-scrollbar">
               {viewMode === 'list' ? (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {promptTemplates.map(template => (
-                            <div key={template.id} className="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition-shadow group relative">
+                            <div key={template.id} className="bg-white/60 border border-ink/10 rounded-xl p-4 hover:shadow-md transition-shadow group relative hover:border-daiqing/30">
                                 <div className="flex justify-between items-start mb-2">
-                                    <h4 className="font-bold text-gray-800 text-lg truncate pr-20">{template.title}</h4>
+                                    <h4 className="font-bold text-ink text-lg truncate pr-20 font-serif">{template.title}</h4>
                                     {template.isDefault && (
-                                        <span className="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-full">默认</span>
+                                        <span className="bg-paper text-ink/60 text-xs px-2 py-1 rounded-full border border-ink/5">默认</span>
                                     )}
                                 </div>
-                                <div className="text-sm text-gray-500 h-40 mb-4 font-mono bg-gray-50 p-3 rounded overflow-y-auto custom-scrollbar">
+                                <div className="text-sm text-ink/60 h-40 mb-4 font-mono bg-paper/50 p-3 rounded overflow-y-auto custom-scrollbar border border-ink/5">
                                     {template.content}
                                 </div>
                                 
@@ -1780,8 +1778,8 @@ export default function ModulePage() {
                                         onClick={() => handleSelectTemplate(template)}
                                         className={`flex-1 flex items-center justify-center gap-1 py-2 rounded-lg text-sm font-medium transition-colors ${
                                             selectedPromptIds.includes(template.id)
-                                                ? 'bg-green-600 hover:bg-green-700 text-white'
-                                                : 'bg-gray-900 hover:bg-black text-white'
+                                                ? 'bg-daiqing hover:bg-daiqing/90 text-white'
+                                                : 'bg-ink hover:bg-ink/80 text-white'
                                         }`}
                                     >
                                         {selectedPromptIds.includes(template.id) ? (
@@ -1799,7 +1797,7 @@ export default function ModulePage() {
                                     
                                     <button 
                                         onClick={() => handleEditTemplate(template)}
-                                        className="p-2 text-gray-500 hover:bg-gray-100 rounded-lg transition-colors"
+                                        className="p-2 text-ink/50 hover:bg-paper rounded-lg transition-colors"
                                         title="编辑/查看"
                                     >
                                         <Edit2 className="w-4 h-4" />
@@ -1808,7 +1806,7 @@ export default function ModulePage() {
                                     {!template.isDefault && (
                                         <button 
                                             onClick={() => handleDeleteTemplate(template.id)}
-                                            className="p-2 text-gray-500 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
+                                            className="p-2 text-ink/50 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors"
                                             title="删除"
                                         >
                                             <Trash2 className="w-4 h-4" />
@@ -1822,21 +1820,21 @@ export default function ModulePage() {
               ) : (
                 <div className="space-y-4 max-w-3xl mx-auto">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">模板名称</label>
+                        <label className="block text-sm font-medium text-ink/80 mb-2 font-serif">模板名称</label>
                         <input 
                             type="text" 
                             value={editingTemplate?.title || ''}
                             onChange={e => setEditingTemplate(prev => prev ? ({...prev, title: e.target.value}) : null)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none bg-white/50 text-ink font-serif"
                             placeholder="给你的模板起个霸气的名字..."
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">系统提示词 (System Prompt)</label>
+                        <label className="block text-sm font-medium text-ink/80 mb-2 font-serif">系统提示词 (System Prompt)</label>
                         <textarea
                             value={editingTemplate?.content || ''}
                             onChange={e => setEditingTemplate(prev => prev ? ({...prev, content: e.target.value}) : null)}
-                            className="w-full h-96 p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm leading-relaxed"
+                            className="w-full h-96 p-4 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none font-mono text-sm leading-relaxed bg-white/50 text-ink"
                             placeholder="输入详细的系统提示词..."
                         />
                     </div>
@@ -1844,7 +1842,7 @@ export default function ModulePage() {
               )}
             </div>
             
-            <div className="p-4 border-t border-gray-100 flex justify-between items-center bg-white">
+            <div className="p-4 border-t border-ink/10 flex justify-between items-center bg-white/80 rounded-b-xl">
               {viewMode === 'list' ? (
                   <>
                     <div className="flex gap-2">
@@ -1855,14 +1853,14 @@ export default function ModulePage() {
                                 onChange={handlePromptFileImport}
                                 className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                             />
-                            <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors">
+                            <button className="flex items-center gap-2 px-4 py-2 bg-paper hover:bg-daiqing/10 text-ink rounded-lg font-medium transition-colors border border-ink/5">
                                 <Upload className="w-4 h-4" />
                                 导入
                             </button>
                         </div>
                         <button 
                             onClick={handlePromptExport}
-                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg font-medium transition-colors"
+                            className="flex items-center gap-2 px-4 py-2 bg-paper hover:bg-daiqing/10 text-ink rounded-lg font-medium transition-colors border border-ink/5"
                         >
                             <Download className="w-4 h-4" />
                             导出
@@ -1871,14 +1869,14 @@ export default function ModulePage() {
                     <div className="flex gap-2">
                         <button 
                             onClick={handleAddNewTemplate}
-                            className="flex items-center gap-2 px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md transition-colors"
+                            className="flex items-center gap-2 px-6 py-2 bg-daiqing hover:bg-daiqing/90 text-white rounded-lg font-medium shadow-md transition-colors"
                         >
                             <Plus className="w-5 h-5" />
                             新增
                         </button>
                         <button 
                             onClick={handleApplySelection}
-                            className="flex items-center gap-2 px-6 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium shadow-md transition-colors"
+                            className="flex items-center gap-2 px-6 py-2 bg-ink hover:bg-ink/90 text-white rounded-lg font-medium shadow-md transition-colors"
                         >
                             <Check className="w-5 h-5" />
                             完成选择 ({selectedPromptIds.length})
@@ -1889,13 +1887,13 @@ export default function ModulePage() {
                   <>
                     <button 
                         onClick={() => setViewMode('list')}
-                        className="px-6 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium"
+                        className="px-6 py-2 text-ink/60 hover:bg-paper rounded-lg font-medium transition-colors"
                     >
                         返回列表
                     </button>
                     <button 
                         onClick={handleSaveTemplate}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium shadow-md"
+                        className="px-6 py-2 bg-daiqing hover:bg-daiqing/90 text-white rounded-lg font-medium shadow-md transition-colors"
                     >
                         保存模板
                     </button>
@@ -1913,12 +1911,12 @@ export default function ModulePage() {
 function Input({ label, value, onChange, placeholder }: { label: string, value?: string, onChange: (v: string) => void, placeholder?: string }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-ink/80 mb-1 font-serif">{label}</label>
       <input
         type="text"
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+        className="w-full px-3 py-2 bg-white/50 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none text-sm text-ink placeholder:text-ink/30 transition-all"
         placeholder={placeholder}
       />
     </div>
@@ -1928,12 +1926,12 @@ function Input({ label, value, onChange, placeholder }: { label: string, value?:
 function TextArea({ label, value, onChange, rows = 3, placeholder }: { label: string, value?: string, onChange: (v: string) => void, rows?: number, placeholder?: string }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-ink/80 mb-1 font-serif">{label}</label>
       <textarea
         value={value || ''}
         onChange={(e) => onChange(e.target.value)}
         rows={rows}
-        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+        className="w-full px-3 py-2 bg-white/50 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none text-sm text-ink placeholder:text-ink/30 transition-all resize-y"
         placeholder={placeholder}
       />
     </div>
@@ -1978,41 +1976,44 @@ function Select({ label, value, onChange, options, multiple = false }: { label: 
   if (multiple) {
     return (
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">{label}</label>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 border border-gray-300 rounded-lg bg-white">
+        <label className="block text-sm font-medium text-ink/80 mb-2 font-serif">{label}</label>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 max-h-60 overflow-y-auto p-2 border border-ink/20 rounded-lg bg-white/50 custom-scrollbar">
           {options.map(opt => (
-            <label key={opt} className="flex items-center space-x-2 p-1 hover:bg-gray-50 rounded cursor-pointer">
+            <label key={opt} className="flex items-center space-x-2 p-1 hover:bg-daiqing/5 rounded cursor-pointer transition-colors">
               <input
                 type="checkbox"
                 checked={isSelected(opt)}
                 onChange={() => handleCheckboxChange(opt)}
-                className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                className="w-4 h-4 text-daiqing rounded border-ink/30 focus:ring-daiqing"
               />
-              <span className="text-sm text-gray-700">{opt}</span>
+              <span className="text-sm text-ink/80 font-serif">{opt}</span>
             </label>
           ))}
         </div>
-        <p className="text-xs text-gray-500 mt-1">已选: {Array.isArray(value) ? value.join('、') : (typeof value === 'string' ? value : '')}</p>
+        <p className="text-xs text-ink/50 mt-1 font-serif">已选: {Array.isArray(value) ? value.join('、') : (typeof value === 'string' ? value : '')}</p>
       </div>
     );
   }
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-ink/80 mb-1 font-serif">{label}</label>
       <div className="relative">
         <select
           value={value as string || ''}
           onChange={handleChange}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+          className="w-full px-3 py-2 bg-white/50 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none text-sm text-ink font-serif appearance-none"
         >
-          <option value="">Select...</option>
+          <option value="">请选择...</option>
           {options.map(opt => (
             <option key={opt} value={opt}>
               {opt}
             </option>
           ))}
         </select>
+        <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-ink/50">
+          <ChevronDown className="h-4 w-4" />
+        </div>
       </div>
     </div>
   );

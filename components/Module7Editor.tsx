@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { generateAIContent } from '@/lib/ai';
-import { Wand2, Settings, Book, User, Edit, Loader2, Save, List, ChevronRight, ChevronDown, FolderPlus, FilePlus, Folder, FileText, Trash2, MoreHorizontal, Plus } from 'lucide-react';
+import { Wand2, Settings, Book, User, Edit, Loader2, Save, List, ChevronRight, ChevronDown, FolderPlus, FilePlus, Folder, FileText, Trash2, MoreHorizontal, Plus, Sparkles, History, PenTool } from 'lucide-react';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 
 // Types for our context
@@ -67,11 +67,12 @@ export default function Module7Editor() {
     characters: ''
   });
   
-  const [isContextPanelOpen, setIsContextPanelOpen] = useState(false);
+  const [isContextPanelOpen, setIsContextPanelOpen] = useState(true); // Default open for 3-column layout
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
   const prevLenRef = useRef<number>(0);
   const typedSinceRef = useRef<number>(0);
+  const isComposingRef = useRef(false);
 
   // Load context from previous modules on mount
   useEffect(() => {
@@ -358,7 +359,7 @@ export default function Module7Editor() {
     
     // We need exact character indices for scrolling, so we must iterate carefully
     // Using regex.exec on full content is better for indices, but splitting by line is easier for structure.
-    // Let's use regex.exec on full content to get accurate indices.
+    // Let's use regex.exec on full content is better.
     
     const fullRegex = /(?:^\s*|\n\s*)((?:第[0-9零一二三四五六七八九十百千万]+[卷部]|Volume\s*\d+).*)|(?:^\s*|\n\s*)((?:第[0-9零一二三四五六七八九十百千万]+[章回]|Chapter\s*\d+|[0-9]+\.|序章|楔子|尾声).*)/g;
     
@@ -417,7 +418,7 @@ export default function Module7Editor() {
           // Better approach: Calculate line number
           const textBefore = content.substring(0, index);
           const lineNum = textBefore.split('\n').length;
-          const lineHeight = 28; // Approximate line height in px (text-lg leading-relaxed)
+          const lineHeight = 32; // Approximate line height in px (text-lg leading-relaxed)
           const scrollTop = (lineNum - 1) * lineHeight;
           
           textareaRef.current.scrollTop = scrollTop;
@@ -448,9 +449,23 @@ export default function Module7Editor() {
     }
   };
 
+  const handleCompositionStart = () => {
+    isComposingRef.current = true;
+  };
+
+  const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    isComposingRef.current = false;
+    // Trigger content change logic manually to ensure prediction checks run if needed
+    handleContentChange(e as any);
+  };
+
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     setContent(newText);
+    
+    // Don't run prediction logic while composing (e.g. typing Pinyin)
+    if (isComposingRef.current) return;
+
     const delta = Math.max(0, newText.length - prevLenRef.current);
     typedSinceRef.current += delta;
     prevLenRef.current = newText.length;
@@ -516,37 +531,41 @@ ${currentText.slice(-1000)}
   };
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-       {/* Chapter Navigation Sidebar */}
-       <div className={`bg-white border-r border-gray-200 h-full flex flex-col transition-all duration-300 ${isNavOpen ? 'w-64' : 'w-0 overflow-hidden'}`}>
+    <div className="flex h-screen bg-rice-paper overflow-hidden font-serif text-ink">
+       {/* Chapter Navigation Sidebar (Left Column) */}
+       <div className={`bg-[#F5F2EC] border-r border-ink/10 h-full flex flex-col transition-all duration-300 ${isNavOpen ? 'w-72' : 'w-0 overflow-hidden'}`}>
           
           {/* Sidebar Header / Tab Switcher */}
-          <div className="border-b border-gray-100 bg-gray-50 flex">
+          <div className="border-b border-ink/10 bg-rice-texture flex">
              <button
                  onClick={() => setActiveTab('books')}
-                 className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
-                     activeTab === 'books' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                 className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                     activeTab === 'books' 
+                        ? 'bg-[#F5F2EC] text-daiqing border-t-2 border-daiqing' 
+                        : 'text-gray-500 hover:bg-black/5'
                  }`}
              >
                  <Book className="w-4 h-4" /> 书架
              </button>
              <button
                  onClick={() => setActiveTab('outline')}
-                 className={`flex-1 py-3 text-sm font-medium flex items-center justify-center gap-2 ${
-                     activeTab === 'outline' ? 'bg-white text-blue-600 border-t-2 border-blue-600' : 'text-gray-500 hover:bg-gray-100'
+                 className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
+                     activeTab === 'outline' 
+                        ? 'bg-[#F5F2EC] text-daiqing border-t-2 border-daiqing' 
+                        : 'text-gray-500 hover:bg-black/5'
                  }`}
              >
                  <List className="w-4 h-4" /> 大纲
              </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
              {/* Tab Content: Bookshelf */}
              {activeTab === 'books' && (
-                 <div className="space-y-4 p-2">
+                 <div className="space-y-3 p-1">
                      <button 
                         onClick={handleAddBook}
-                        className="w-full flex items-center justify-center gap-2 py-2 border border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-500 hover:text-blue-500 hover:bg-blue-50 transition-all text-sm"
+                        className="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-ink/20 rounded-lg text-gray-500 hover:border-daiqing hover:text-daiqing hover:bg-daiqing/5 transition-all text-sm font-medium"
                      >
                          <FolderPlus className="w-4 h-4" /> 新建书辑
                      </button>
@@ -554,70 +573,70 @@ ${currentText.slice(-1000)}
                      {books.map((book) => (
                          <div key={book.id} className="space-y-1">
                              {/* Book Item */}
-                             <div className="group flex items-center justify-between hover:bg-gray-50 rounded px-2 py-1">
+                             <div className="group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors">
                                 <button 
                                     onClick={() => handleSelectFile(book)}
-                                    className="flex-1 text-left flex items-center gap-2 font-bold text-gray-800 text-sm truncate"
+                                    className="flex-1 text-left flex items-center gap-2 font-bold text-ink text-sm truncate"
                                 >
                                     {book.isOpen ? <ChevronDown className="w-4 h-4 text-gray-400" /> : <ChevronRight className="w-4 h-4 text-gray-400" />}
-                                    <Book className="w-4 h-4 text-blue-600" />
+                                    <Book className="w-4 h-4 text-daiqing" />
                                     {book.title}
                                 </button>
                                 <div className="hidden group-hover:flex items-center gap-1">
-                                    <button onClick={() => handleAddVolume(book.id)} title="添加卷" className="p-1 hover:bg-gray-200 rounded text-gray-500"><FolderPlus className="w-3 h-3" /></button>
-                                    <button onClick={(e) => handleDeleteNode(e, book.id)} title="删除" className="p-1 hover:bg-red-100 rounded text-red-500"><Trash2 className="w-3 h-3" /></button>
+                                    <button onClick={() => handleAddVolume(book.id)} title="添加卷" className="p-1 hover:bg-black/10 rounded text-gray-500"><FolderPlus className="w-3 h-3" /></button>
+                                    <button onClick={(e) => handleDeleteNode(e, book.id)} title="删除" className="p-1 hover:bg-red-50 rounded text-red-400"><Trash2 className="w-3 h-3" /></button>
                                 </div>
                              </div>
 
                              {/* Volumes */}
                              {book.isOpen && book.children?.map((volume) => (
-                                 <div key={volume.id} className="ml-4 space-y-1 border-l border-gray-100 pl-2">
-                                     <div className="group flex items-center justify-between hover:bg-gray-50 rounded px-2 py-1">
+                                 <div key={volume.id} className="ml-3 space-y-1 border-l border-ink/10 pl-3">
+                                     <div className="group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors">
                                         <button 
                                             onClick={() => handleSelectFile(volume)}
                                             className="flex-1 text-left flex items-center gap-2 font-medium text-gray-700 text-sm truncate"
                                         >
                                             {volume.isOpen ? <ChevronDown className="w-3 h-3 text-gray-400" /> : <ChevronRight className="w-3 h-3 text-gray-400" />}
-                                            <Folder className="w-4 h-4 text-amber-500" />
+                                            <Folder className="w-4 h-4 text-amber-600/70" />
                                             {volume.title}
                                         </button>
                                         <div className="hidden group-hover:flex items-center gap-1">
-                                            <button onClick={() => handleAddChapter(book.id, volume.id)} title="添加文章" className="p-1 hover:bg-gray-200 rounded text-gray-500"><FilePlus className="w-3 h-3" /></button>
-                                            <button onClick={(e) => handleDeleteNode(e, volume.id)} title="删除" className="p-1 hover:bg-red-100 rounded text-red-500"><Trash2 className="w-3 h-3" /></button>
+                                            <button onClick={() => handleAddChapter(book.id, volume.id)} title="添加文章" className="p-1 hover:bg-black/10 rounded text-gray-500"><FilePlus className="w-3 h-3" /></button>
+                                            <button onClick={(e) => handleDeleteNode(e, volume.id)} title="删除" className="p-1 hover:bg-red-50 rounded text-red-400"><Trash2 className="w-3 h-3" /></button>
                                         </div>
                                      </div>
 
                                      {/* Chapters */}
                                      {volume.isOpen && volume.children?.map((chapter, index) => (
-                                         <div key={chapter.id} className="ml-4 border-l border-gray-100 pl-2">
-                                             <div className={`group flex items-center justify-between hover:bg-gray-100 rounded px-2 py-1 ${activeFileId === chapter.id ? 'bg-blue-50 text-blue-600' : 'text-gray-600'}`}>
+                                         <div key={chapter.id} className="ml-3 border-l border-ink/10 pl-3">
+                                             <div className={`group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors ${activeFileId === chapter.id ? 'bg-daiqing/10 text-daiqing selection-cinnabar' : 'text-gray-600'}`}>
                                                 <button 
                                                     onClick={() => handleSelectFile(chapter)}
                                                     className="flex-1 text-left flex items-center gap-2 text-xs truncate"
                                                     title={chapter.title}
                                                 >
-                                                    <FileText className="w-3 h-3 flex-shrink-0" />
+                                                    <FileText className="w-3 h-3 flex-shrink-0 opacity-70" />
                                                     <span>
                                                         <span className="text-gray-400 mr-1">第{index + 1}章</span>
                                                         {chapter.title}
                                                     </span>
                                                 </button>
                                                 <div className="hidden group-hover:flex items-center gap-1">
-                                                    <button onClick={(e) => { e.stopPropagation(); handleRenameNode(chapter.id, chapter.title); }} className="p-1 hover:bg-blue-100 rounded text-blue-500" title="重命名"><Edit className="w-3 h-3" /></button>
-                                                    <button onClick={(e) => handleDeleteNode(e, chapter.id)} className="p-1 hover:bg-red-100 rounded text-red-500" title="删除"><Trash2 className="w-3 h-3" /></button>
+                                                    <button onClick={(e) => { e.stopPropagation(); handleRenameNode(chapter.id, chapter.title); }} className="p-1 hover:bg-black/10 rounded text-daiqing" title="重命名"><Edit className="w-3 h-3" /></button>
+                                                    <button onClick={(e) => handleDeleteNode(e, chapter.id)} className="p-1 hover:bg-red-50 rounded text-red-400" title="删除"><Trash2 className="w-3 h-3" /></button>
                                                 </div>
                                              </div>
                                          </div>
                                      ))}
                                      
                                      {(!volume.children || volume.children.length === 0) && (
-                                         <div className="ml-6 text-xs text-gray-400 py-1">暂无文章</div>
+                                         <div className="ml-6 text-xs text-gray-400 py-1 italic">暂无文章</div>
                                      )}
                                  </div>
                              ))}
                              
                              {(!book.children || book.children.length === 0) && (
-                                 <div className="ml-6 text-xs text-gray-400 py-1">暂无分卷</div>
+                                 <div className="ml-6 text-xs text-gray-400 py-1 italic">暂无分卷</div>
                              )}
                          </div>
                      ))}
@@ -628,10 +647,10 @@ ${currentText.slice(-1000)}
              {activeTab === 'outline' && (
                  <div>
                     {chapters.length === 0 && (
-                        <div className="text-center text-xs text-gray-400 py-4">
-                            未检测到章节
-                            <br/>
-                            (支持: 第X章/卷/Chapter)
+                        <div className="text-center text-xs text-gray-400 py-8 flex flex-col items-center gap-2">
+                            <List className="w-8 h-8 opacity-20" />
+                            <span>未检测到章节</span>
+                            <span className="text-[10px] opacity-60">(支持: 第X章/卷/Chapter)</span>
                         </div>
                     )}
                     {chapters.map((node, i) => (
@@ -639,8 +658,8 @@ ${currentText.slice(-1000)}
                             {/* Volume or Top-level Chapter */}
                             <button 
                                 onClick={() => scrollToChapter(node.index)}
-                                className={`w-full text-left px-2 py-1.5 rounded text-sm truncate hover:bg-gray-100 transition-colors ${
-                                    node.type === 'volume' ? 'font-bold text-gray-800 mt-2' : 'text-gray-600'
+                                className={`w-full text-left px-2 py-2 rounded text-sm truncate hover:bg-black/5 transition-colors ${
+                                    node.type === 'volume' ? 'font-bold text-ink mt-3 border-b border-ink/5 pb-1 mb-1' : 'text-gray-600'
                                 }`}
                                 title={node.title}
                             >
@@ -649,12 +668,12 @@ ${currentText.slice(-1000)}
                             
                             {/* Children Chapters (if volume) */}
                             {node.children && node.children.length > 0 && (
-                                <div className="ml-2 border-l-2 border-gray-100 pl-1 mt-1 space-y-0.5">
+                                <div className="ml-2 border-l-2 border-ink/10 pl-2 mt-1 space-y-0.5">
                                     {node.children.map((child, j) => (
                                         <button 
                                             key={`${i}-${j}`}
                                             onClick={() => scrollToChapter(child.index)}
-                                            className="w-full text-left px-2 py-1 rounded text-xs text-gray-500 truncate hover:bg-gray-50 hover:text-blue-600 transition-colors"
+                                            className="w-full text-left px-2 py-1.5 rounded text-xs text-gray-500 truncate hover:bg-black/5 hover:text-daiqing transition-colors"
                                             title={child.title}
                                         >
                                             {child.title}
@@ -669,13 +688,13 @@ ${currentText.slice(-1000)}
           </div>
        </div>
 
-      {/* Main Editor Area */}
-      <div className="flex-1 flex flex-col p-6 h-full relative">
+      {/* Main Editor Area (Center Column) */}
+      <div className="flex-1 flex flex-col p-6 h-full relative z-0">
          {/* Toggle Nav Button (when closed) */}
          {!isNavOpen && (
              <button 
                 onClick={() => setIsNavOpen(true)}
-                className="absolute left-0 top-1/2 -translate-y-1/2 bg-white border border-gray-200 p-1 rounded-r-lg shadow-sm z-10 hover:bg-gray-50 text-gray-500"
+                className="absolute left-0 top-1/2 -translate-y-1/2 bg-white border border-gray-200 p-2 rounded-r-lg shadow-sm z-10 hover:bg-gray-50 text-gray-500"
                 title="展开目录"
              >
                 <ChevronRight className="w-4 h-4" />
@@ -684,75 +703,189 @@ ${currentText.slice(-1000)}
 
         <div className="flex justify-between items-center mb-4">
             <div>
-                <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <Edit className="w-6 h-6 text-blue-600" />
-                    AI 辅助写作 (Module 7)
+                <h1 className="text-2xl font-bold text-ink flex items-center gap-3">
+                    <PenTool className="w-6 h-6 text-daiqing" />
+                    <span>AI 辅助写作</span>
+                    <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-daiqing/10 text-daiqing border border-daiqing/20">Module 7</span>
                 </h1>
-                <p className="text-sm text-gray-500">Copilot 模式：打字暂停自动续写，按 Tab 键采纳</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
                 <button 
                     onClick={() => setIsContextPanelOpen(!isContextPanelOpen)}
-                    className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-700 shadow-sm"
+                    className={`flex items-center gap-2 px-4 py-2 border rounded-lg transition-all shadow-sm ${
+                        isContextPanelOpen 
+                            ? 'bg-daiqing text-white border-daiqing' 
+                            : 'bg-white border-ink/10 text-gray-600 hover:bg-gray-50'
+                    }`}
+                    title={isContextPanelOpen ? "隐藏右侧栏" : "显示右侧栏"}
                 >
                     <Settings className="w-4 h-4" />
-                    上下文配置 (7.1)
+                    {isContextPanelOpen ? '隐藏助手' : 'AI 助手'}
                 </button>
                 <button 
                     onClick={manualTrigger}
                     disabled={loading}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 shadow-sm disabled:opacity-50"
+                    className="flex items-center gap-2 px-5 py-2 bg-cinnabar text-white rounded-lg hover:bg-red-700 shadow-md hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed group"
                 >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                    立即预测
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4 group-hover:rotate-12 transition-transform" />}
+                    <span>立即续写</span>
                 </button>
             </div>
         </div>
 
-        <div className="flex-1 relative bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <div className="flex-1 relative bg-rice-texture rounded-xl shadow-sm border border-ink/10 overflow-hidden relative group">
+            {/* Editor Inner Border (Ink Line) */}
+            <div className="absolute inset-2 border border-ink/5 pointer-events-none rounded-lg z-10"></div>
+            
             <textarea
                 ref={textareaRef}
                 value={content}
                 onChange={handleContentChange}
                 onKeyDown={handleKeyDown}
-                className="w-full h-full p-6 text-lg leading-relaxed resize-none outline-none font-serif"
-                placeholder="开始你的创作..."
+                onCompositionStart={handleCompositionStart}
+                onCompositionEnd={handleCompositionEnd}
+                className="w-full h-full p-8 pb-32 text-lg leading-relaxed resize-none outline-none font-serif text-ink bg-transparent relative z-0 custom-scrollbar"
+                placeholder="在此挥毫泼墨..."
                 spellCheck={false}
+                style={{ lineHeight: '2' }}
             />
-            {/* Suggestion Overlay - Simple Implementation */}
+            
+            {/* Suggestion Overlay - Ink Note Style */}
             {suggestion && (
-                <div className="absolute bottom-6 right-6 max-w-md p-4 bg-blue-50 border border-blue-200 rounded-lg shadow-lg animate-in fade-in slide-in-from-bottom-4">
-                    <div className="text-xs text-blue-500 font-bold mb-1 flex justify-between">
-                        <span>AI 建议 (按 Tab 采纳)</span>
-                        <button onClick={() => setSuggestion('')} className="hover:text-blue-700">✕</button>
+                <div className="absolute bottom-8 right-8 max-w-lg p-6 bg-[#FFFEFA] border border-ink/10 rounded-lg shadow-xl animate-in fade-in slide-in-from-bottom-4 z-20"
+                     style={{
+                         backgroundImage: 'radial-gradient(#607476 0.5px, transparent 0.5px)',
+                         backgroundSize: '10px 10px'
+                     }}>
+                    <div className="text-xs text-daiqing font-bold mb-3 flex justify-between items-center border-b border-ink/5 pb-2">
+                        <span className="flex items-center gap-2">
+                            <Sparkles className="w-3 h-3" />
+                            AI 续写建议 (按 Tab 采纳)
+                        </span>
+                        <button onClick={() => setSuggestion('')} className="hover:text-cinnabar transition-colors p-1">✕</button>
                     </div>
-                    <p className="text-gray-700 text-sm whitespace-pre-wrap">{suggestion}</p>
+                    <p className="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed font-serif">{suggestion}</p>
                 </div>
             )}
         </div>
+        
+        {/* Status Bar */}
+        <div className="mt-2 flex justify-between items-center text-xs text-gray-400 px-2">
+             <span>字数: {content.length}</span>
+             <span>{loading ? '正在思考...' : '准备就绪'}</span>
+        </div>
       </div>
 
-      {/* Prompt Modal */}
-      {/* ... (Existing prompts modal if any) */}
-      
+      {/* Context Panel (Right Column) */}
+      {isContextPanelOpen && (
+        <div className="w-80 bg-[#F5F2EC] border-l border-ink/10 h-full overflow-y-auto p-5 shadow-xl transition-all duration-300 custom-scrollbar">
+            <div className="flex justify-between items-center mb-6 border-b border-ink/10 pb-4">
+                <h2 className="text-lg font-bold text-ink flex items-center gap-2">
+                    <Settings className="w-4 h-4 text-daiqing" />
+                    灵感与设置
+                </h2>
+                <button onClick={() => setIsContextPanelOpen(false)} className="text-gray-400 hover:text-daiqing transition-colors">
+                    <ChevronRight className="w-5 h-5" />
+                </button>
+            </div>
+
+            <div className="space-y-6">
+                {/* Prediction Settings */}
+                <div className="p-4 bg-white rounded-xl border border-ink/5 shadow-sm">
+                    <label className="block text-sm font-medium text-gray-700 mb-3 flex justify-between">
+                        <span>续写长度</span>
+                        <span className="text-daiqing font-bold">{predictionLength} 字</span>
+                    </label>
+                    <input 
+                        type="range" 
+                        min="20" 
+                        max="200" 
+                        step="10" 
+                        value={predictionLength}
+                        onChange={(e) => setPredictionLength(parseInt(e.target.value))}
+                        className="w-full accent-daiqing h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                        <span>短</span>
+                        <span>长</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-ink mb-2 flex items-center gap-2">
+                        <Book className="w-4 h-4 text-daiqing" /> 全书大纲
+                    </label>
+                    <textarea 
+                        value={context.outline}
+                        onChange={(e) => setContext({...context, outline: e.target.value})}
+                        className="w-full h-32 p-3 text-sm bg-white border border-ink/10 rounded-xl focus:ring-1 focus:ring-daiqing outline-none resize-none shadow-sm"
+                        placeholder="在此粘贴全书大纲..."
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-ink mb-2 flex items-center gap-2">
+                        <List className="w-4 h-4 text-daiqing" /> 详细细纲
+                    </label>
+                    <textarea 
+                        value={context.detailedOutline}
+                        onChange={(e) => setContext({...context, detailedOutline: e.target.value})}
+                        className="w-full h-32 p-3 text-sm bg-white border border-ink/10 rounded-xl focus:ring-1 focus:ring-daiqing outline-none resize-none shadow-sm"
+                        placeholder="在此粘贴当前章节细纲..."
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-ink mb-2 flex items-center gap-2">
+                        <Wand2 className="w-4 h-4 text-daiqing" /> 风格基调
+                    </label>
+                    <input 
+                        type="text"
+                        value={context.style}
+                        onChange={(e) => setContext({...context, style: e.target.value})}
+                        className="w-full px-3 py-2 bg-white border border-ink/10 rounded-xl focus:ring-1 focus:ring-daiqing outline-none text-sm shadow-sm"
+                        placeholder="例如：仙侠、克苏鲁..."
+                    />
+                </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-ink mb-2 flex items-center gap-2">
+                        <User className="w-4 h-4 text-daiqing" /> 人物/核心元素
+                    </label>
+                    <textarea 
+                        value={context.characters}
+                        onChange={(e) => setContext({...context, characters: e.target.value})}
+                        className="w-full h-24 p-3 text-sm bg-white border border-ink/10 rounded-xl focus:ring-1 focus:ring-daiqing outline-none resize-none shadow-sm"
+                        placeholder="关键人物性格、伏笔..."
+                    />
+                </div>
+
+                <div className="pt-4 border-t border-ink/5">
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                        <span className="font-bold text-daiqing">提示：</span> 
+                        右侧配置仅作为当前 AI 续写的参考上下文，不会修改您在其他模块中生成的内容。
+                    </p>
+                </div>
+            </div>
+        </div>
+      )}
+
       {/* Custom UI Modal (InputDialog / ConfirmDialog) */}
       {modalConfig.isOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200">
-                  <div className="p-6">
-                      <h3 className="text-xl font-bold text-gray-800 mb-2">{modalConfig.title}</h3>
+          <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-ink/10">
+                  <div className="p-6 bg-rice-texture">
+                      <h3 className="text-xl font-bold text-ink mb-2">{modalConfig.title}</h3>
                       {modalConfig.message && <p className="text-gray-600 mb-4">{modalConfig.message}</p>}
                       
                       {modalConfig.type === 'input' && (
                           <input 
                               type="text"
                               autoFocus
-                              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+                              className="w-full px-4 py-3 bg-white border border-ink/20 rounded-xl focus:ring-2 focus:ring-daiqing outline-none transition-all text-ink"
                               placeholder="请输入..."
                               onKeyDown={(e) => {
-                                  // Prevent double submission with IME (Chinese input)
                                   if (e.nativeEvent.isComposing) return;
-                                  
                                   if (e.key === 'Enter') {
                                       e.preventDefault();
                                       e.stopPropagation();
@@ -767,10 +900,10 @@ ${currentText.slice(-1000)}
                       )}
                   </div>
                   
-                  <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3">
+                  <div className="bg-[#F5F2EC] px-6 py-4 flex justify-end gap-3 border-t border-ink/5">
                       <button 
                           onClick={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
-                          className="px-4 py-2 text-gray-600 hover:text-gray-800 font-medium transition-colors"
+                          className="px-4 py-2 text-gray-600 hover:text-ink font-medium transition-colors"
                       >
                           取消
                       </button>
@@ -787,7 +920,7 @@ ${currentText.slice(-1000)}
                               setModalConfig(prev => ({ ...prev, isOpen: false }));
                           }}
                           className={`px-6 py-2 rounded-xl font-bold text-white shadow-lg transition-all ${
-                              modalConfig.type === 'confirm' ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-200'
+                              modalConfig.type === 'confirm' ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-daiqing hover:bg-[#4a5a5c] shadow-blue-200'
                           }`}
                       >
                           确定
@@ -795,83 +928,6 @@ ${currentText.slice(-1000)}
                   </div>
               </div>
           </div>
-      )}
-
-      {/* Context Panel (Module 7.1) - Slide Over */}
-      {isContextPanelOpen && (
-        <div className="w-96 bg-white border-l border-gray-200 h-full overflow-y-auto p-6 shadow-xl transition-transform">
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-gray-800">上下文管理 (7.1)</h2>
-                <button onClick={() => setIsContextPanelOpen(false)} className="text-gray-400 hover:text-gray-600">✕</button>
-            </div>
-
-            <div className="space-y-6">
-                {/* Prediction Settings */}
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-100">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">预测字数: {predictionLength}</label>
-                    <input 
-                        type="range" 
-                        min="20" 
-                        max="200" 
-                        step="10" 
-                        value={predictionLength}
-                        onChange={(e) => setPredictionLength(parseInt(e.target.value))}
-                        className="w-full"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <Book className="w-4 h-4" /> 全书大纲 (Module 2)
-                    </label>
-                    <textarea 
-                        value={context.outline}
-                        onChange={(e) => setContext({...context, outline: e.target.value})}
-                        className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <Book className="w-4 h-4" /> 详细细纲 (Module 2.5)
-                    </label>
-                    <textarea 
-                        value={context.detailedOutline}
-                        onChange={(e) => setContext({...context, detailedOutline: e.target.value})}
-                        className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <Wand2 className="w-4 h-4" /> 风格基调
-                    </label>
-                    <input 
-                        type="text"
-                        value={context.style}
-                        onChange={(e) => setContext({...context, style: e.target.value})}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                    />
-                </div>
-
-                <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2 flex items-center gap-2">
-                        <User className="w-4 h-4" /> 人物/核心元素
-                    </label>
-                    <textarea 
-                        value={context.characters}
-                        onChange={(e) => setContext({...context, characters: e.target.value})}
-                        className="w-full h-24 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                </div>
-
-                <div className="pt-4 border-t border-gray-100">
-                    <p className="text-xs text-gray-500">
-                        提示：此处修改的上下文仅影响当前编辑器的 AI 预测，不会反向修改前面模块的生成结果。
-                    </p>
-                </div>
-            </div>
-        </div>
       )}
     </div>
   );

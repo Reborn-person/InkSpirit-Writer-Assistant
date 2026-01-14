@@ -164,24 +164,24 @@ export default function Module10Manager() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] bg-gray-50 overflow-hidden rounded-xl border border-gray-200 shadow-sm">
+    <div className="flex h-[calc(100vh-4rem)] glass-card overflow-hidden rounded-xl font-serif">
       {/* Sidebar: Module List */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="p-4 border-b border-gray-100">
-          <h2 className="font-bold text-gray-800 flex items-center gap-2">
-            <FileJson className="w-5 h-5 text-blue-600" />
+      <div className="w-64 bg-white/40 border-r border-ink/10 flex flex-col backdrop-blur-sm">
+        <div className="p-4 border-b border-ink/10">
+          <h2 className="font-bold text-ink flex items-center gap-2">
+            <FileJson className="w-5 h-5 text-daiqing" />
             模块选择
           </h2>
         </div>
-        <div className="flex-1 overflow-y-auto p-2 space-y-1">
+        <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
           {MODULES.map(module => (
             <button
               key={module.id}
               onClick={() => setSelectedModuleId(module.id)}
               className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
                 selectedModuleId === module.id
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-600 hover:bg-gray-100'
+                  ? 'bg-daiqing/10 text-daiqing'
+                  : 'text-ink/60 hover:bg-paper'
               }`}
             >
               {module.name}
@@ -191,13 +191,13 @@ export default function Module10Manager() {
       </div>
 
       {/* Main Content: Template List/Edit */}
-      <div className="flex-1 flex flex-col min-w-0 bg-white">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center bg-white">
+      <div className="flex-1 flex flex-col min-w-0 bg-transparent">
+        <div className="p-4 border-b border-ink/10 flex justify-between items-center bg-white/40 backdrop-blur-sm">
           <div>
-            <h1 className="text-xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold text-ink">
               {MODULES.find(m => m.id === selectedModuleId)?.name} - 提示词库
             </h1>
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-ink/50 mt-1">
               共 {promptTemplates.length} 个模板
             </p>
           </div>
@@ -206,16 +206,16 @@ export default function Module10Manager() {
             {viewMode === 'list' && (
               <>
                 <div className="relative">
-                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink/30" />
                    <input 
                       type="text" 
                       placeholder="搜索模板..." 
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none w-64"
+                      className="pl-9 pr-4 py-2 bg-white/50 border border-ink/10 rounded-lg text-sm focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none w-64 text-ink placeholder:text-ink/30 transition-all"
                    />
                 </div>
-                <div className="h-6 w-px bg-gray-200 mx-2"></div>
+                <div className="h-6 w-px bg-ink/10 mx-2"></div>
                 <div className="relative">
                     <input
                         type="file"
@@ -224,21 +224,21 @@ export default function Module10Manager() {
                         className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                         title="导入JSON配置"
                     />
-                    <button className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">
+                    <button className="flex items-center gap-2 px-3 py-2 text-ink/60 hover:bg-paper rounded-lg text-sm font-medium transition-colors">
                         <Upload className="w-4 h-4" />
                         导入
                     </button>
                 </div>
                 <button 
                     onClick={handleExportTemplates}
-                    className="flex items-center gap-2 px-3 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 text-ink/60 hover:bg-paper rounded-lg text-sm font-medium transition-colors"
                 >
                     <Download className="w-4 h-4" />
                     导出
                 </button>
                 <button 
                     onClick={handleAddNewTemplate}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 bg-daiqing hover:bg-daiqing/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors"
                 >
                     <Plus className="w-4 h-4" />
                     新建模板
@@ -251,7 +251,7 @@ export default function Module10Manager() {
                     setViewMode('list');
                     setEditingTemplate(null);
                   }}
-                  className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium"
+                  className="px-4 py-2 text-ink/60 hover:bg-paper rounded-lg text-sm font-medium transition-colors"
               >
                   返回列表
               </button>
@@ -259,16 +259,16 @@ export default function Module10Manager() {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-6 bg-paper/30 custom-scrollbar">
           {viewMode === 'list' ? (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {filteredTemplates.map(template => (
-                <div key={template.id} className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow group">
+                <div key={template.id} className="bg-white/60 border border-ink/10 rounded-xl p-5 hover:shadow-md transition-all group hover:border-daiqing/30">
                   <div className="flex justify-between items-start mb-3">
                     <div className="flex items-center gap-2">
-                        <h3 className="font-bold text-gray-800 text-lg">{template.title}</h3>
+                        <h3 className="font-bold text-ink text-lg">{template.title}</h3>
                         {template.isDefault && (
-                            <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded-full">系统默认</span>
+                            <span className="bg-paper text-ink/50 text-xs px-2 py-0.5 rounded-full border border-ink/5">系统默认</span>
                         )}
                     </div>
                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -277,7 +277,7 @@ export default function Module10Manager() {
                                 navigator.clipboard.writeText(template.content);
                                 alert('已复制到剪贴板');
                             }}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                            className="p-1.5 text-ink/40 hover:text-daiqing hover:bg-daiqing/10 rounded"
                             title="复制内容"
                         >
                             <Copy className="w-4 h-4" />
@@ -285,7 +285,7 @@ export default function Module10Manager() {
                         {!template.isDefault && (
                              <button 
                                 onClick={() => handleDeleteTemplate(template.id)}
-                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded"
+                                className="p-1.5 text-ink/40 hover:text-cinnabar hover:bg-cinnabar/10 rounded"
                                 title="删除"
                             >
                                 <Trash2 className="w-4 h-4" />
@@ -295,19 +295,19 @@ export default function Module10Manager() {
                   </div>
                   
                   <div className="relative">
-                    <div className="text-sm text-gray-600 font-mono bg-gray-50 p-3 rounded-lg h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap border border-gray-100">
+                    <div className="text-sm text-ink/60 font-mono bg-paper/50 p-3 rounded-lg h-32 overflow-y-auto custom-scrollbar whitespace-pre-wrap border border-ink/5">
                         {template.content}
                     </div>
                     <button 
                         onClick={() => handleEditTemplate(template)}
-                        className="absolute bottom-2 right-2 p-1.5 bg-white shadow border border-gray-200 rounded-lg text-blue-600 hover:bg-blue-50 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="absolute bottom-2 right-2 p-1.5 bg-white/80 shadow border border-ink/10 rounded-lg text-daiqing hover:bg-daiqing/10 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
                         title="编辑全文"
                     >
                         <Edit2 className="w-4 h-4" />
                     </button>
                   </div>
                   
-                  <div className="mt-3 flex justify-between items-center text-xs text-gray-400">
+                  <div className="mt-3 flex justify-between items-center text-xs text-ink/30">
                     <span>ID: {template.id.slice(-6)}</span>
                     <span>{new Date(template.lastModified || Date.now()).toLocaleDateString()}</span>
                   </div>
@@ -315,45 +315,45 @@ export default function Module10Manager() {
               ))}
               
               {filteredTemplates.length === 0 && (
-                <div className="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+                <div className="col-span-full flex flex-col items-center justify-center py-20 text-ink/30">
                     <Search className="w-12 h-12 mb-4 opacity-20" />
                     <p>未找到匹配的模板</p>
                 </div>
               )}
             </div>
           ) : (
-            <div className="max-w-4xl mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col h-full">
-                <div className="p-6 border-b border-gray-100 space-y-4">
+            <div className="max-w-4xl mx-auto glass-card rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
+                <div className="p-6 border-b border-ink/10 space-y-4">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">模板标题</label>
+                        <label className="block text-sm font-medium text-ink/80 mb-1">模板标题</label>
                         <input 
                             type="text" 
                             value={editingTemplate?.title || ''}
                             onChange={e => setEditingTemplate(prev => prev ? ({...prev, title: e.target.value}) : null)}
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
+                            className="w-full px-4 py-2 bg-white/50 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none text-ink placeholder:text-ink/30"
                             placeholder="输入模板标题..."
                         />
                     </div>
                 </div>
                 <div className="flex-1 p-6 flex flex-col">
-                     <label className="block text-sm font-medium text-gray-700 mb-2">提示词内容 (System Prompt)</label>
+                     <label className="block text-sm font-medium text-ink/80 mb-2">提示词内容 (System Prompt)</label>
                      <textarea
                         value={editingTemplate?.content || ''}
                         onChange={e => setEditingTemplate(prev => prev ? ({...prev, content: e.target.value}) : null)}
-                        className="flex-1 w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-mono text-sm leading-relaxed resize-none"
+                        className="flex-1 w-full p-4 bg-white/50 border border-ink/20 rounded-lg focus:ring-2 focus:ring-daiqing/20 focus:border-daiqing outline-none font-mono text-sm leading-relaxed resize-none text-ink placeholder:text-ink/30"
                         placeholder="在此编写详细的提示词..."
                     />
                 </div>
-                <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3">
+                <div className="p-4 bg-paper/50 border-t border-ink/10 flex justify-end gap-3">
                     <button 
                         onClick={() => setViewMode('list')}
-                        className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg text-sm font-medium transition-colors"
+                        className="px-4 py-2 text-ink/60 hover:bg-paper rounded-lg text-sm font-medium transition-colors"
                     >
                         取消
                     </button>
                     <button 
                         onClick={handleSaveTemplate}
-                        className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
+                        className="px-6 py-2 bg-daiqing hover:bg-daiqing/90 text-white rounded-lg text-sm font-medium shadow-sm transition-colors flex items-center gap-2"
                     >
                         <CheckCircle2 className="w-4 h-4" />
                         保存更改
