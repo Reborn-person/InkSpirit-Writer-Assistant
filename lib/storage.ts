@@ -18,6 +18,22 @@ export const STORAGE_KEYS = {
   WRITING_BASE_URL: 'novel_writer_writing_base_url',
   WRITING_MODEL: 'novel_writer_writing_model',
   
+  // 墨灵助手设置
+  CHAT_PROVIDER: 'novel_writer_chat_provider',
+  CHAT_API_KEY: 'novel_writer_chat_api_key',
+  CHAT_BASE_URL: 'novel_writer_chat_base_url',
+  CHAT_MODEL: 'novel_writer_chat_model',
+  
+  // 生图设置 (Image Generation)
+  IMAGE_PROVIDER: 'novel_writer_image_provider',
+  IMAGE_API_KEY: 'novel_writer_image_api_key',
+  IMAGE_BASE_URL: 'novel_writer_image_base_url',
+  IMAGE_MODEL: 'novel_writer_image_model',
+  
+  // Key Management
+  SAVED_KEYS: 'novel_writer_saved_keys',
+  CUSTOM_MODELS: 'novel_writer_custom_models',
+
   // 模块数据
   MODULE_INPUT: (id: string) => `novel_writer_${id}_input`,
   MODULE_OUTPUT: (id: string) => `novel_writer_${id}_output`,
@@ -30,6 +46,7 @@ export const STORAGE_KEYS = {
   // 项目备份
   PROJECT_BACKUP: 'novel_writer_project_backup',
   LAST_SAVE_TIME: 'novel_writer_last_save_time',
+  USER_AVATAR: 'novel_writer_user_avatar',
 } as const;
 
 // 储存管理类
@@ -178,6 +195,18 @@ export class StorageManager {
     settings[STORAGE_KEYS.WRITING_API_KEY] = this.get(STORAGE_KEYS.WRITING_API_KEY) || '';
     settings[STORAGE_KEYS.WRITING_BASE_URL] = this.get(STORAGE_KEYS.WRITING_BASE_URL) || '';
     settings[STORAGE_KEYS.WRITING_MODEL] = this.get(STORAGE_KEYS.WRITING_MODEL) || '';
+
+    // Chat设置
+    settings[STORAGE_KEYS.CHAT_PROVIDER] = this.get(STORAGE_KEYS.CHAT_PROVIDER) || '';
+    settings[STORAGE_KEYS.CHAT_API_KEY] = this.get(STORAGE_KEYS.CHAT_API_KEY) || '';
+    settings[STORAGE_KEYS.CHAT_BASE_URL] = this.get(STORAGE_KEYS.CHAT_BASE_URL) || '';
+    settings[STORAGE_KEYS.CHAT_MODEL] = this.get(STORAGE_KEYS.CHAT_MODEL) || '';
+    
+    // Image设置
+    settings[STORAGE_KEYS.IMAGE_PROVIDER] = this.get(STORAGE_KEYS.IMAGE_PROVIDER) || '';
+    settings[STORAGE_KEYS.IMAGE_API_KEY] = this.get(STORAGE_KEYS.IMAGE_API_KEY) || '';
+    settings[STORAGE_KEYS.IMAGE_BASE_URL] = this.get(STORAGE_KEYS.IMAGE_BASE_URL) || '';
+    settings[STORAGE_KEYS.IMAGE_MODEL] = this.get(STORAGE_KEYS.IMAGE_MODEL) || '';
     
     return settings;
   }

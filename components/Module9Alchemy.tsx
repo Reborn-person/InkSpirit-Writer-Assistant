@@ -109,7 +109,7 @@ export default function Module9Alchemy() {
       StorageManager.set('module9_target_module', v);
       
       // Auto-fill requirement from module description if empty
-      if (v && !userRequirement && PROMPTS[v as keyof typeof PROMPTS]) {
+      if (v && PROMPTS[v as keyof typeof PROMPTS]) {
           const m = PROMPTS[v as keyof typeof PROMPTS];
           const autoReq = `请为【${m.title}】设计一个优质的系统提示词。\n该模块的主要功能是：${m.description}\n\n请参考该模块现有的提示词逻辑，但进行大幅优化和升级。`;
           handleRequirementChange(autoReq);

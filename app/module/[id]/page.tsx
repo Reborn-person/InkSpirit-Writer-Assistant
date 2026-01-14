@@ -938,6 +938,7 @@ export default function ModulePage() {
                 model = 'deepseek-ai/DeepSeek-R1'; 
             }
             
+            setResult(''); // Clear previous result
             const fullText = await generateAIContentStream(
                 apiKey, 
                 systemPrompt, 
@@ -952,6 +953,7 @@ export default function ModulePage() {
         } else {
             const mConfig = multiModels.find(m => m.id === modelId);
             if (mConfig && mConfig.apiKey) {
+                setMultiModelResults(prev => ({ ...prev, [modelId]: '' })); // Clear previous result
                 const fullText = await generateAIContentStream(
                     mConfig.apiKey, 
                     systemPrompt, 
@@ -1070,6 +1072,7 @@ export default function ModulePage() {
       // We should keep handleGenerate logic mostly as is for batch, but update loading states.
       
       if (idsToGenerate.includes('main')) {
+          setResult(''); // Clear previous result
           const mainPromise = generateAIContentStream(apiKey, systemPrompt, userPrompt, baseUrl, model, (text) => {
                 setResult(text);
           })
@@ -1099,6 +1102,9 @@ export default function ModulePage() {
                  return;
              }
              
+             // Clear previous result for this model
+             setMultiModelResults(prev => ({ ...prev, [mConfig.id]: '' }));
+
              const p = generateAIContentStream(mConfig.apiKey, systemPrompt, userPrompt, mConfig.baseUrl, mConfig.model, (text) => {
                  setMultiModelResults(prev => ({ ...prev, [mConfig.id]: text }));
              })
@@ -1830,7 +1836,12 @@ export default function ModulePage() {
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-ink/80 mb-2 font-serif">系统提示词 (System Prompt)</label>
+                        <div className="flex justify-between items-center mb-2">
+                            <label className="block text-sm font-medium text-ink/80 font-serif">系统提示词 (System Prompt)</label>
+                            <span className="text-xs text-cinnabar/80 font-medium bg-cinnabar/5 px-2 py-0.5 rounded border border-cinnabar/10">
+                                如有字数要求请第一行标明
+                            </span>
+                        </div>
                         <textarea
                             value={editingTemplate?.content || ''}
                             onChange={e => setEditingTemplate(prev => prev ? ({...prev, content: e.target.value}) : null)}

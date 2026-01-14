@@ -336,7 +336,12 @@ export default function Module10Manager() {
                     </div>
                 </div>
                 <div className="flex-1 p-6 flex flex-col">
-                     <label className="block text-sm font-medium text-ink/80 mb-2">提示词内容 (System Prompt)</label>
+                     <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm font-medium text-ink/80">提示词内容 (System Prompt)</label>
+                        <span className="text-xs text-cinnabar/80 font-medium bg-cinnabar/5 px-2 py-0.5 rounded border border-cinnabar/10">
+                            如有字数要求请第一行标明
+                        </span>
+                     </div>
                      <textarea
                         value={editingTemplate?.content || ''}
                         onChange={e => setEditingTemplate(prev => prev ? ({...prev, content: e.target.value}) : null)}

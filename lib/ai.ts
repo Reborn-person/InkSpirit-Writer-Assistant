@@ -198,3 +198,61 @@ export async function generateAIContentStream(
     throw error;
   }
 }
+
+export async function generateImage(
+  apiKey: string,
+  prompt: string,
+  baseUrl: string = 'https://api.openai.com/v1',
+  model: string = 'dall-e-3',
+  size: string = '1024x1024'
+): Promise<string> {
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  const requestUrl = `${cleanBaseUrl}/images/generations`;
+
+  console.log(`[AI Image] Requesting image from: ${requestUrl} (Model: ${model})`);
+
+  try {
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        prompt: prompt,
+        n: 1,
+        size: size
+      })
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let errorData: any = {};
+      try {
+        errorData = JSON.parse(text);
+      } catch {
+        // Ignore
+      }
+      
+      const errorMessage = errorData.error?.message || text.slice(0, 200) || `Image generation failed with status ${response.status}`;
+      throw new Error(`Image Generation Error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    
+    if (data.data && data.data.length > 0 && data.data[0].url) {
+      return data.data[0].url;
+    } else if (data.images && data.images.length > 0 && data.images[0].url) {
+      // Some APIs might use 'images' key
+      return data.images[0].url;
+    } else {
+      console.error('Invalid Image API Response:', data);
+      throw new Error('API response did not contain image URL');
+    }
+
+  } catch (error) {
+    console.error('AI Image Generation Error:', error);
+    throw error;
+  }
+}

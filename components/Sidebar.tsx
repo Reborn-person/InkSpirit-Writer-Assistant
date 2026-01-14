@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { BookOpen, FileText, List, PenTool, Edit3, Wand2, Home, Settings, Coffee, Database, BookMarked, X, ChevronLeft, ChevronRight, Menu, FlaskConical, ClipboardCheck, Maximize2, Minimize2, Sparkles, Layout, Layers, Target, Feather } from 'lucide-react';
+import { BookOpen, FileText, List, PenTool, Edit3, Wand2, Home, Settings, Coffee, Database, BookMarked, X, ChevronLeft, ChevronRight, Menu, FlaskConical, ClipboardCheck, Maximize2, Minimize2, Sparkles, Layout, Layers, Target, Feather, User } from 'lucide-react';
+import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import AnnouncementModal from './AnnouncementModal';
 
 const menuItems = [
@@ -32,6 +33,13 @@ export function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isHidden, setIsHidden] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [userAvatar, setUserAvatar] = useState('');
+
+  useEffect(() => {
+    // Load Avatar
+    const storedAvatar = StorageManager.get(STORAGE_KEYS.USER_AVATAR);
+    if (storedAvatar) setUserAvatar(storedAvatar);
+  }, []);
 
   // Toggle Fullscreen Function
   const toggleFullscreen = async () => {
@@ -122,10 +130,18 @@ export function Sidebar() {
             )}
             <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className={`text-gray-500 hover:text-daiqing transition-colors ${isCollapsed ? 'mx-auto' : ''}`}
+            className={`transition-all duration-300 outline-none group ${isCollapsed ? 'mx-auto' : ''}`}
             title={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
             >
-            {isCollapsed ? <ChevronRight className="w-6 h-6" /> : <ChevronLeft className="w-5 h-5" />}
+                <div className={`rounded-full overflow-hidden border-2 border-white/50 shadow-sm transition-all group-hover:border-daiqing/50 group-hover:shadow-md bg-white/50 flex items-center justify-center ${isCollapsed ? 'w-10 h-10' : 'w-8 h-8'}`}>
+                    {userAvatar ? (
+                        <img src={userAvatar} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                        <div className="text-gray-400 group-hover:text-daiqing transition-colors">
+                            <User className="w-5 h-5" />
+                        </div>
+                    )}
+                </div>
             </button>
         </div>
       </div>

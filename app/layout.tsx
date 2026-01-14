@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Sidebar } from "@/components/Sidebar";
+import FloatingAI from "@/components/FloatingAI";
 
 export const metadata: Metadata = {
   title: '墨灵写作助手 - 墨灵引擎',
@@ -19,6 +20,7 @@ export default function RootLayout({
         <main className="flex-1 overflow-y-auto p-0 relative">
           {children}
         </main>
+        <FloatingAI />
       </body>
     </html>
   );

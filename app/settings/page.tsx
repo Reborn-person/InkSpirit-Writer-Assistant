@@ -1,12 +1,88 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, X, Loader2 } from 'lucide-react';
+import { Check, X, Loader2, Upload, User, Plus, Trash2, Eye, EyeOff, Edit2 } from 'lucide-react';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 
 type TestStatus = 'idle' | 'loading' | 'success' | 'error';
 
+interface SavedKey {
+  id: string;
+  name: string;
+  provider: string;
+  key: string;
+  createdAt: number;
+}
+
+const PROVIDER_MODELS = {
+    'siliconflow': [
+        'deepseek-ai/DeepSeek-V3',
+        'deepseek-ai/DeepSeek-R1',
+        'moonshotai/Kimi-K2-Thinking',
+        'zai-org/GLM-4.6',
+        'MiniMaxAI/MiniMax-M2',
+        'zai-org/GLM-4.6V'
+    ],
+    'vectorengine': [
+        'gpt-5.2',
+        'doubao-seed-1-8-251228',
+        'gemini-3-pro-preview-11-2025',
+        'qwen-plus',
+        'claude-opus-4-5-20251101'
+    ],
+    'alibaba': [
+        'qwen-turbo',
+        'qwen-plus',
+        'qwen-max',
+        'qwen-long'
+    ],
+    'openai': [
+        'gpt-4o',
+        'gpt-4-turbo',
+        'gpt-3.5-turbo'
+    ],
+    'custom': []
+};
+
+const PROVIDER_NAMES: Record<string, string> = {
+    'siliconflow': '硅基流动 (SiliconFlow)',
+    'vectorengine': '向量引擎 (VectorEngine)',
+    'alibaba': '阿里大模型 (Alibaba)',
+    'openai': 'OpenAI',
+    'custom': '自定义 (Custom)'
+};
+
+const IMAGE_MODELS = {
+    'siliconflow': [
+        'Qwen/Qwen-Image-Edit',
+        'black-forest-labs/FLUX.1-dev',
+        'black-forest-labs/FLUX.1-schnell',
+        'stabilityai/stable-diffusion-3-medium',
+        'stabilityai/stable-diffusion-xl-base-1.0'
+    ],
+    'vectorengine': [],
+    'alibaba': [
+        'wanx-v1',
+        'wanx-background-generation-v2'
+    ],
+    'openai': [
+        'dall-e-3',
+        'dall-e-2'
+    ],
+    'custom': []
+};
+
 export default function SettingsPage() {
+  // Avatar Configuration
+  const [userAvatar, setUserAvatar] = useState('');
+
+  // Key Management State
+  const [savedKeys, setSavedKeys] = useState<SavedKey[]>([]);
+  const [newKeyProvider, setNewKeyProvider] = useState('siliconflow');
+  const [newKeyName, setNewKeyName] = useState('');
+  const [newKeyValue, setNewKeyValue] = useState('');
+  const [showKeyInput, setShowKeyInput] = useState(false); // Toggle masking
+
   // RAG Configuration
   const [ragProvider, setRagProvider] = useState('siliconflow');
   const [ragApiKey, setRagApiKey] = useState('');
@@ -28,9 +104,62 @@ export default function SettingsPage() {
   const [writingModel, setWritingModel] = useState('deepseek-ai/DeepSeek-R1');
   const [writingStatus, setWritingStatus] = useState<TestStatus>('idle');
 
+  // Chat Configuration (Floating AI)
+  const [chatProvider, setChatProvider] = useState('siliconflow');
+  const [chatApiKey, setChatApiKey] = useState('');
+  const [chatBaseUrl, setChatBaseUrl] = useState('https://api.siliconflow.cn/v1');
+  const [chatModel, setChatModel] = useState('deepseek-ai/DeepSeek-V3');
+  const [chatStatus, setChatStatus] = useState<TestStatus>('idle');
+
+  // Image Generation Configuration
+  const [imageProvider, setImageProvider] = useState('siliconflow');
+  const [imageApiKey, setImageApiKey] = useState('');
+  const [imageBaseUrl, setImageBaseUrl] = useState('https://api.siliconflow.cn/v1');
+  const [imageModel, setImageModel] = useState('black-forest-labs/FLUX.1-dev');
+  const [imageStatus, setImageStatus] = useState<TestStatus>('idle');
+
+  // Legacy/Cache Map for FloatingAI auto-switching
+  const [providerKeys, setProviderKeys] = useState<Record<string, string>>({});
+
+  // Custom Models
+  const [customModels, setCustomModels] = useState<Record<string, string[]>>({});
+
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    // Load Avatar
+    const storedAvatar = StorageManager.get(STORAGE_KEYS.USER_AVATAR);
+    if (storedAvatar) setUserAvatar(storedAvatar);
+
+    // Load Custom Models
+    const storedCustomModels = StorageManager.getJSON(STORAGE_KEYS.CUSTOM_MODELS);
+    if (storedCustomModels) {
+        setCustomModels(storedCustomModels);
+    }
+
+    // Load Saved Keys
+    const storedSavedKeys = StorageManager.getJSON(STORAGE_KEYS.SAVED_KEYS);
+    const storedProviderKeys = StorageManager.getJSON('novel_writer_chat_provider_keys');
+    
+    if (storedSavedKeys && Array.isArray(storedSavedKeys)) {
+        setSavedKeys(storedSavedKeys);
+    } else if (storedProviderKeys) {
+        // Migration: Convert legacy map to saved keys list
+        const migratedKeys: SavedKey[] = Object.entries(storedProviderKeys).map(([provider, key]) => ({
+            id: Date.now().toString() + Math.random().toString().slice(2, 6),
+            name: `Default ${provider} Key`,
+            provider,
+            key: key as string,
+            createdAt: Date.now()
+        }));
+        setSavedKeys(migratedKeys);
+        StorageManager.setJSON(STORAGE_KEYS.SAVED_KEYS, migratedKeys);
+    }
+
+    if (storedProviderKeys) {
+        setProviderKeys(storedProviderKeys);
+    }
+
     // Load RAG settings
     const storedRagProvider = StorageManager.get(STORAGE_KEYS.RAG_PROVIDER);
     const storedRagKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY);
@@ -63,9 +192,31 @@ export default function SettingsPage() {
     if (storedWritingKey) setWritingApiKey(storedWritingKey);
     if (storedWritingUrl) setWritingBaseUrl(storedWritingUrl);
     if (storedWritingModel) setWritingModel(storedWritingModel);
+
+    // Load Chat settings
+    const storedChatProvider = StorageManager.get(STORAGE_KEYS.CHAT_PROVIDER);
+    const storedChatKey = StorageManager.get(STORAGE_KEYS.CHAT_API_KEY);
+    const storedChatUrl = StorageManager.get(STORAGE_KEYS.CHAT_BASE_URL);
+    const storedChatModel = StorageManager.get(STORAGE_KEYS.CHAT_MODEL);
+
+    if (storedChatProvider) setChatProvider(storedChatProvider);
+    if (storedChatKey) setChatApiKey(storedChatKey);
+    if (storedChatUrl) setChatBaseUrl(storedChatUrl);
+    if (storedChatModel) setChatModel(storedChatModel);
     
-    // Migration from old single-key setup
-    if (!storedRagKey && !storedWritingKey) {
+    // Load Image settings
+    const storedImageProvider = StorageManager.get(STORAGE_KEYS.IMAGE_PROVIDER);
+    const storedImageKey = StorageManager.get(STORAGE_KEYS.IMAGE_API_KEY);
+    const storedImageUrl = StorageManager.get(STORAGE_KEYS.IMAGE_BASE_URL);
+    const storedImageModel = StorageManager.get(STORAGE_KEYS.IMAGE_MODEL);
+
+    if (storedImageProvider) setImageProvider(storedImageProvider);
+    if (storedImageKey) setImageApiKey(storedImageKey);
+    if (storedImageUrl) setImageBaseUrl(storedImageUrl);
+    if (storedImageModel) setImageModel(storedImageModel);
+
+    // Migration from old single-key setup (Module 1-6)
+    if (!storedRagKey && !storedWritingKey && !storedProviderKeys) {
         const oldKey = StorageManager.get('novel_writer_api_key');
         if (oldKey) {
             setRagApiKey(oldKey);
@@ -74,39 +225,178 @@ export default function SettingsPage() {
     }
   }, []);
 
-  const handleProviderChange = (type: 'rag' | 'writing' | 'big_model', newProvider: string) => {
-    let setUrl, setModel, setProvider;
+  const handleAddKey = () => {
+      if (!newKeyName.trim() || !newKeyValue.trim()) {
+          alert('请填写 Key 名称和内容');
+          return;
+      }
+      
+      const newKey: SavedKey = {
+          id: Date.now().toString(),
+          name: newKeyName,
+          provider: newKeyProvider,
+          key: newKeyValue,
+          createdAt: Date.now()
+      };
+      
+      const updatedKeys = [...savedKeys, newKey];
+      setSavedKeys(updatedKeys);
+      StorageManager.setJSON(STORAGE_KEYS.SAVED_KEYS, updatedKeys);
+      
+      setNewKeyName('');
+      setNewKeyValue('');
+      alert('Key 添加成功！');
+  };
+
+  const handleDeleteKey = (id: string) => {
+      if (confirm('确定要删除这个 Key 吗？')) {
+          const updatedKeys = savedKeys.filter(k => k.id !== id);
+          setSavedKeys(updatedKeys);
+          StorageManager.setJSON(STORAGE_KEYS.SAVED_KEYS, updatedKeys);
+      }
+  };
+
+  const addCustomModel = (provider: string, model: string) => {
+      if (!model.trim()) return;
+      const currentModels = customModels[provider] || [];
+      if (!currentModels.includes(model)) {
+          const newModels = {
+              ...customModels,
+              [provider]: [...currentModels, model]
+          };
+          setCustomModels(newModels);
+          StorageManager.setJSON(STORAGE_KEYS.CUSTOM_MODELS, newModels);
+          alert(`模型 "${model}" 已添加到列表`);
+      }
+  };
+
+  const removeCustomModel = (provider: string, model: string) => {
+       if (confirm(`确定要从列表中移除 "${model}" 吗？`)) {
+          const currentModels = customModels[provider] || [];
+          const newModels = {
+              ...customModels,
+              [provider]: currentModels.filter(m => m !== model)
+          };
+          setCustomModels(newModels);
+          StorageManager.setJSON(STORAGE_KEYS.CUSTOM_MODELS, newModels);
+          
+          // If the removed model was selected, you might want to reset it, 
+          // but for now let's keep it as a "custom" value (which it will become since it's no longer in the list)
+       }
+  };
+
+  const handleChatProviderChange = (newProvider: string) => {
+      // Logic: Try to find a saved key for this provider to auto-fill? 
+      // Or use the cache map? Let's use the cache map for continuity.
+      const cachedKey = providerKeys[newProvider];
+      
+      setChatProvider(newProvider);
+      
+      if (cachedKey) {
+          setChatApiKey(cachedKey);
+      } else {
+          // If no cache, try to find the first saved key for this provider
+          const defaultSavedKey = savedKeys.find(k => k.provider === newProvider);
+          if (defaultSavedKey) {
+              setChatApiKey(defaultSavedKey.key);
+          } else {
+              setChatApiKey('');
+          }
+      }
+
+      if (newProvider === 'siliconflow') {
+          setChatBaseUrl('https://api.siliconflow.cn/v1');
+          setChatModel('deepseek-ai/DeepSeek-V3');
+      } else if (newProvider === 'openai') {
+          setChatBaseUrl('https://api.openai.com/v1');
+          setChatModel('gpt-4o');
+      } else if (newProvider === 'vectorengine') {
+          setChatBaseUrl('https://api.vectorengine.ai/v1');
+          setChatModel('gpt-5.2');
+      } else if (newProvider === 'alibaba') {
+          setChatBaseUrl('https://dashscope.aliyuncs.com/compatible-mode/v1');
+          setChatModel('qwen-plus');
+      } else {
+          setChatBaseUrl('');
+          setChatModel('');
+      }
+  };
+
+  const handleProviderChange = (type: 'rag' | 'writing' | 'big_model' | 'chat' | 'image', newProvider: string) => {
+    if (type === 'chat') {
+        handleChatProviderChange(newProvider);
+        return;
+    }
+    
+    let setUrl, setModel, setProvider, setKey;
 
     if (type === 'rag') {
         setUrl = setRagBaseUrl;
         setModel = setRagModel;
         setProvider = setRagProvider;
+        setKey = setRagApiKey;
     } else if (type === 'big_model') {
         setUrl = setBigModelBaseUrl;
         setModel = setBigModelModel;
         setProvider = setBigModelProvider;
+        setKey = setBigModelApiKey;
+    } else if (type === 'chat') {
+        setUrl = setChatBaseUrl;
+        setModel = setChatModel;
+        setProvider = setChatProvider;
+        setKey = setChatApiKey;
+    } else if (type === 'image') {
+        setUrl = setImageBaseUrl;
+        setModel = setImageModel;
+        setProvider = setImageProvider;
+        setKey = setImageApiKey;
     } else {
         setUrl = setWritingBaseUrl;
         setModel = setWritingModel;
         setProvider = setWritingProvider;
+        setKey = setWritingApiKey;
     }
 
     setProvider(newProvider);
     
+    // Auto-fill key from saved keys if available
+    const defaultSavedKey = savedKeys.find(k => k.provider === newProvider);
+    if (defaultSavedKey) {
+        setKey(defaultSavedKey.key);
+    } else {
+        setKey('');
+    }
+    
     if (newProvider === 'siliconflow') {
       setUrl('https://api.siliconflow.cn/v1');
-      if (type === 'big_model') {
+      if (type === 'big_model' || type === 'chat') {
           setModel('deepseek-ai/DeepSeek-V3');
+      } else if (type === 'image') {
+          setModel('Qwen/Qwen-Image-Edit');
       } else {
           setModel('deepseek-ai/DeepSeek-R1');
       }
     } else if (newProvider === 'openai') {
       setUrl('https://api.openai.com/v1');
-      setModel('gpt-4o');
+      if (type === 'image') {
+          setModel('dall-e-3');
+      } else {
+          setModel('gpt-4o');
+      }
+    } else if (newProvider === 'vectorengine') {
+      setUrl('https://api.vectorengine.ai/v1');
+      setModel('gpt-5.2');
+    } else if (newProvider === 'alibaba') {
+      setUrl('https://dashscope.aliyuncs.com/compatible-mode/v1');
+      if (type === 'image') {
+          setModel('wanx-v1');
+      } else {
+          setModel('qwen-plus');
+      }
     }
   };
 
-  const testConnection = async (type: 'rag' | 'writing' | 'big_model') => {
+  const testConnection = async (type: 'rag' | 'writing' | 'big_model' | 'chat' | 'image') => {
     let apiKey, baseUrl, setStatus;
 
     if (type === 'rag') {
@@ -117,6 +407,14 @@ export default function SettingsPage() {
         apiKey = bigModelApiKey;
         baseUrl = bigModelBaseUrl;
         setStatus = setBigModelStatus;
+    } else if (type === 'chat') {
+        apiKey = chatApiKey;
+        baseUrl = chatBaseUrl;
+        setStatus = setChatStatus;
+    } else if (type === 'image') {
+        apiKey = imageApiKey;
+        baseUrl = imageBaseUrl;
+        setStatus = setImageStatus;
     } else {
         apiKey = writingApiKey;
         baseUrl = writingBaseUrl;
@@ -144,7 +442,25 @@ export default function SettingsPage() {
     }
   };
 
+  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        alert('图片大小不能超过 2MB');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setUserAvatar(result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSave = () => {
+    StorageManager.set(STORAGE_KEYS.USER_AVATAR, userAvatar);
+
     StorageManager.set(STORAGE_KEYS.RAG_PROVIDER, ragProvider);
     StorageManager.set(STORAGE_KEYS.RAG_API_KEY, ragApiKey);
     StorageManager.set(STORAGE_KEYS.RAG_BASE_URL, ragBaseUrl);
@@ -159,6 +475,28 @@ export default function SettingsPage() {
     StorageManager.set(STORAGE_KEYS.WRITING_API_KEY, writingApiKey);
     StorageManager.set(STORAGE_KEYS.WRITING_BASE_URL, writingBaseUrl);
     StorageManager.set(STORAGE_KEYS.WRITING_MODEL, writingModel);
+
+    StorageManager.set(STORAGE_KEYS.CHAT_PROVIDER, chatProvider);
+    StorageManager.set(STORAGE_KEYS.CHAT_API_KEY, chatApiKey);
+    StorageManager.set(STORAGE_KEYS.CHAT_BASE_URL, chatBaseUrl);
+    StorageManager.set(STORAGE_KEYS.CHAT_MODEL, chatModel);
+    
+    StorageManager.set(STORAGE_KEYS.IMAGE_PROVIDER, imageProvider);
+    StorageManager.set(STORAGE_KEYS.IMAGE_API_KEY, imageApiKey);
+    StorageManager.set(STORAGE_KEYS.IMAGE_BASE_URL, imageBaseUrl);
+    StorageManager.set(STORAGE_KEYS.IMAGE_MODEL, imageModel);
+
+    // Update cache map for FloatingAI
+    const newProviderKeys = { ...providerKeys };
+    // Update keys for active providers
+    if (ragApiKey) newProviderKeys[ragProvider] = ragApiKey;
+    if (bigModelApiKey) newProviderKeys[bigModelProvider] = bigModelApiKey;
+    if (writingApiKey) newProviderKeys[writingProvider] = writingApiKey;
+    if (chatApiKey) newProviderKeys[chatProvider] = chatApiKey;
+    if (imageApiKey) newProviderKeys[imageProvider] = imageApiKey;
+    
+    setProviderKeys(newProviderKeys);
+    StorageManager.setJSON('novel_writer_chat_provider_keys', newProviderKeys);
 
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -182,11 +520,382 @@ export default function SettingsPage() {
       }
   };
 
+  const renderImageModelInput = (provider: string, model: string, setModel: (m: string) => void) => {
+      const predefinedModels = IMAGE_MODELS[provider as keyof typeof IMAGE_MODELS] || [];
+      const userCustomModels = customModels[provider] || [];
+      const availableModels = [...predefinedModels, ...userCustomModels];
+      
+      if (predefinedModels.length > 0 || userCustomModels.length > 0) {
+          const isKnownModel = availableModels.includes(model);
+          const showInput = !isKnownModel;
+          const isUserCustom = userCustomModels.includes(model);
+
+          return (
+              <div className="space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <select
+                        value={isKnownModel ? model : 'custom'}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'custom') {
+                                setModel('');
+                            } else {
+                                setModel(val);
+                            }
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white flex-1"
+                    >
+                        {predefinedModels.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                        ))}
+                        {userCustomModels.length > 0 && (
+                            <optgroup label="自定义保存 (Saved)">
+                                {userCustomModels.map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                ))}
+                            </optgroup>
+                        )}
+                        <option value="custom">自定义 / 手动输入 (Custom)</option>
+                    </select>
+                    {isUserCustom && (
+                        <button
+                            onClick={() => removeCustomModel(provider, model)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="从列表删除"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
+                  </div>
+                  
+                  {showInput && (
+                      <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                            placeholder="输入模型名称..."
+                        />
+                        {model && (
+                            <button 
+                                onClick={() => addCustomModel(provider, model)}
+                                className="px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1 text-sm whitespace-nowrap"
+                                title="保存到列表"
+                            >
+                                <Plus className="w-4 h-4" /> 保存
+                            </button>
+                        )}
+                      </div>
+                  )}
+              </div>
+          );
+      }
+      
+      return (
+          <div className="flex gap-2">
+            <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                placeholder={provider === 'custom' ? "输入模型名称..." : ""}
+            />
+             {model && (
+                <button 
+                    onClick={() => addCustomModel(provider, model)}
+                    className="px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1 text-sm whitespace-nowrap"
+                    title="保存到列表"
+                >
+                    <Plus className="w-4 h-4" /> 保存
+                </button>
+            )}
+          </div>
+      );
+  };
+
+  const renderModelInput = (provider: string, model: string, setModel: (m: string) => void) => {
+      const predefinedModels = PROVIDER_MODELS[provider as keyof typeof PROVIDER_MODELS] || [];
+      const userCustomModels = customModels[provider] || [];
+      const availableModels = [...predefinedModels, ...userCustomModels];
+      
+      if (predefinedModels.length > 0 || userCustomModels.length > 0) {
+          const isKnownModel = availableModels.includes(model);
+          const showInput = !isKnownModel;
+          const isUserCustom = userCustomModels.includes(model);
+
+          return (
+              <div className="space-y-2">
+                  <div className="flex gap-2 items-center">
+                    <select
+                        value={isKnownModel ? model : 'custom'}
+                        onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'custom') {
+                                setModel('');
+                            } else {
+                                setModel(val);
+                            }
+                        }}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white flex-1"
+                    >
+                        {predefinedModels.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                        ))}
+                        {userCustomModels.length > 0 && (
+                            <optgroup label="自定义保存 (Saved)">
+                                {userCustomModels.map(m => (
+                                    <option key={m} value={m}>{m}</option>
+                                ))}
+                            </optgroup>
+                        )}
+                        <option value="custom">自定义 / 手动输入 (Custom)</option>
+                    </select>
+                    {isUserCustom && (
+                        <button
+                            onClick={() => removeCustomModel(provider, model)}
+                            className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                            title="从列表删除"
+                        >
+                            <Trash2 className="w-4 h-4" />
+                        </button>
+                    )}
+                  </div>
+                  
+                  {showInput && (
+                      <div className="flex gap-2">
+                        <input
+                            type="text"
+                            value={model}
+                            onChange={(e) => setModel(e.target.value)}
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                            placeholder="输入模型名称..."
+                        />
+                         {model && (
+                            <button 
+                                onClick={() => addCustomModel(provider, model)}
+                                className="px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1 text-sm whitespace-nowrap"
+                                title="保存到列表"
+                            >
+                                <Plus className="w-4 h-4" /> 保存
+                            </button>
+                        )}
+                      </div>
+                  )}
+              </div>
+          );
+      }
+      
+      return (
+          <div className="flex gap-2">
+            <input
+                type="text"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                placeholder={provider === 'custom' ? "输入模型名称..." : ""}
+            />
+             {model && (
+                <button 
+                    onClick={() => addCustomModel(provider, model)}
+                    className="px-3 py-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition-colors flex items-center gap-1 text-sm whitespace-nowrap"
+                    title="保存到列表"
+                >
+                    <Plus className="w-4 h-4" /> 保存
+                </button>
+            )}
+          </div>
+      );
+  };
+
+  const renderKeySelector = (provider: string, currentKey: string, setKey: (k: string) => void) => {
+      const availableKeys = savedKeys.filter(k => k.provider === provider);
+      const isManual = !availableKeys.some(k => k.key === currentKey) && currentKey !== '';
+      const selectedValue = isManual ? 'manual' : currentKey;
+
+      return (
+          <div className="space-y-2">
+              <select
+                  value={selectedValue}
+                  onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === 'manual') {
+                          // Keep current key, just show input
+                      } else if (val === '') {
+                          setKey('');
+                      } else {
+                          setKey(val);
+                      }
+                  }}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white"
+              >
+                  <option value="">-- 选择已保存的 Key --</option>
+                  {availableKeys.map(k => (
+                      <option key={k.id} value={k.key}>{k.name}</option>
+                  ))}
+                  <option disabled>────────────────</option>
+                  <option value="manual">手动输入 / 自定义 (Manual Input)</option>
+              </select>
+              
+              {(selectedValue === 'manual' || selectedValue === '') && (
+                  <input
+                      type="password"
+                      value={currentKey}
+                      onChange={(e) => setKey(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                      placeholder="sk-..."
+                  />
+              )}
+          </div>
+      );
+  };
+
   return (
     <div className="max-w-4xl mx-auto pb-12">
       <h1 className="text-3xl font-bold mb-8 text-gray-800">设置</h1>
       
+      {/* Avatar Section */}
+      <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 mb-8 flex items-center gap-6">
+        <div className="relative group">
+            <div className="w-20 h-20 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 flex items-center justify-center">
+                {userAvatar ? (
+                    <img src={userAvatar} alt="User Avatar" className="w-full h-full object-cover" />
+                ) : (
+                    <User className="w-10 h-10 text-gray-400" />
+                )}
+            </div>
+            <label className="absolute inset-0 flex items-center justify-center bg-black/50 text-white opacity-0 group-hover:opacity-100 rounded-full cursor-pointer transition-opacity">
+                <Upload className="w-6 h-6" />
+                <input type="file" accept="image/*" onChange={handleAvatarUpload} className="hidden" />
+            </label>
+        </div>
+        <div className="flex-1">
+            <h2 className="text-xl font-semibold text-gray-800">个人头像</h2>
+            <p className="text-sm text-gray-500 mb-2">设置您的个性化头像，它将显示在侧边栏并作为折叠按钮。</p>
+            <div className="flex gap-2">
+                <input 
+                    type="text" 
+                    placeholder="或者输入图片 URL..." 
+                    value={userAvatar}
+                    onChange={(e) => setUserAvatar(e.target.value)}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg outline-none text-sm"
+                />
+                <button 
+                    onClick={() => setUserAvatar('')}
+                    className="px-4 py-2 text-red-500 hover:bg-red-50 rounded-lg text-sm transition-colors"
+                >
+                    清除
+                </button>
+            </div>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Global Key Management Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6 lg:col-span-2">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+                <span className="w-1 h-6 bg-gray-500 rounded-full"></span>
+                API Key 库 (Key Library)
+            </h2>
+            <p className="text-sm text-gray-500">在此处统一管理各服务商的 API Key，命名后可在下方各模块中直接选择使用。</p>
+            
+            {/* Add New Key Form */}
+            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                <h3 className="font-medium mb-3 flex items-center gap-2 text-gray-700">
+                    <Plus className="w-4 h-4" /> 添加新 Key
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <div className="md:col-span-3">
+                        <select
+                            value={newKeyProvider}
+                            onChange={(e) => setNewKeyProvider(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none bg-white text-sm"
+                        >
+                            {Object.entries(PROVIDER_NAMES).map(([key, name]) => (
+                                <option key={key} value={key}>{name}</option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="md:col-span-3">
+                        <input
+                            type="text"
+                            value={newKeyName}
+                            onChange={(e) => setNewKeyName(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm"
+                            placeholder="Key 名称 (如: 个人DeepSeek)"
+                        />
+                    </div>
+                    <div className="md:col-span-4 relative">
+                        <input
+                            type={showKeyInput ? "text" : "password"}
+                            value={newKeyValue}
+                            onChange={(e) => setNewKeyValue(e.target.value)}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none text-sm pr-8"
+                            placeholder="sk-..."
+                        />
+                        <button 
+                            onClick={() => setShowKeyInput(!showKeyInput)}
+                            className="absolute right-2 top-2.5 text-gray-400 hover:text-gray-600"
+                        >
+                            {showKeyInput ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                    </div>
+                    <div className="md:col-span-2">
+                        <button
+                            onClick={handleAddKey}
+                            className="w-full px-3 py-2 bg-daiqing text-white rounded-lg hover:bg-daiqing/90 text-sm font-medium transition-colors"
+                        >
+                            添加
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Key List */}
+            <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="text-xs text-gray-500 uppercase bg-gray-50">
+                        <tr>
+                            <th className="px-4 py-3">名称</th>
+                            <th className="px-4 py-3">服务商</th>
+                            <th className="px-4 py-3">Key (预览)</th>
+                            <th className="px-4 py-3 text-right">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {savedKeys.length === 0 ? (
+                            <tr>
+                                <td colSpan={4} className="px-4 py-4 text-center text-gray-400">
+                                    暂无保存的 Key，请在上方添加
+                                </td>
+                            </tr>
+                        ) : (
+                            savedKeys.map(key => (
+                                <tr key={key.id} className="border-b hover:bg-gray-50">
+                                    <td className="px-4 py-3 font-medium text-gray-900">{key.name}</td>
+                                    <td className="px-4 py-3 text-gray-600">
+                                        {PROVIDER_NAMES[key.provider] || key.provider}
+                                    </td>
+                                    <td className="px-4 py-3 font-mono text-gray-500">
+                                        {key.key.slice(0, 8)}...{key.key.slice(-4)}
+                                    </td>
+                                    <td className="px-4 py-3 text-right">
+                                        <button
+                                            onClick={() => handleDeleteKey(key.id)}
+                                            className="text-red-500 hover:text-red-700 transition-colors"
+                                            title="删除"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))
+                        )}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         {/* RAG Model Section */}
         <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
             <h2 className="text-xl font-semibold flex items-center gap-2">
@@ -204,19 +913,15 @@ export default function SettingsPage() {
                 >
                     <option value="custom">自定义 (Custom)</option>
                     <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                    <option value="vectorengine">向量引擎 (VectorEngine)</option>
+                    <option value="alibaba">阿里大模型 (Alibaba)</option>
                     <option value="openai">OpenAI</option>
                 </select>
             </div>
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                <input
-                    type="password"
-                    value={ragApiKey}
-                    onChange={(e) => setRagApiKey(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
-                    placeholder="sk-..."
-                />
+                {renderKeySelector(ragProvider, ragApiKey, setRagApiKey)}
             </div>
 
             <div>
@@ -232,12 +937,7 @@ export default function SettingsPage() {
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
-                <input
-                    type="text"
-                    value={ragModel}
-                    onChange={(e) => setRagModel(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
-                />
+                {renderModelInput(ragProvider, ragModel, setRagModel)}
             </div>
 
             <button
@@ -266,19 +966,15 @@ export default function SettingsPage() {
                 >
                     <option value="custom">自定义 (Custom)</option>
                     <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                    <option value="vectorengine">向量引擎 (VectorEngine)</option>
+                    <option value="alibaba">阿里大模型 (Alibaba)</option>
                     <option value="openai">OpenAI</option>
                 </select>
             </div>
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                <input
-                    type="password"
-                    value={bigModelApiKey}
-                    onChange={(e) => setBigModelApiKey(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
-                    placeholder="sk-..."
-                />
+                {renderKeySelector(bigModelProvider, bigModelApiKey, setBigModelApiKey)}
             </div>
 
             <div>
@@ -294,12 +990,7 @@ export default function SettingsPage() {
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
-                <input
-                    type="text"
-                    value={bigModelModel}
-                    onChange={(e) => setBigModelModel(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
-                />
+                {renderModelInput(bigModelProvider, bigModelModel, setBigModelModel)}
             </div>
 
             <button
@@ -328,19 +1019,15 @@ export default function SettingsPage() {
                 >
                     <option value="custom">自定义 (Custom)</option>
                     <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                    <option value="vectorengine">向量引擎 (VectorEngine)</option>
+                    <option value="alibaba">阿里大模型 (Alibaba)</option>
                     <option value="openai">OpenAI</option>
                 </select>
             </div>
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
-                <input
-                    type="password"
-                    value={writingApiKey}
-                    onChange={(e) => setWritingApiKey(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
-                    placeholder="sk-..."
-                />
+                {renderKeySelector(writingProvider, writingApiKey, setWritingApiKey)}
             </div>
 
             <div>
@@ -356,12 +1043,7 @@ export default function SettingsPage() {
 
             <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
-                <input
-                    type="text"
-                    value={writingModel}
-                    onChange={(e) => setWritingModel(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
-                />
+                {renderModelInput(writingProvider, writingModel, setWritingModel)}
             </div>
 
             <button
@@ -370,6 +1052,112 @@ export default function SettingsPage() {
                 disabled={writingStatus === 'loading'}
             >
                 {getButtonContent(writingStatus)}
+            </button>
+        </div>
+
+        {/* Chat Model Section (Floating AI) */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+                <span className="w-1 h-6 bg-emerald-500 rounded-full"></span>
+                墨灵助手 (Floating AI)
+            </h2>
+            <p className="text-sm text-gray-500">用于右下角悬浮助手对话</p>
+            
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">服务商</label>
+                <select
+                    value={chatProvider}
+                    onChange={(e) => handleProviderChange('chat', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white"
+                >
+                    <option value="custom">自定义 (Custom)</option>
+                    <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                    <option value="vectorengine">向量引擎 (VectorEngine)</option>
+                    <option value="alibaba">阿里大模型 (Alibaba)</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                {renderKeySelector(chatProvider, chatApiKey, setChatApiKey)}
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                <input
+                    type="text"
+                    value={chatBaseUrl}
+                    onChange={(e) => setChatBaseUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                    disabled={chatProvider !== 'custom'}
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                {renderModelInput(chatProvider, chatModel, setChatModel)}
+            </div>
+
+            <button
+                onClick={() => testConnection('chat')}
+                className={`w-full py-2 px-4 rounded-lg transition-colors font-medium flex items-center justify-center ${getButtonClass(chatStatus)}`}
+                disabled={chatStatus === 'loading'}
+            >
+                {getButtonContent(chatStatus)}
+            </button>
+        </div>
+
+        {/* Image Generation Section */}
+        <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 space-y-6">
+            <h2 className="text-xl font-semibold flex items-center gap-2">
+                <span className="w-1 h-6 bg-pink-500 rounded-full"></span>
+                AI 生图 (Image Generation)
+            </h2>
+            <p className="text-sm text-gray-500">用于墨灵助手的文生图功能</p>
+            
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">服务商</label>
+                <select
+                    value={imageProvider}
+                    onChange={(e) => handleProviderChange('image', e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none bg-white"
+                >
+                    <option value="custom">自定义 (Custom)</option>
+                    <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+                    <option value="vectorengine">向量引擎 (VectorEngine)</option>
+                    <option value="alibaba">阿里大模型 (Alibaba)</option>
+                    <option value="openai">OpenAI</option>
+                </select>
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">API Key</label>
+                {renderKeySelector(imageProvider, imageApiKey, setImageApiKey)}
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Base URL</label>
+                <input
+                    type="text"
+                    value={imageBaseUrl}
+                    onChange={(e) => setImageBaseUrl(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg outline-none"
+                    disabled={imageProvider !== 'custom'}
+                />
+            </div>
+
+            <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">模型名称</label>
+                {renderImageModelInput(imageProvider, imageModel, setImageModel)}
+            </div>
+
+            <button
+                onClick={() => testConnection('image')}
+                className={`w-full py-2 px-4 rounded-lg transition-colors font-medium flex items-center justify-center ${getButtonClass(imageStatus)}`}
+                disabled={imageStatus === 'loading'}
+            >
+                {getButtonContent(imageStatus)}
             </button>
         </div>
       </div>
