@@ -33,6 +33,12 @@
 
 /* Import Noto Serif SC - moved to top */
 
+@layer base {
+  body, button, input, textarea, select {
+    font-family: var(--font-serif);
+  }
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
