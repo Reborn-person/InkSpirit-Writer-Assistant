@@ -1,0 +1,7 @@
+www.inkspirit.top {
+  reverse_proxy app:3000
+}
+
+inkspirit.top {
+  redir https://www.inkspirit.top{uri} permanent
+}

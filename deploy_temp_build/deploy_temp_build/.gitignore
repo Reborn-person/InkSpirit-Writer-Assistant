@@ -1,0 +1,24 @@
+# Dependencies
+/node_modules
+/.next/
+/out/
+
+# Production environment variables
+.env.local
+.env.*.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Bat files
+*.bat
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db

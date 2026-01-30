@@ -4,42 +4,15 @@ import { useState, useEffect } from 'react';
 import { generateAIContentStream } from '@/lib/ai';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import { PROMPTS } from '@/lib/prompts';
-import { Loader2, Wand2, Play, CheckCircle2, FlaskConical, Trophy, FileJson, Upload, ChevronRight, ChevronDown, Copy, Settings2, Link as LinkIcon } from 'lucide-react';
+import { Loader2, Wand2, FlaskConical, Trophy, Upload, ChevronRight, ChevronDown, Copy, Settings2, Link as LinkIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 // 默认的评审提示词
-const DEFAULT_REVIEWER_PROMPT = `你是专业的AI内容质量评审员。
-你的任务是根据用户的“原始需求”，评估由不同提示词生成的“AI输出内容”的质量。
-
-【用户原始需求】：
-{userRequirement}
-
-【待评审内容】：
-(见用户输入)
-
-请从以下维度进行专业打分（1-10分）和点评：
-1. **指令遵循度**：内容是否完美执行了用户的核心意图？
-2. **内容质量**：文笔、逻辑、创意是否出色？
-3. **格式规范性**：结构是否清晰，是否符合一般阅读或使用习惯？
-
-输出格式：
-### 评分：
-- 遵循度：X
-- 质量：X
-- 规范：X
-**总分：X**
-
-### 简评：
-（一句话概括优点和缺点）
-
-### 改进方向：
-（针对生成该内容的提示词，指出可能需要加强的约束或引导）`;
+const DEFAULT_REVIEWER_PROMPT = '';
 
 // 默认的提示词生成专家提示词
-const PROMPT_ENGINEER_SYSTEM = `你是世界顶级的提示词工程师（Prompt Engineer）。
-你的任务是根据用户的“简要需求”，设计一个结构严谨、逻辑清晰、效果卓越的 ChatGPT/Claude/DeepSeek 提示词（System Prompt）。
-请使用 Markdown 格式，包含 Role, Skills, Constraints, Workflow, Output Format 等模块。`;
+const PROMPT_ENGINEER_SYSTEM = '';
 
 interface ModelConfig {
   id: string;
@@ -133,24 +106,11 @@ export default function Module9Alchemy() {
     setReview1('');
     setReview2('');
     
-    // INTERNAL API KEY - HIDDEN FROM USER
-    // 这是一个硬编码的内部 API Key，用户在界面上看不到，且优先于设置页面的 Key 使用
-    const INTERNAL_API_KEY = "sk-piqxietpiwammaznuapgeodmjlionbxlmlnrcyqfvbwionnj"; 
-    
-    // 优先使用内部硬编码 Key，如果没有则回退到用户设置的 Key
-    // 注意：trim() 去除可能的空白字符
-    const apiKey = (INTERNAL_API_KEY && INTERNAL_API_KEY.trim().startsWith("sk-")) 
-        ? INTERNAL_API_KEY.trim() 
-        : (StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '');
-        
-    // 如果使用了内部硬编码的 Key，强制使用 SiliconFlow 的 BaseURL
-    // 否则，使用用户设置的 BaseURL (如果也没有，则默认 SiliconFlow)
-    const isUsingInternalKey = apiKey === INTERNAL_API_KEY.trim();
-    const baseUrl = isUsingInternalKey 
-        ? 'https://api.siliconflow.cn/v1' 
-        : (StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1');
+    // Get API Key and Base URL from storage
+    const apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
+    const baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
 
-    console.log("Using API Key:", apiKey.substring(0, 10) + "..."); // Debug log (safe)
+    console.log("Using API Key:", apiKey ? "Set" : "Not Set"); 
     console.log("Using Base URL:", baseUrl);
 
     if (!apiKey) {
@@ -184,7 +144,12 @@ export default function Module9Alchemy() {
         await Promise.all([r1, r2]);
 
     } catch (e: any) {
-        alert('执行出错: ' + e.message);
+        const errorMessage = e.message || String(e);
+        if (e.name === 'AbortError' || errorMessage.includes('BodyStreamBuffer was aborted') || errorMessage.includes('The user aborted a request')) {
+            // Ignore cancellation errors
+            return;
+        }
+        alert('执行出错: ' + errorMessage);
     } finally {
         setLoading(false);
     }

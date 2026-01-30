@@ -46,6 +46,70 @@ body {
   background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
 }
 
+body.max-mode {
+  background: #0b0b0c;
+  color: #f4f4f5;
+  background-image: none;
+}
+
+body.max-mode ::-webkit-scrollbar-thumb {
+  background: rgba(244, 244, 245, 0.18);
+}
+
+body.max-mode ::-webkit-scrollbar-thumb:hover {
+  background: rgba(244, 244, 245, 0.3);
+}
+
+body.max-mode .max-surface {
+  --color-ink-black: #f4f4f5;
+  --color-rice-paper: #101114;
+  --color-dai-qing: #2a9d8f;
+  --color-cinnabar: #ff9966;
+  
+  /* Keep these for reference or if used directly */
+  --color-ink: var(--color-ink-black);
+  --color-paper: var(--color-rice-paper);
+  --color-daiqing: var(--color-dai-qing);
+}
+
+body.max-mode .max-panel {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+body.max-mode .max-panel-soft {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.max-mode .max-input {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #f4f4f5;
+}
+
+body.max-mode .max-input::placeholder {
+  color: rgba(244, 244, 245, 0.45);
+}
+
+body.max-mode .max-pill {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(244, 244, 245, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+body.max-mode .max-pill:hover {
+  background: rgba(255, 255, 255, 0.09);
+  color: rgba(244, 244, 245, 0.9);
+}
+
+body.max-mode .max-pill-active {
+  background: rgba(255, 153, 102, 0.16);
+  color: #ff9966;
+  border: 1px solid rgba(255, 153, 102, 0.35);
+}
+
 /* Rice Paper Texture Utility */
 .bg-rice-texture {
   background-color: var(--color-rice-paper);

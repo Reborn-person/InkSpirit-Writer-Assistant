@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import { EnhancedStorageManager, StorageOptimizer } from '@/lib/storage-optimizer';
-import { Download, Upload, Trash2, RefreshCw, Database, Save, FileText, AlertTriangle, Zap, BarChart3 } from 'lucide-react';
+import { Download, Upload, Trash2, RefreshCw, Database, Save, FileText, AlertTriangle, Zap, BarChart3, Cloud } from 'lucide-react';
+import CloudSyncModal from '@/components/CloudSyncModal';
 
 export default function StorageManagerPage() {
   const [storageStats, setStorageStats] = useState({ used: 0, total: 0, percentage: 0 });
@@ -13,6 +14,7 @@ export default function StorageManagerPage() {
   const [hasBackup, setHasBackup] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(false);
+  const [showCloudSync, setShowCloudSync] = useState(false);
 
   // 加载储存状态
   const loadStorageStatus = () => {
@@ -37,8 +39,8 @@ export default function StorageManagerPage() {
   };
 
   // 导出项目
-  const handleExport = () => {
-    const projectData = StorageManager.exportProject();
+  const handleExport = async () => {
+    const projectData = await StorageManager.exportProject();
     if (projectData) {
       const blob = new Blob([projectData], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
@@ -101,10 +103,14 @@ export default function StorageManagerPage() {
   };
 
   // 创建备份
-  const handleCreateBackup = () => {
-    StorageManager.createBackup();
-    setHasBackup(true);
-    showMessage('success', '备份创建成功！');
+  const handleCreateBackup = async () => {
+    const success = await StorageManager.createBackup();
+    if (success) {
+      setHasBackup(true);
+      showMessage('success', '备份创建成功！');
+    } else {
+      showMessage('error', '备份创建失败：没有可备份的数据');
+    }
   };
 
   // 恢复备份
@@ -293,6 +299,14 @@ export default function StorageManagerPage() {
           <div className="p-6 border-b border-gray-200">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">数据管理</h2>
             <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+              <button
+                onClick={() => setShowCloudSync(true)}
+                className="flex items-center justify-center space-x-2 bg-cyan-600 text-white px-4 py-2 rounded-lg hover:bg-cyan-700 transition-colors"
+              >
+                <Cloud className="w-4 h-4" />
+                <span>云端同步</span>
+              </button>
+
               <button
                 onClick={handleExport}
                 className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
@@ -486,6 +500,10 @@ export default function StorageManagerPage() {
           )}
         </div>
       </div>
+      
+      {showCloudSync && (
+        <CloudSyncModal onClose={() => setShowCloudSync(false)} />
+      )}
     </div>
   );
 }

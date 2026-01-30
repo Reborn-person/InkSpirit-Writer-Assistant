@@ -1,9 +1,13 @@
+import { StorageManager } from './storage';
+
 export async function generateAIContent(
   apiKey: string, 
   systemPrompt: string, 
   userPrompt: string, 
   baseUrl: string = 'https://api.openai.com/v1',
-  model: string = 'gpt-4o'
+  model: string = 'gpt-4o',
+  maxTokens?: number,
+  signal?: AbortSignal
 ) {
   // 移除 baseUrl 末尾的斜杠，防止拼接出双斜杠
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
@@ -24,13 +28,7 @@ export async function generateAIContent(
       throw new Error('Model is missing. Please check your API configuration.');
     }
 
-    const response = await fetch(requestUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
+    const body: any = {
         model: model,
         messages: [
           { role: 'system', content: systemPrompt },
@@ -38,7 +36,20 @@ export async function generateAIContent(
         ],
         temperature: 0.7,
         stream: false
-      })
+    };
+
+    if (maxTokens) {
+        body.max_tokens = maxTokens;
+    }
+
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body),
+      signal
     });
 
     if (!response.ok) {
@@ -100,6 +111,16 @@ export async function generateAIContent(
       console.error('Invalid API Response Structure:', data);
       throw new Error('API 响应格式不符合预期: 缺少 choices[0].message 字段');
     }
+
+    // 记录 Token 使用情况 (如果存在)
+    if (data.usage) {
+        StorageManager.addTokenUsage(
+            'Unknown', // Provider is tricky to guess from just baseUrl, maybe we can pass it?
+            model,
+            data.usage.prompt_tokens,
+            data.usage.completion_tokens
+        );
+    }
     
     return data.choices[0].message.content;
   } catch (error) {
@@ -114,13 +135,80 @@ export async function generateAIContent(
   }
 }
 
+export async function generateEmbeddings(
+  apiKey: string,
+  inputs: string[],
+  baseUrl: string = 'https://api.openai.com/v1',
+  model: string = 'text-embedding-3-large',
+  signal?: AbortSignal
+): Promise<number[][]> {
+  const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+  const requestUrl = `${cleanBaseUrl}/embeddings`;
+
+  console.log(`[AI] Requesting embeddings from: ${requestUrl} (Model: ${model})`);
+
+  try {
+    if (!apiKey) {
+      throw new Error('API Key is missing. Please set it in Settings.');
+    }
+
+    if (!baseUrl) {
+      throw new Error('Base URL is missing. Please check your API configuration.');
+    }
+
+    if (!model) {
+      throw new Error('Model is missing. Please check your API configuration.');
+    }
+
+    const response = await fetch(requestUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model,
+        input: inputs
+      }),
+      signal
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      let errorData: any = {};
+      try {
+        errorData = JSON.parse(text);
+      } catch {
+      }
+      const errorMessage = errorData.error?.message || text.slice(0, 200) || `Embedding request failed with status ${response.status}`;
+      throw new Error(`Embedding Error: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    if (!Array.isArray(data.data)) {
+      throw new Error('Embedding response is invalid.');
+    }
+
+    const vectors = data.data.map((item: any) => item.embedding).filter((embedding: any) => Array.isArray(embedding));
+    if (vectors.length === 0) {
+      throw new Error('Embedding response is empty.');
+    }
+
+    return vectors;
+  } catch (error) {
+    console.error('Embedding generation failed:', error);
+    throw error;
+  }
+}
+
 export async function generateAIContentStream(
   apiKey: string, 
   systemPrompt: string, 
   userPrompt: string, 
   baseUrl: string = 'https://api.openai.com/v1',
   model: string = 'gpt-4o',
-  onUpdate: (content: string) => void
+  onUpdate: (content: string) => void,
+  signal?: AbortSignal
 ): Promise<string> {
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
   const requestUrl = `${cleanBaseUrl}/chat/completions`;
@@ -142,7 +230,8 @@ export async function generateAIContentStream(
         ],
         temperature: 0.7,
         stream: true
-      })
+      }),
+      signal
     });
 
     if (!response.ok) {
@@ -184,6 +273,17 @@ export async function generateAIContentStream(
                         fullContent += content;
                         onUpdate(fullContent);
                     }
+                    
+                    // Capture Token Usage from stream final chunk (if available)
+                    // Many providers send usage in the last chunk or a special chunk with usage field
+                    if (data.usage) {
+                        StorageManager.addTokenUsage(
+                            'Unknown', 
+                            model,
+                            data.usage.prompt_tokens,
+                            data.usage.completion_tokens
+                        );
+                    }
                 } catch (e) {
                     console.warn('Error parsing stream chunk:', e);
                 }
@@ -204,9 +304,56 @@ export async function generateImage(
   prompt: string,
   baseUrl: string = 'https://api.openai.com/v1',
   model: string = 'dall-e-3',
-  size: string = '1024x1024'
+  size: string = '1024x1024',
+  signal?: AbortSignal
 ): Promise<string> {
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+
+  // Special Handling for Grok / VectorEngine (uses Chat Completions)
+  if (model.toLowerCase().includes('grok') || baseUrl.includes('vectorengine')) {
+    console.log(`[AI Image] Detected Grok/VectorEngine model, switching to Chat API: ${cleanBaseUrl}/chat/completions`);
+    
+    // Construct a chat request to ask for an image
+    // Grok typically returns the image URL in the content, often as markdown
+    const chatResponse = await fetch(`${cleanBaseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { 
+            role: 'user', 
+            content: `Generate an image of: ${prompt}. Please provide only the image URL or the markdown image syntax.` 
+          }
+        ],
+        stream: false
+      }),
+      signal
+    });
+
+    if (!chatResponse.ok) {
+        const text = await chatResponse.text();
+        throw new Error(`Grok Image Generation Failed: ${chatResponse.status} - ${text}`);
+    }
+
+    const data = await chatResponse.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    
+    // Extract URL from markdown ![alt](url) or raw URL
+    const urlMatch = content.match(/!\[.*?\]\((.*?)\)/) || content.match(/(https?:\/\/[^\s)]+)/);
+    
+    if (urlMatch && urlMatch[1]) {
+        return urlMatch[1];
+    } else {
+        console.warn('Could not extract image URL from Grok response:', content);
+        throw new Error('Grok response did not contain a recognizable image URL');
+    }
+  }
+
+  // Standard OpenAI / SiliconFlow Image API
   const requestUrl = `${cleanBaseUrl}/images/generations`;
 
   console.log(`[AI Image] Requesting image from: ${requestUrl} (Model: ${model})`);
@@ -223,7 +370,8 @@ export async function generateImage(
         prompt: prompt,
         n: 1,
         size: size
-      })
+      }),
+      signal
     });
 
     if (!response.ok) {
@@ -255,4 +403,20 @@ export async function generateImage(
     console.error('AI Image Generation Error:', error);
     throw error;
   }
+}
+
+export function cosineSimilarity(a: number[], b: number[]) {
+  const size = Math.min(a.length, b.length);
+  let dot = 0;
+  let normA = 0;
+  let normB = 0;
+  for (let i = 0; i < size; i++) {
+    const av = a[i];
+    const bv = b[i];
+    dot += av * bv;
+    normA += av * av;
+    normB += bv * bv;
+  }
+  const denom = Math.sqrt(normA) * Math.sqrt(normB);
+  return denom === 0 ? 0 : dot / denom;
 }
