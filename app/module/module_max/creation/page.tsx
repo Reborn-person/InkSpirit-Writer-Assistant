@@ -7,19 +7,22 @@ import {
     PenTool, BookOpen, Layers, Zap, Download, Play,
     Pause, RefreshCw, ChevronRight, ChevronDown,
     Settings, Save, FileText, Sparkles, X, BrainCircuit, Check,
-    User, Plus, Trash2, Search, BookPlus, Edit2
+    User, Plus, Trash2, Search, BookPlus, Edit2, FolderOutput
 } from 'lucide-react';
 import { useEditorAgent } from '@/contexts/EditorAgentContext';
 import { useMaxJob } from '@/contexts/MaxJobContext';
 import CloudSyncModal from '@/components/CloudSyncModal';
 
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
-import { generateAIContentStream } from '@/lib/ai';
+import { generateAIContent, generateAIContentStream } from '@/lib/ai';
 import { APIConfigValidator } from '@/lib/api-validator';
 import ReactMarkdown from 'react-markdown';
 import Module10Manager from '@/components/Module10Manager';
+import { ModelConfigPanel, ModelConfig } from '@/app/components/ModelConfigPanel';
 import JSZip from 'jszip';
 import { PROVIDER_MODELS } from '@/lib/models';
+
+import { consistencyVectorStore } from '@/lib/consistency/vector-store';
 
 interface Card {
     id: string;
@@ -55,7 +58,7 @@ interface GenerationConfig {
 
 export default function MaxCreationPage() {
     const pathname = usePathname();
-    const { registerEditor, unregisterEditor, isAiOpen, registerPageSkill, unregisterPageSkill } = useEditorAgent();
+    const { registerEditor, unregisterEditor, isAiOpen, registerPageSkill, unregisterPageSkill, userLevel } = useEditorAgent();
     const { outlineGenState, startOutlineGeneration } = useMaxJob();
 
     // Navigation State
@@ -65,6 +68,9 @@ export default function MaxCreationPage() {
     const isMaxPolish = pathname === '/module/module_max/polish';
     const isMaxCreation = pathname === '/module/module_max/creation';
     const isMaxOutline = pathname === '/module/module_max/outline';
+    const isMaxConsistency = pathname === '/module/module_max/consistency';
+    const isMaxHumanizer = pathname === '/module/module_max/humanizer';
+    const isMaxGodMode = pathname === '/module/module_max/godmode';
     const worksKey = 'novel_writer_max_works';
     const activeWorkKey = 'novel_writer_max_active_work';
     const userClearedKey = 'novel_writer_max_user_cleared';
@@ -77,7 +83,13 @@ export default function MaxCreationPage() {
     const [worldSetting, setWorldSetting] = useState<string>('');
     const [styleRef, setStyleRef] = useState<string>('');
     const [outlineRaw, setOutlineRaw] = useState<string>('');
+    const [characterTracking, setCharacterTracking] = useState<string>('');
+    const characterTrackingRef = useRef('');
     const [works, setWorks] = useState<WorkItem[]>([]);
+
+    useEffect(() => {
+        characterTrackingRef.current = characterTracking;
+    }, [characterTracking]);
     const [activeWorkId, setActiveWorkId] = useState<string>('');
 
     // UI State
@@ -106,12 +118,23 @@ export default function MaxCreationPage() {
     // Load available models
     useEffect(() => {
         const loadModels = () => {
-            const provider = StorageManager.get('novel_writer_provider') || 'siliconflow';
-            const rawCustomModels = StorageManager.getJSON('novel_writer_custom_models');
-            const customModels = Array.isArray(rawCustomModels) ? rawCustomModels : [];
+            // Use the Writing Provider setting (same as Settings -> Writing Config)
+            const provider = StorageManager.get(STORAGE_KEYS.WRITING_PROVIDER) || 'siliconflow';
+            
+            // Load custom models dictionary
+            const rawCustomModels = StorageManager.getJSON(STORAGE_KEYS.CUSTOM_MODELS);
+            // rawCustomModels is Record<string, string[]>
+            const customModelsMap = (rawCustomModels && typeof rawCustomModels === 'object' && !Array.isArray(rawCustomModels)) 
+                ? rawCustomModels as Record<string, string[]> 
+                : {};
+            
+            const providerCustomModels = Array.isArray(customModelsMap[provider]) ? customModelsMap[provider] : [];
+            
             const presetModels = PROVIDER_MODELS[provider] || [];
-            // Remove duplicates
-            const allModels = Array.from(new Set([...presetModels, ...customModels]));
+            
+            // Merge preset and custom models for the CURRENT provider
+            const allModels = Array.from(new Set([...presetModels, ...providerCustomModels]));
+            
             setAvailableModels(allModels);
         };
         loadModels();
@@ -124,6 +147,14 @@ export default function MaxCreationPage() {
     const [outlineEndChapter, setOutlineEndChapter] = useState(10);
     // const [isGeneratingOutline, setIsGeneratingOutline] = useState(false);
     const [customSystemPrompt, setCustomSystemPrompt] = useState('');
+
+    // Model Config
+    const [modelConfig, setModelConfig] = useState<ModelConfig>({
+        provider: 'siliconflow',
+        model: 'deepseek-ai/DeepSeek-V3',
+        apiKey: '',
+        baseUrl: 'https://api.siliconflow.cn/v1'
+    });
 
     // Sync with Context
     useEffect(() => {
@@ -294,6 +325,7 @@ export default function MaxCreationPage() {
     const chaptersRef = useRef(chapters);
     const autoSaveTimerRef = useRef<number | null>(null);
     const isHydratingRef = useRef(false);
+    const isContextLoadedRef = useRef(false);
     useEffect(() => { chaptersRef.current = chapters; }, [chapters]);
 
     const updateWorkUpdatedAt = (workId: string, time: number) => {
@@ -304,7 +336,7 @@ export default function MaxCreationPage() {
         });
     };
 
-    const saveWorkContext = (
+    const saveWorkContext = async (
         workId: string,
         context: {
             worldSetting: string;
@@ -316,11 +348,33 @@ export default function MaxCreationPage() {
             chapters: Chapter[];
             activeChapterId: string;
             generationConfig: GenerationConfig;
+            characterTracking?: string;
         }
     ) => {
         if (!workId) return;
+        
+        // 1. Separate content from metadata
+        const chaptersMetadata: Chapter[] = [];
+        const savePromises: Promise<void>[] = [];
+
+        for (const chapter of context.chapters) {
+            // Save content independently if it exists
+            if (chapter.content !== undefined) {
+                 savePromises.push(StorageManager.set(`novel_writer_chapter_${chapter.id}`, chapter.content));
+            }
+            
+            // Create metadata object (exclude content)
+            // Explicitly destructure to remove content
+            const { content, ...metadata } = chapter;
+            chaptersMetadata.push(metadata as Chapter);
+        }
+
+        // Wait for all content to be saved (fire and forget in background if needed, but await is safer)
+        await Promise.all(savePromises);
+
         StorageManager.setJSON(getWorkContextKey(workId), {
             ...context,
+            chapters: chaptersMetadata,
             outlineStartChapter, // Save current state
             outlineEndChapter    // Save current state
         });
@@ -336,6 +390,7 @@ export default function MaxCreationPage() {
                 setWorldSetting(savedContext.worldSetting || '');
                 setStyleRef(savedContext.style || '');
                 setOutlineRaw(savedContext.outline || '');
+                setCharacterTracking(savedContext.characterTracking || '');
                 const savedOutlineChapterCount = Number(savedContext.outlineChapterCount);
                 if (Number.isFinite(savedOutlineChapterCount) && savedOutlineChapterCount > 0) {
                     setOutlineChapterCount(savedOutlineChapterCount);
@@ -344,12 +399,39 @@ export default function MaxCreationPage() {
                 }
                 if (savedContext.outlineStartChapter) setOutlineStartChapter(Number(savedContext.outlineStartChapter));
                 if (savedContext.outlineEndChapter) setOutlineEndChapter(Number(savedContext.outlineEndChapter));
-                const savedChapters = Array.isArray(savedContext.chapters) ? savedContext.chapters : [];
+                
+                let savedChapters = Array.isArray(savedContext.chapters) ? savedContext.chapters : [];
+                
+                // Data Migration: Extract content if embedded
+                let migrationNeeded = false;
+                const migratedChapters = await Promise.all(savedChapters.map(async (c: Chapter) => {
+                    if (c.content && c.content.length > 0) {
+                        migrationNeeded = true;
+                        await StorageManager.set(`novel_writer_chapter_${c.id}`, c.content);
+                        const { content, ...rest } = c;
+                        return rest as Chapter;
+                    }
+                    return c;
+                }));
+                
+                if (migrationNeeded) {
+                    savedChapters = migratedChapters;
+                }
+
                 if (savedChapters.length > 0) {
                     setChapters(savedChapters);
                     const savedActiveId = savedContext.activeChapterId || '';
                     const nextActiveId = savedChapters.find((c: Chapter) => c.id === savedActiveId)?.id || savedChapters[0].id;
                     setActiveChapterId(nextActiveId);
+                    
+                    // Load active chapter content independently
+                    if (nextActiveId) {
+                         const content = await StorageManager.getAsync(`novel_writer_chapter_${nextActiveId}`);
+                         if (content) {
+                             setChapters(prev => prev.map(c => c.id === nextActiveId ? { ...c, content } : c));
+                         }
+                    }
+
                     setGenerationConfig(prev => {
                         const savedGen = savedContext.generationConfig || {};
                         const merged = { ...prev, ...savedGen };
@@ -384,6 +466,7 @@ export default function MaxCreationPage() {
                     setActiveChapterId('');
                     setGenerationConfig(prev => ({ ...prev, endChapter: 1 }));
                 }
+                isContextLoadedRef.current = true;
                 return;
             }
             setWorldSetting('');
@@ -393,6 +476,7 @@ export default function MaxCreationPage() {
             setChapters([]);
             setActiveChapterId('');
             setGenerationConfig(prev => ({ ...prev, endChapter: 1 }));
+            isContextLoadedRef.current = true;
         } finally {
             isHydratingRef.current = false;
         }
@@ -453,11 +537,93 @@ export default function MaxCreationPage() {
 
     useEffect(() => {
         if (!activeWorkId) return;
+        isContextLoadedRef.current = false;
         loadWorkContext(activeWorkId);
     }, [activeWorkId]);
 
+    // LRU Cache State for Memory Management
+    const recentChaptersRef = useRef<string[]>([]);
+    const MAX_CACHE_SIZE = 20;
+
+    // Load active chapter content and cleanup others using LRU strategy
     useEffect(() => {
-        if (!activeWorkId || isHydratingRef.current) return;
+        if (!activeChapterId) return;
+        
+        // Race condition protection
+        let isCancelled = false;
+
+        const loadAndCleanup = async () => {
+             // 1. Update LRU History
+             // Move current chapter to front, keep unique, limit size
+             const currentHistory = recentChaptersRef.current.filter(id => id !== activeChapterId);
+             const newHistory = [activeChapterId, ...currentHistory].slice(0, MAX_CACHE_SIZE);
+             recentChaptersRef.current = newHistory;
+
+             // 2. Identify chapters to evict (Has content AND Not in history AND Not generating)
+             const chaptersToEvict = chaptersRef.current.filter(c => 
+                 c.content !== undefined && 
+                 !newHistory.includes(c.id) &&
+                 c.status !== 'generating'
+             );
+
+             // 3. Persist evicted chapters BEFORE cleaning memory
+             // This prevents data loss if user switches chapters faster than auto-save interval
+             if (chaptersToEvict.length > 0) {
+                 try {
+                     await Promise.all(chaptersToEvict.map(c => 
+                         StorageManager.set(`novel_writer_chapter_${c.id}`, c.content!)
+                     ));
+                     console.log(`[LRU] Persisted ${chaptersToEvict.length} evicted chapters`);
+                 } catch (e) {
+                     console.error('[LRU] Failed to persist evicted chapters', e);
+                     // Allow continuing even if save fails, but log error
+                 }
+             }
+             
+             if (isCancelled) return;
+
+             // 4. Load Active Content (if missing in RAM)
+             const currentInState = chaptersRef.current.find(c => c.id === activeChapterId);
+             let content = currentInState?.content;
+             
+             if (content === undefined) {
+                 try {
+                    content = await StorageManager.getAsync(`novel_writer_chapter_${activeChapterId}`) || '';
+                 } catch (e) {
+                    console.error('Failed to load chapter content', e);
+                    content = '';
+                 }
+             }
+             
+             if (isCancelled) return;
+
+             // 5. Update State: Set Active + Clean Evicted
+             setChapters(prev => prev.map(c => {
+                 const shouldKeep = newHistory.includes(c.id) || c.status === 'generating';
+
+                 if (c.id === activeChapterId) {
+                     return { ...c, content: content ?? c.content ?? '' };
+                 } else if (shouldKeep) {
+                     return c; // Keep cached content
+                 } else {
+                     // Clean memory
+                     if (c.content === undefined) return c;
+                     const { content, ...rest } = c;
+                     return rest as Chapter;
+                 }
+             }));
+        };
+        
+        loadAndCleanup();
+
+        return () => {
+            isCancelled = true;
+        };
+    }, [activeChapterId]);
+
+
+    useEffect(() => {
+        if (!activeWorkId || isHydratingRef.current || !isContextLoadedRef.current) return;
         if (autoSaveTimerRef.current) {
             window.clearTimeout(autoSaveTimerRef.current);
         }
@@ -523,6 +689,10 @@ export default function MaxCreationPage() {
     // Save on unmount (navigation)
     useEffect(() => {
         return () => {
+            if (!isContextLoadedRef.current) {
+                console.log('Skipping unmount save: Context not fully loaded');
+                return;
+            }
             const ctx = latestContextRef.current;
             if (ctx.activeWorkId) {
                 console.log('Auto-saving on unmount/navigation', ctx.activeWorkId);
@@ -578,6 +748,39 @@ export default function MaxCreationPage() {
         return chapters;
     };
 
+    // Backend Sync Helpers
+    const syncNovelToBackend = async (workId: string, title: string) => {
+        try {
+            await fetch('/api/novel', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: workId, title })
+            });
+        } catch (e) {
+            console.error('Failed to sync novel:', e);
+        }
+    };
+
+    const syncChapterToBackend = async (chapter: Chapter, workId: string, index: number) => {
+        try {
+            await fetch('/api/chapter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: chapter.id,
+                    title: chapter.title,
+                    content: chapter.content || '',
+                    summary: chapter.summary || '',
+                    novelId: workId,
+                    status: chapter.status,
+                    order: index
+                })
+            });
+        } catch (e) {
+            console.error('Failed to sync chapter:', e);
+        }
+    };
+
     const handleSaveSettings = () => {
         // Only update context data, do not parse chapters here unless explicitly intended?
         // Actually, if user edits the "Outline Text" in settings manually, we should parse it.
@@ -596,6 +799,7 @@ export default function MaxCreationPage() {
             worldSetting,
             style: styleRef,
             outline: outlineRaw,
+            characterTracking,
             outlineChapterCount,
             chapters: nextChapters,
             activeChapterId: nextActiveChapterId,
@@ -622,21 +826,70 @@ export default function MaxCreationPage() {
         StorageManager.remove(userClearedKey);
         StorageManager.set(activeWorkKey, newWorkId);
         setActiveWorkId(newWorkId);
+        
+        // Sync to backend
+        syncNovelToBackend(newWorkId, title);
     };
 
-    const handleApplyGeneratedOutline = () => {
+    const handleApplyGeneratedOutline = async () => {
         const parsed = parseOutline(outlineRaw);
-        setChapters(parsed);
-        if (parsed.length > 0) setActiveChapterId(parsed[0].id);
+        
+        // Merge with existing chapters to preserve content
+        // Strategy: Match by Title first, then by Index if Title changed but structure seems similar?
+        // Actually, matching by Title is risky if titles change in outline.
+        // Matching by ID is impossible because new parsed chapters have generated IDs.
+        // Best approach for "Re-generate Outline":
+        // 1. Try to match by Title (High confidence)
+        // 2. If user just edited outline text, preserving by index might be better?
+        // Let's use a hybrid approach:
+        // We will try to preserve content for chapters that seem to be the same.
+        
+        // Load all existing content first to ensure we don't lose anything currently in storage but not in RAM
+        // (Due to our LRU cache, some content might be in IndexDB only)
+        const fullExistingChapters = await Promise.all(chaptersRef.current.map(async (c) => {
+            if (c.content !== undefined) return c;
+            try {
+                const content = await StorageManager.getAsync(`novel_writer_chapter_${c.id}`);
+                return { ...c, content: content || '' }; // Keep empty string if really empty
+            } catch {
+                return c;
+            }
+        }));
+
+        const merged = parsed.map((newChap, index) => {
+            // Try to find matching chapter in existing list
+            // Priority 1: Exact Title Match
+            let existing = fullExistingChapters.find(c => c.title === newChap.title);
+            
+            // Priority 2: If not found, and index exists, check if we should carry over?
+            // This is dangerous if user inserted a chapter in the middle.
+            // Let's stick to Title matching for safety. If title changes, it's treated as new.
+            // OR: If the user explicitly wants to "Update Outline", they might expect content to stay for Chapter 1 even if renamed?
+            // No, re-generating outline usually implies structural changes. Safe default is Title match.
+            
+            if (existing && existing.content) {
+                return {
+                    ...newChap,
+                    id: existing.id, // Keep old ID to maintain storage keys
+                    content: existing.content,
+                    status: existing.status === 'generating' ? 'completed' : existing.status // Reset generating status
+                };
+            }
+            return newChap;
+        });
+
+        setChapters(merged);
+        if (merged.length > 0) setActiveChapterId(merged[0].id);
 
         // Also save to storage
         saveWorkContext(activeWorkId, {
             worldSetting,
             style: styleRef,
             outline: outlineRaw,
+            characterTracking,
             outlineChapterCount,
-            chapters: parsed,
-            activeChapterId: parsed[0]?.id || '',
+            chapters: merged,
+            activeChapterId: merged[0]?.id || '',
             generationConfig
         });
 
@@ -652,6 +905,7 @@ export default function MaxCreationPage() {
             worldSetting,
             style: styleRef,
             outline: outlineRaw,
+            characterTracking,
             outlineChapterCount,
             chapters,
             activeChapterId,
@@ -685,6 +939,7 @@ export default function MaxCreationPage() {
             worldSetting,
             style: styleRef,
             outline: outlineRaw,
+            characterTracking,
             outlineChapterCount,
             chapters: nextChapters,
             activeChapterId: activeChapterId === chapterId ? (nextChapters.length > 0 ? nextChapters[0].id : '') : activeChapterId,
@@ -708,6 +963,7 @@ export default function MaxCreationPage() {
             setWorldSetting('');
             setStyleRef('');
             setOutlineRaw('');
+            setCharacterTracking('');
             setGenerationConfig(prev => ({ ...prev, startChapter: 1, endChapter: 1 }));
             return;
         }
@@ -718,16 +974,28 @@ export default function MaxCreationPage() {
         }
     };
 
+    // Ensure Max Mode is enabled when mounting this page
+    // useEffect(() => {
+    //     // Force enable Max Mode styles globally
+    //     document.body.classList.add('max-mode');
+    //     return () => {
+    //         document.body.classList.remove('max-mode');
+    //     };
+    // }, []);
+
     const handleGenerateOutline = async () => {
         if (!outlineIdea.trim()) {
             alert('请输入大纲内容');
             return;
         }
 
-        // Use RAG Configuration for Outline (Module 1/2 Logic)
-        const apiKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-        const baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
-        const model = StorageManager.get(STORAGE_KEYS.RAG_MODEL) || 'deepseek-ai/DeepSeek-R1';
+        // Use Model Config
+        const { apiKey, baseUrl, model } = modelConfig;
+        
+        if (!model) {
+            alert('请先配置模型');
+            return;
+        }
 
         setOutlineRaw(prev => prev ? prev + '\n\n' : ''); // Don't clear, append with separator if needed?
         // Wait, if we are appending, we need to handle the state update carefully.
@@ -772,7 +1040,11 @@ export default function MaxCreationPage() {
                 volumeInstruction,
                 `请务必根据以上范围，生成这 ${outlineEndChapter - outlineStartChapter + 1} 章的详细细纲。`,
                 `**重要要求1：严格按照章节顺序生成，严禁跳过任何章节，必须连续编号（如第${outlineStartChapter}章、第${outlineStartChapter + 1}章...）。**`,
-                `**重要要求2：请将“参考设定资料”中的内容深度融合进细纲中，但严禁在生成的文字中出现“根据资料”、“卡牌”、“设定集”等字眼。直接展示故事内容即可。**`
+                `**重要要求2：请将“参考设定资料”中的内容深度融合进细纲中，但严禁在生成的文字中出现“根据资料”、“卡牌”、“设定集”等字眼。直接展示故事内容即可。**`,
+                `**重要要求3：【反套路指令】严禁生成“主角身怀异能被神秘人救助”、“跳崖得秘籍”等陈旧套路。**`,
+                `   - 剧情发展必须符合逻辑必然性，而非机械降神。`,
+                `   - 鼓励设计“意料之外，情理之中”的反转。`,
+                `   - 角色动机必须深刻且具体，避免为了推动剧情而强行降智。`
             ].filter(Boolean).join('\n');
             const composedSystemPrompt = [baseSystemPrompt, extraRequirements].filter(Boolean).join('\n');
 
@@ -835,6 +1107,100 @@ export default function MaxCreationPage() {
         }
     };
 
+    const autoUpdateCharacterTracking = async (chapterContent: string, chapterTitle: string, currentJSON: string, modelConfig: { apiKey: string, baseUrl: string, model: string }) => {
+        if (!currentJSON || !currentJSON.trim()) return null;
+
+        try {
+            const systemPrompt = `你是一位严谨的数据管理员，负责追踪小说角色的状态。
+你的任务是根据【上一版角色状态JSON】和【最新章节正文】，更新JSON数据。
+
+【更新原则】
+1. 基于旧JSON修改，提取等级/技能/物品/关系/事件。
+2. 数值合逻辑，剧情简洁。
+3. 状态检测：
+   - 死亡(死/亡/殒/牺/阵) → status: "死亡"
+   - 被困(困/封/囚/禁) → status: "被困"
+   - 失踪(消失/失踪/不知所踪) → status: "失踪"
+   - 离开(离/远走/离去) → status: "离开"
+   - 受伤(重伤/昏迷/中毒) → status: "受伤"
+   - 特殊(残魂/元神/灵体) → status: "活跃", status_detail: "残魂状态..."
+   - 出场 → 更新 last_appearance (当前章节数) 和 appearance_count (+1)
+   - 新角色 → 添加到列表，type: "临时"
+4. 自动管理：
+   - 临时角色 type="临时" 且 5章+未出场 且 importance="低" 且 本章未提及 → 删除
+   - 角色总数 > 20 时，仅更新本章出场 + 所有主要角色 + 本章提及角色，其他复制旧状态
+   - 角色总数 > 20 时，减少添加不重要的临时角色
+
+【JSON格式要求(极其重要)】
+1. 输出标准JSON，从 { 开始到 } 结束。
+2. 严禁使用 \`\`\`json 代码块标记。
+3. 字符串用双引号。
+4. 无注释。
+5. 格式完全符合以下模板：
+{
+  "characters": [
+    {
+      "id": "char_1",
+      "name": "林安",
+      "type": "主要",
+      "relation": "主角",
+      "status": "活跃",
+      "status_detail": "正在探索废墟",
+      "last_appearance": 1,
+      "appearance_count": 1,
+      "can_appear": true,
+      "can_mention": true,
+      "importance": "高",
+      "traits": ["冷静", "异能者"]
+    }
+  ],
+  "chapter_index": 1,
+  "appearance_tracking": {
+    "current_chapter": 1,
+    "long_absent_characters": [],
+    "recent_active": ["林安"]
+  }
+}`;
+
+            const userPrompt = `【上一版角色状态JSON】
+${currentJSON}
+
+【最新章节：${chapterTitle}】
+${chapterContent.slice(0, 5000)}... (内容截取)
+
+请根据本章内容更新角色状态JSON。直接输出JSON字符串，不要包含任何其他文字。`;
+
+            const updatedJSON = await generateAIContent(
+                modelConfig.apiKey,
+                systemPrompt,
+                userPrompt,
+                modelConfig.baseUrl,
+                modelConfig.model
+            );
+
+            const stripped = updatedJSON.replace(/```json/g, '').replace(/```/g, '').trim();
+            const start = stripped.indexOf('{');
+            const end = stripped.lastIndexOf('}');
+            const jsonText = start !== -1 && end !== -1 && end > start ? stripped.slice(start, end + 1) : stripped;
+            JSON.parse(jsonText);
+
+            return jsonText;
+
+        } catch (error) {
+            console.error('Failed to auto-update character tracking:', error);
+            return null;
+        }
+    };
+
+    // Track component mount status
+    const isMounted = useRef(true);
+    useEffect(() => {
+        isMounted.current = true;
+        return () => {
+            isMounted.current = false;
+        };
+    }, []);
+
     // Generation Logic
     const handleBatchGenerate = async () => {
         if (isGenerating) {
@@ -843,7 +1209,7 @@ export default function MaxCreationPage() {
                 abortControllerRef.current.abort();
                 abortControllerRef.current = null;
             }
-            setIsGenerating(false);
+            if (isMounted.current) setIsGenerating(false);
             return;
         }
 
@@ -853,10 +1219,17 @@ export default function MaxCreationPage() {
             return;
         }
 
-        setIsGenerating(true);
+        if (isMounted.current) setIsGenerating(true);
         abortControllerRef.current = new AbortController();
 
-        const { model, startChapter, endChapter, wordCount } = generationConfig;
+        const { startChapter, endChapter, wordCount } = generationConfig;
+        const { apiKey, baseUrl, model } = modelConfig;
+        
+        if (!model) {
+            alert('请先配置模型');
+            setIsGenerating(false);
+            return;
+        }
 
         // Ensure valid range
         const validStart = Math.max(1, Math.min(startChapter, chapters.length));
@@ -889,7 +1262,22 @@ export default function MaxCreationPage() {
 
             // Update Status: Generating
             updateChapterStatus(chapter.id, 'generating', '');
-            setActiveChapterId(chapter.id); // Scroll to/Focus current
+            
+            // Only force focus active chapter if user hasn't manually navigated away
+            // But usually batch generation implies sequential focus.
+            // If we want "background generation", we should NOT force setActiveChapterId here 
+            // OR only set it if the user is in "Follow Mode" (default).
+            // For now, let's KEEP it to ensure the user sees progress, but user can click away.
+            // The cleanup logic protects 'generating' chapters so clicking away is safe.
+            // setActiveChapterId(chapter.id); 
+            
+            // Refined Logic: 
+            // If the user is currently viewing the PREVIOUS chapter (which just finished), auto-advance.
+            // If the user has navigated to some random chapter X, do NOT jump them back to current.
+            if (activeChapterId === '' || (i > 0 && activeChapterId === targetChapters[i-1].id)) {
+                setActiveChapterId(chapter.id);
+            }
+
 
             try {
                 // Writing Requirements
@@ -963,12 +1351,38 @@ export default function MaxCreationPage() {
 
                 const volumeOutline = getVolumeOutline(outlineRaw || '', chapter.title);
 
+                // --- [新增] 向量检索逻辑 Start ---
+                let consistencyInfo = '';
+                try {
+                    // 确保向量库已加载
+                    await consistencyVectorStore.load();
+                    // 基于章节标题和摘要进行检索
+                    const query = `Chapter: ${chapter.title}\nSummary: ${chapter.summary}`;
+                    const docs = await consistencyVectorStore.search(query, 3);
+                    if (docs.length > 0) {
+                        consistencyInfo = docs.map(d => `- ${d.text}`).join('\n');
+                    }
+                } catch (e) {
+                    console.error('Vector retrieval error:', e);
+                }
+                // --- [新增] 向量检索逻辑 End ---
+
+                const characterContext = characterTracking ? `\n\n# 角色状态追踪\n${characterTracking}` : '';
+
                 const context = `
 # 世界观设定
 ${worldSetting.slice(0, 1000)}...
 
 # 当前卷细纲 (重点参考)
 ${volumeOutline || '无'}
+
+# 写作风格要求
+风格：${styleRef}
+
+# 一致性参考 (历史设定/伏笔)
+${consistencyInfo || '无'}
+
+${characterContext ? `# 角色状态追踪\n${characterContext}` : ''}
 
 # 上一章概要
 ${prevChapter ? prevChapter.summary : '无（这是第一章）'}
@@ -983,41 +1397,83 @@ ${chapter.summary || '无'}
 # 下一章预告
 ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是最后一章）'}
 
-# 写作要求
-风格：${styleRef}
+# 具体的写作指令
 请根据以上信息，撰写本章正文。
 1. 严格遵循本章大纲：必须覆盖摘要中的所有关键情节，不得跳过或省略。
 2. 承上启下：必须承接上一章结尾，并自然过渡到本章剧情；结尾设置钩子。
 3. 节奏与细节：画面感强，代入感强，节奏紧凑。
-4. 严格控制字数：必须控制在${wordCount || 2000}字左右。请勿大幅超出或不足，如果内容过多请精简，过少请丰富细节。
+4. 严格控制字数：你的目标字数是 ${wordCount || 2000} 字。请务必输出足够的细节描写、对话和心理活动以达到此长度。必须严格执行此字数要求（允许误差±10%以内）。如果情节较短，必须增加环境渲染、心理描写和人物互动细节来填充字数，严禁偷工减料。当前内容严禁低于 ${(wordCount || 2000) * 0.9} 字。
+5. 必须只输出正文内容，不要输出章节标题、前言或后续说明。
 请再读一遍【全局细纲】与【本章大纲】，确保剧情连贯且无遗漏。
                 `.trim();
 
                 // Use Writing Configuration for Content Generation (Module 3-6 Logic)
-                const apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-                const baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+                // const apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
+                // const baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
 
                 let fullContent = '';
+                
+                // 增强版 System Prompt
+                const systemPrompt = `你是一位专业的小说家，擅长创作高留存的网文。
+【写作禁忌】（违反将受惩罚）
+1. 严禁使用网络流行语（如：yyds、绝绝子、卷王、开盲盒、hard模式等），除非是现代都市题材的对话中必要出现。
+2. 严禁堆砌“伪科学”数据（如：概率73.4%），除非角色设定是机器人或系统面板。
+3. 严禁使用刻意、滑稽的比喻（如：耳膜退休、虾仁、泡湿的厕纸），比喻必须服务于氛围沉浸感。
+4. 严禁让主角表现得像无情的AI，必须描写其微表情、心理波动和生理反应（如手心出汗、心跳加速）。
+5. 严禁过度堆砌辞藻和冗余的环境描写（尤其是光影、天气）。环境描写必须简练且与人物心境或剧情推进强相关，禁止无意义的炫技式描写。
+
+【写作要求】
+1. 沉浸感：多用“Show, Don't Tell”手法，通过环境描写烘托氛围，而非直接告诉读者“很危险”。
+2. 逻辑性：情节推进要有铺垫，不要在一段内完成过多转折。
+3. 节奏：详略得当，关键冲突场景要慢镜头描写，过渡剧情可简略。环境描写不要拖慢叙事节奏。`;
 
                 await generateAIContentStream(
                     apiKey,
-                    '你是一位专业的小说家，擅长创作高留存的网文。',
+                    systemPrompt,
                     context,
                     baseUrl,
                     model,
                     (chunk) => {
                         fullContent = chunk;
-                        // Real-time update
                         setChapters(prev => prev.map(c =>
                             c.id === chapter.id ? { ...c, content: chunk } : c
                         ));
                     },
                     abortControllerRef.current.signal,
-                    4000 // Max tokens constraint for generation (approx 3000-4000 Chinese chars limit usually)
+                    4000
                 );
 
-                // Update Status: Completed
                 updateChapterStatus(chapter.id, 'completed', fullContent);
+
+                if (characterTrackingRef.current && fullContent) {
+                    const newTrackingJSON = await autoUpdateCharacterTracking(
+                        fullContent, 
+                        chapter.title, 
+                        characterTrackingRef.current,
+                        { apiKey, baseUrl, model }
+                    );
+
+                    if (newTrackingJSON) {
+                        setCharacterTracking(newTrackingJSON);
+                        characterTrackingRef.current = newTrackingJSON;
+                    }
+                }
+
+                chaptersRef.current = chaptersRef.current.map(c => 
+                    c.id === chapter.id ? { ...c, content: fullContent, status: 'completed' } : c
+                );
+                
+                // Sync completed chapter to backend
+                const completedChapter = chaptersRef.current.find(c => c.id === chapter.id);
+                if (completedChapter) {
+                    // Ensure novel record exists (idempotent)
+                    if (activeWorkId) {
+                         const currentWork = works.find(w => w.id === activeWorkId);
+                         if (currentWork) syncNovelToBackend(activeWorkId, currentWork.title);
+                         
+                         syncChapterToBackend(completedChapter, activeWorkId, chapterIndex);
+                    }
+                }
 
             } catch (error: any) {
                 if (error.name === 'AbortError') {
@@ -1029,7 +1485,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             }
         }
 
-        setIsGenerating(false);
+        if (isMounted.current) setIsGenerating(false);
         abortControllerRef.current = null;
     };
 
@@ -1045,7 +1501,8 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
         abortControllerRef.current = new AbortController();
         
         const chapter = chapters[chapterIndex];
-        const { model, wordCount } = generationConfig;
+        const { wordCount } = generationConfig;
+        const { apiKey, baseUrl, model } = modelConfig;
 
         // Update Status: Generating
         updateChapterStatus(chapter.id, 'generating', '');
@@ -1106,12 +1563,36 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
 
             const volumeOutline = getVolumeOutline(outlineRaw || '', chapter.title);
 
+            const characterContext = characterTracking ? `\n\n# 角色状态追踪\n${characterTracking}` : '';
+
+            // --- [新增] 向量检索逻辑 Start ---
+            let consistencyInfo = '';
+            try {
+                await consistencyVectorStore.load();
+                const query = `Chapter: ${chapter.title}\nSummary: ${chapter.summary}`;
+                const docs = await consistencyVectorStore.search(query, 3);
+                if (docs.length > 0) {
+                    consistencyInfo = docs.map(d => `- ${d.text}`).join('\n');
+                }
+            } catch (e) {
+                console.error('Vector retrieval error:', e);
+            }
+            // --- [新增] 向量检索逻辑 End ---
+
             const context = `
 # 世界观设定
 ${worldSetting.slice(0, 1000)}...
 
 # 当前卷细纲 (重点参考)
 ${volumeOutline || '无'}
+
+# 写作风格要求
+风格：${styleRef}
+
+# 一致性参考
+${consistencyInfo || '无'}
+
+${characterContext ? `# 角色状态追踪\n${characterContext}` : ''}
 
 # 上一章概要
 ${prevChapter ? prevChapter.summary : '无（这是第一章）'}
@@ -1126,13 +1607,13 @@ ${chapter.summary || '无'}
 # 下一章预告
 ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是最后一章）'}
 
-# 写作要求
-风格：${styleRef}
+# 具体的写作指令
 请根据以上信息，撰写本章正文。
 1. 严格遵循本章大纲：必须覆盖摘要中的所有关键情节，不得跳过或省略。
 2. 承上启下：必须承接上一章结尾，并自然过渡到本章剧情；结尾设置钩子。
 3. 节奏与细节：画面感强，代入感强，节奏紧凑。
-4. 字数：${wordCount || 2000}字以上。
+4. 严格控制字数：你的目标字数是 ${wordCount || 2000} 字。请务必输出足够的细节描写、对话和心理活动以达到此长度。必须严格执行此字数要求（允许误差±10%以内）。如果情节较短，必须增加环境渲染、心理描写和人物互动细节来填充字数，严禁偷工减料。当前内容严禁低于 ${(wordCount || 2000) * 0.9} 字。
+5. 必须只输出正文内容，不要输出章节标题、前言或后续说明。
 请再读一遍【全局细纲】与【本章大纲】，确保剧情连贯且无遗漏。
             `.trim();
 
@@ -1140,14 +1621,29 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             const baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
 
             let fullContent = '';
+            
+            // 增强版 System Prompt (Single Regen)
+            const systemPrompt = `你是一位专业的小说家，擅长创作高留存的网文。
+【写作禁忌】（违反将受惩罚）
+1. 严禁使用网络流行语（如：yyds、绝绝子、卷王、开盲盒、hard模式等）。
+2. 严禁堆砌“伪科学”数据（如：概率73.4%）。
+3. 严禁使用刻意、滑稽的比喻（如：耳膜退休、虾仁、泡湿的厕纸）。
+4. 严禁让主角表现得像无情的AI，必须描写其微表情、心理波动和生理反应。
+5. 严禁过度堆砌辞藻和冗余的环境描写（尤其是光影、天气）。
+
+【写作要求】
+1. 沉浸感：多用“Show, Don't Tell”手法。
+2. 逻辑性：情节推进要有铺垫。
+3. 节奏：详略得当，关键冲突场景要慢镜头描写。环境描写不要拖慢叙事节奏。`;
 
             await generateAIContentStream(
                 apiKey,
-                '你是一位专业的小说家，擅长创作高留存的网文。',
+                systemPrompt,
                 context,
                 baseUrl,
                 model,
                 (chunk) => {
+                    if (!isMounted.current) return;
                     fullContent = chunk;
                     setChapters(prev => prev.map(c =>
                         c.id === chapter.id ? { ...c, content: chunk } : c
@@ -1157,6 +1653,48 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             );
 
             updateChapterStatus(chapter.id, 'completed', fullContent);
+            
+            // Sync single chapter regeneration to backend
+            if (activeWorkId) {
+                 const currentWork = works.find(w => w.id === activeWorkId);
+                 if (currentWork) syncNovelToBackend(activeWorkId, currentWork.title);
+                 
+                 // Note: Single regeneration uses chapterIndex to save order
+                 const regenIndex = chapters.findIndex(c => c.id === chapter.id);
+                 // Need the full chapter object with new content
+                 const completedChapter = { ...chapter, content: fullContent, status: 'completed' } as Chapter;
+                 syncChapterToBackend(completedChapter, activeWorkId, regenIndex);
+            }
+
+            // --- [新增] 向量存储逻辑 Start ---
+            try {
+                if (fullContent && fullContent.length > 100) {
+                     await consistencyVectorStore.load();
+                     await consistencyVectorStore.addDocuments([{
+                        id: `chapter_content_${chapter.id}`,
+                        text: `[章节回顾] ${chapter.title}\n${fullContent.slice(0, 800)}...`,
+                        type: 'chapter_fragment',
+                        metadata: { chapterId: chapter.id, title: chapter.title }
+                     }]);
+                }
+            } catch (e) {
+                console.error('Vector storage error:', e);
+            }
+            // --- [新增] 向量存储逻辑 End ---
+
+            if (characterTrackingRef.current && fullContent) {
+                const newTrackingJSON = await autoUpdateCharacterTracking(
+                    fullContent, 
+                    chapter.title, 
+                    characterTrackingRef.current,
+                    { apiKey, baseUrl, model }
+                );
+
+                if (newTrackingJSON) {
+                    setCharacterTracking(newTrackingJSON);
+                    characterTrackingRef.current = newTrackingJSON;
+                }
+            }
 
         } catch (error: any) {
             if (error.name === 'AbortError') {
@@ -1164,11 +1702,11 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             } else {
                 console.error(`Failed to generate chapter ${chapter.title}`, error);
                 updateChapterStatus(chapter.id, 'error');
-                alert(`生成失败: ${error.message}`);
+                if (isMounted.current) alert(`生成失败: ${error.message}`);
             }
         }
         
-        setIsGenerating(false);
+        if (isMounted.current) setIsGenerating(false);
         abortControllerRef.current = null;
     };
 
@@ -1203,8 +1741,8 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
         downloadText(text, `小说导出_${new Date().toLocaleDateString()}.txt`);
     };
 
-    const handleExportWork = async (work: WorkItem) => {
-        let chapterList = chapters;
+    const handleFolderExport = async (work: WorkItem) => {
+        let chapterList: Chapter[] = [];
         let outlineText = outlineRaw;
 
         // If exporting a non-active work, load from storage
@@ -1212,14 +1750,145 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             const savedContext = await StorageManager.getJSONAsync(getWorkContextKey(work.id));
             const savedChapters = Array.isArray(savedContext?.chapters) ? savedContext.chapters : [];
             if (savedChapters.length > 0) {
-                chapterList = savedChapters;
+                chapterList = savedChapters as Chapter[];
             } else if (savedContext?.outline) {
                 chapterList = parseOutline(savedContext.outline);
             } else {
                 chapterList = [];
             }
             outlineText = savedContext?.outline || '';
+        } else {
+            chapterList = [...chapters];
         }
+
+        // Hydrate content
+        chapterList = await Promise.all(chapterList.map(async (c) => {
+            if (c.content === undefined) {
+                 try {
+                    const content = await StorageManager.getAsync(`novel_writer_chapter_${c.id}`);
+                    if (content) return { ...c, content };
+                 } catch (e) {
+                    console.error(`Failed to load content for chapter ${c.id}`, e);
+                 }
+            }
+            return c;
+        }));
+
+        const safeTitle = (work.title || '小说').replace(/[\\/:*?"<>|]/g, '_');
+
+        try {
+            // Try File System Access API first
+            if ('showDirectoryPicker' in window) {
+                const handle = await (window as any).showDirectoryPicker();
+                const rootDir = await handle.getDirectoryHandle(safeTitle, { create: true });
+                
+                // 1. Outline
+                const outlineDir = await rootDir.getDirectoryHandle('大纲', { create: true });
+                const outlineFile = await outlineDir.getFileHandle('大纲.txt', { create: true });
+                const outlineWritable = await outlineFile.createWritable();
+                await outlineWritable.write(outlineText || '暂无大纲');
+                await outlineWritable.close();
+
+                // 2. Detailed Outline (Summaries)
+                const detailedDir = await rootDir.getDirectoryHandle('细纲', { create: true });
+                for (let i = 0; i < chapterList.length; i++) {
+                    const ch = chapterList[i];
+                    const chTitleSafe = (ch.title || `第${i+1}章`).replace(/[\\/:*?"<>|]/g, '_');
+                    const file = await detailedDir.getFileHandle(`${String(i+1).padStart(3, '0')}_${chTitleSafe}.txt`, { create: true });
+                    const writable = await file.createWritable();
+                    await writable.write(ch.summary || '暂无细纲');
+                    await writable.close();
+                }
+
+                // 3. Chapters (Content)
+                const chapterDir = await rootDir.getDirectoryHandle('小说文章', { create: true });
+                for (let i = 0; i < chapterList.length; i++) {
+                    const ch = chapterList[i];
+                    const chTitleSafe = (ch.title || `第${i+1}章`).replace(/[\\/:*?"<>|]/g, '_');
+                    const file = await chapterDir.getFileHandle(`${String(i+1).padStart(3, '0')}_${chTitleSafe}.txt`, { create: true });
+                    const writable = await file.createWritable();
+                    await writable.write(ch.content || '');
+                    await writable.close();
+                }
+                
+                alert('导出成功！文件已保存到本地文件夹。');
+                return;
+            }
+        } catch (err: any) {
+            if (err.name === 'AbortError') return; // User cancelled
+            console.error('Directory picker failed, falling back to ZIP:', err);
+        }
+
+        // Fallback to ZIP
+        const zip = new JSZip();
+        const root = zip.folder(safeTitle);
+        
+        if (root) {
+            // Outline
+            root.folder('大纲')?.file('大纲.txt', outlineText || '暂无大纲');
+            
+            // Detailed Outline
+            const detailFolder = root.folder('细纲');
+            if (detailFolder) {
+                chapterList.forEach((ch, i) => {
+                     const chTitleSafe = (ch.title || `第${i+1}章`).replace(/[\\/:*?"<>|]/g, '_');
+                     detailFolder.file(`${String(i+1).padStart(3, '0')}_${chTitleSafe}.txt`, ch.summary || '暂无细纲');
+                });
+            }
+
+            // Chapters
+            const chapterFolder = root.folder('小说文章');
+             if (chapterFolder) {
+                chapterList.forEach((ch, i) => {
+                     const chTitleSafe = (ch.title || `第${i+1}章`).replace(/[\\/:*?"<>|]/g, '_');
+                     chapterFolder.file(`${String(i+1).padStart(3, '0')}_${chTitleSafe}.txt`, ch.content || '');
+                });
+            }
+        }
+
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${safeTitle}_本地归档.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
+    const handleExportWork = async (work: WorkItem) => {
+        let chapterList: Chapter[] = [];
+        let outlineText = outlineRaw;
+
+        // If exporting a non-active work, load from storage
+        if (work.id !== activeWorkId) {
+            const savedContext = await StorageManager.getJSONAsync(getWorkContextKey(work.id));
+            const savedChapters = Array.isArray(savedContext?.chapters) ? savedContext.chapters : [];
+            if (savedChapters.length > 0) {
+                chapterList = savedChapters as Chapter[];
+            } else if (savedContext?.outline) {
+                chapterList = parseOutline(savedContext.outline);
+            } else {
+                chapterList = [];
+            }
+            outlineText = savedContext?.outline || '';
+        } else {
+            chapterList = [...chapters];
+        }
+
+        // Hydrate content for all chapters (Parallel load from IndexedDB)
+        chapterList = await Promise.all(chapterList.map(async (c) => {
+            if (c.content === undefined) {
+                 try {
+                    const content = await StorageManager.getAsync(`novel_writer_chapter_${c.id}`);
+                    if (content) return { ...c, content };
+                 } catch (e) {
+                    console.error(`Failed to load content for chapter ${c.id}`, e);
+                 }
+            }
+            return c;
+        }));
 
         if (chapterList.length === 0) return alert('没有可导出的内容');
 
@@ -1294,6 +1963,19 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
         if (!confirm('确定将当前作品导入到墨灵编辑器（模块七）吗？\n\n导入后将创建一个新书架项目，包含当前所有章节。')) return;
 
         try {
+            // Hydrate all chapters content from storage if missing in state
+            const fullChapters = await Promise.all(chapters.map(async (c) => {
+                if (c.content === undefined) {
+                    try {
+                        const content = await StorageManager.getAsync(`novel_writer_chapter_${c.id}`);
+                        return { ...c, content: content || '' };
+                    } catch (e) {
+                        return c;
+                    }
+                }
+                return c;
+            }));
+
             const savedProjects = await StorageManager.getJSONAsync(STORAGE_KEYS.NOVEL_PROJECTS) || [];
             const currentWorkTitle = works.find(w => w.id === activeWorkId)?.title || '万字冲刺作品';
 
@@ -1308,7 +1990,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                         title: '正文卷',
                         type: 'volume',
                         isOpen: true,
-                        children: chapters.map((ch, idx) => ({
+                        children: fullChapters.map((ch, idx) => ({
                             id: `ch-${Date.now()}-${idx}`,
                             title: ch.title,
                             type: 'chapter',
@@ -1341,6 +2023,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             if (action === 'set_world_setting') setWorldSetting(String(value));
             if (action === 'set_style') setStyleRef(String(value));
             if (action === 'set_outline_text') setOutlineRaw(String(value));
+            if (action === 'set_character_tracking') setCharacterTracking(String(value));
             if (action === 'generate_outline') {
                 setShowOutlineGen(true);
                 // Allow state update to propagate
@@ -1358,29 +2041,35 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
     }, [registerPageSkill, unregisterPageSkill, handleGenerateOutline, handleBatchGenerate, handleAddWork]);
 
     return (
-        <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-[#18181b] text-gray-300 font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
-
+        <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-max-bg-alt text-max-text font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
+            
             {/* Top Bar */}
-            <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#18181b] shrink-0 z-20">
+            <header className="h-14 border-b border-max-border flex items-center justify-between px-4 bg-max-bg shrink-0 z-20">
                 <div className="flex items-center gap-4">
-                    <div className="flex bg-[#27272a] rounded-lg p-1">
-                        <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxHome ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>MAX 主页</Link>
-                        <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxIdea ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>脑洞风暴</Link>
-                        <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxDismantle ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>拆书</Link>
-                        <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxOutline ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>大纲生成</Link>
-                        <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxCreation ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>万字冲刺</Link>
-                        <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxPolish ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>自循环</Link>
+                    <div className="flex bg-max-surface rounded-lg p-1 border border-max-border overflow-x-auto no-scrollbar max-w-[60vw]">
+                        <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHome ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>MAX 主页</Link>
+                        <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxIdea ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>脑洞风暴</Link>
+                        <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxDismantle ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>拆书</Link>
+                        <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxOutline ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>大纲生成</Link>
+                        <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxCreation ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>万字冲刺</Link>
+                        <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxPolish ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>自循环</Link>
+                        <Link href="/module/module_max/consistency" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxConsistency ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>一致性</Link>
+                        <Link href="/module/module_max/humanizer" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHumanizer ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>AI去味</Link>
+                        <Link href="/module/module_max/godmode" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxGodMode ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>上帝模式</Link>
                     </div>
-                    <div className="h-4 w-[1px] bg-white/10"></div>
-                    <h1 className="text-sm font-bold text-white flex items-center gap-2">
+                    <div className="h-4 w-[1px] bg-max-border"></div>
+                    <h1 className="text-sm font-bold text-max-text flex items-center gap-2">
                         <Zap className="w-4 h-4 text-yellow-500" />
                         批量创作工作台
                     </h1>
+                    <div className="ml-4">
+                        <ModelConfigPanel moduleKey="creation" onConfigChange={setModelConfig} />
+                    </div>
                 </div>
 
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 bg-[#27272a] rounded-lg px-2 py-1 border border-white/10">
-                        <span className="text-xs text-gray-400">章节范围:</span>
+                    <div className="flex items-center gap-2 bg-max-surface rounded-lg px-2 py-1 border border-max-border">
+                        <span className="text-xs text-max-text-muted">章节范围:</span>
                         <div className="flex items-center gap-1">
                             <input
                                 type="number"
@@ -1391,9 +2080,9 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                                     setGenerationConfig(p => ({ ...p, startChapter: val }));
                                 }}
-                                className="w-12 bg-[#09090b] text-center text-xs text-white outline-none border border-white/10 rounded px-1 focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-12 bg-max-bg-alt text-center text-xs text-max-text outline-none border border-max-border rounded px-1 focus:border-max-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
-                            <span className="text-xs text-gray-600">-</span>
+                            <span className="text-xs text-max-text-muted">-</span>
                             <input
                                 type="number"
                                 min="1"
@@ -1403,14 +2092,14 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                                     setGenerationConfig(p => ({ ...p, endChapter: val }));
                                 }}
-                                className="w-12 bg-[#09090b] text-center text-xs text-white outline-none border border-white/10 rounded px-1 focus:border-purple-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                className="w-12 bg-max-bg-alt text-center text-xs text-max-text outline-none border border-max-border rounded px-1 focus:border-max-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             />
-                            <span className="text-xs text-gray-400 ml-1">/ {chapters.length} 章</span>
+                            <span className="text-xs text-max-text-muted ml-1">/ {chapters.length} 章</span>
                         </div>
                     </div>
                     <button
                         onClick={handleImportToModule7}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#27272a] text-gray-300 hover:text-white hover:bg-[#3f3f46] transition-all border border-white/10"
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold bg-max-surface text-max-text-muted hover:text-max-text hover:bg-max-bg transition-all border border-max-border"
                         title="导入到墨灵编辑器"
                     >
                         <BookPlus className="w-3.5 h-3.5" />
@@ -1420,7 +2109,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                         onClick={handleBatchGenerate}
                         className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${isGenerating
                                 ? 'bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30'
-                                : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:opacity-90 shadow-lg shadow-purple-900/20'
+                                : 'bg-max-accent text-white hover:opacity-90 shadow-lg shadow-max-accent/20'
                             }`}
                     >
                         {isGenerating ? <><Pause className="w-3 h-3" /> 暂停生成</> : <><Play className="w-3 h-3" /> 批量生成</>}
@@ -1432,12 +2121,12 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             <div className="flex-1 flex overflow-hidden">
 
                 {/* Left Sidebar: Chapter List */}
-                <div className="w-64 bg-[#18181b] border-r border-white/10 flex flex-col shrink-0">
-                    <div className="p-4 border-b border-white/5 flex items-center justify-between">
+                <div className="w-64 bg-max-bg border-r border-max-border flex flex-col shrink-0">
+                    <div className="p-4 border-b border-max-border flex items-center justify-between">
                         <button
                             type="button"
                             onClick={() => setShowWorksManager(true)}
-                            className="text-xs font-bold text-gray-400 uppercase tracking-wider hover:text-gray-200 transition-colors"
+                            className="text-xs font-bold text-max-text-muted uppercase tracking-wider hover:text-max-text transition-colors"
                         >
                             作品
                         </button>
@@ -1445,7 +2134,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                             <button
                                 type="button"
                                 onClick={() => setShowOutlineGen(true)}
-                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-purple-300 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 transition-all"
+                                className="flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-medium text-max-accent bg-max-accent/10 hover:bg-max-accent/20 border border-max-accent/20 transition-all"
                                 title="生成细纲"
                             >
                                 <BrainCircuit className="w-3 h-3" />
@@ -1454,16 +2143,16 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                             <button
                                 type="button"
                                 onClick={() => setShowSettings(true)}
-                                className="p-1.5 text-gray-400 hover:text-white transition-colors rounded-md hover:bg-white/5"
+                                className="p-1.5 text-max-text-muted hover:text-max-text transition-colors rounded-md hover:bg-max-surface-alt"
                                 title="细纲设置"
                             >
                                 <Settings className="w-3.5 h-3.5" />
                             </button>
-                            <span className="text-[10px] bg-white/10 px-1.5 py-0.5 rounded-full text-gray-500">{chapters.length}</span>
+                            <span className="text-[10px] bg-max-surface-alt px-1.5 py-0.5 rounded-full text-max-text-muted">{chapters.length}</span>
                         </div>
                     </div>
                     {chapters.length === 0 ? (
-                        <div className="p-8 text-center text-gray-600 text-xs">
+                        <div className="p-8 text-center text-max-text-muted text-xs">
                             <p>暂无章节</p>
                             <p className="mt-2">点击上方“生成细纲”创建章节</p>
                         </div>
@@ -1528,14 +2217,14 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                             <button
                                                 onClick={() => setActiveChapterId(chapter.id)}
                                                 className={`flex-1 text-left px-3 py-2.5 rounded-lg text-xs transition-all flex items-center gap-3 group ${activeChapterId === chapter.id
-                                                        ? 'bg-[#27272a] text-white border border-white/10 shadow-sm'
-                                                        : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
+                                                        ? 'bg-max-surface text-max-text border border-max-border shadow-sm'
+                                                        : 'text-max-text-muted hover:bg-max-surface-alt hover:text-max-text'
                                                     }`}
                                             >
                                                 <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${chapter.status === 'completed' ? 'bg-green-500' :
                                                         chapter.status === 'generating' ? 'bg-yellow-500 animate-pulse' :
                                                             chapter.status === 'error' ? 'bg-red-500' :
-                                                                'bg-gray-700 group-hover:bg-gray-600'
+                                                                'bg-max-surface-alt group-hover:bg-max-border'
                                                     }`}></div>
                                                 <div className="truncate flex-1">
                                                     <span className="font-mono opacity-50 mr-2">{String(idx + 1).padStart(2, '0')}</span>
@@ -1547,7 +2236,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                     e.stopPropagation();
                                                     handleRegenerateChapter(chapter.id);
                                                 }}
-                                                className="p-1.5 text-gray-600 hover:text-blue-400 hover:bg-blue-500/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
+                                                className="p-1.5 text-max-text-muted hover:text-max-accent hover:bg-max-accent/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
                                                 title="重新生成"
                                             >
                                                 <RefreshCw className="w-3 h-3" />
@@ -1557,7 +2246,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                     e.stopPropagation();
                                                     handleDeleteChapter(chapter.id);
                                                 }}
-                                                className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
+                                                className="p-1.5 text-max-text-muted hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
                                                 title="删除章节"
                                             >
                                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1577,19 +2266,19 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                         <div key={vIdx} className="mb-2">
                                             <button 
                                                 onClick={() => toggleVolume(vol.title)}
-                                                className="w-full px-2 py-1.5 text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-2 bg-[#18181b] sticky top-0 z-10 hover:text-gray-300 transition-colors"
+                                                className="w-full px-2 py-1.5 text-[10px] font-bold text-max-text-muted uppercase tracking-wider flex items-center gap-2 bg-max-bg sticky top-0 z-10 hover:text-max-text transition-colors"
                                             >
                                                 <span className={`transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}>
                                                     <svg width="6" height="6" viewBox="0 0 6 6" fill="none" xmlns="http://www.w3.org/2000/svg">
                                                         <path d="M2 1L4 3L2 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                                     </svg>
                                                 </span>
-                                                <span className="w-1 h-3 bg-purple-500/50 rounded-full"></span>
+                                                <span className="w-1 h-3 bg-max-accent/50 rounded-full"></span>
                                                 {vol.title}
                                             </button>
                                             
                                             {isExpanded && (
-                                                <div className="space-y-0.5 pl-2 border-l border-white/5 ml-2.5 mt-1">
+                                                <div className="space-y-0.5 pl-2 border-l border-max-border ml-2.5 mt-1">
                                                     {vol.chapters.map((chapter) => {
                                                         const globalIdx = chapters.findIndex(c => c.id === chapter.id);
                                                         return (
@@ -1597,14 +2286,14 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                 <button
                                                                     onClick={() => setActiveChapterId(chapter.id)}
                                                                     className={`flex-1 text-left px-3 py-2 rounded-md text-xs transition-all flex items-center gap-3 group ${activeChapterId === chapter.id
-                                                                            ? 'bg-[#27272a] text-white'
-                                                                            : 'text-gray-500 hover:bg-white/5 hover:text-gray-300'
+                                                                            ? 'bg-max-surface text-max-text'
+                                                                            : 'text-max-text-muted hover:bg-max-surface-alt hover:text-max-text'
                                                                         }`}
                                                                 >
                                                                     <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${chapter.status === 'completed' ? 'bg-green-500' :
                                                                             chapter.status === 'generating' ? 'bg-yellow-500 animate-pulse' :
                                                                                 chapter.status === 'error' ? 'bg-red-500' :
-                                                                                    'bg-gray-700 group-hover:bg-gray-600'
+                                                                                    'bg-max-surface-alt group-hover:bg-max-border'
                                                                         }`}></div>
                                                                     <div className="truncate flex-1">
                                                                         <span className="font-mono opacity-30 mr-2 text-[10px]">{String(globalIdx + 1).padStart(2, '0')}</span>
@@ -1616,7 +2305,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                         e.stopPropagation();
                                                                         handleRegenerateChapter(chapter.id);
                                                                     }}
-                                                                    className="p-1.5 text-gray-600 hover:text-blue-400 hover:bg-blue-500/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
+                                                                    className="p-1.5 text-max-text-muted hover:text-max-accent hover:bg-max-accent/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
                                                                     title="重新生成"
                                                                 >
                                                                     <RefreshCw className="w-3 h-3" />
@@ -1626,7 +2315,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                         e.stopPropagation();
                                                                         handleDeleteChapter(chapter.id);
                                                                     }}
-                                                                    className="p-1.5 text-gray-600 hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
+                                                                    className="p-1.5 text-max-text-muted hover:text-red-400 hover:bg-red-500/10 rounded opacity-0 group-hover:opacity-100 transition-all shrink-0 mr-1"
                                                                     title="删除章节"
                                                                 >
                                                                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1649,14 +2338,14 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                 </div>
 
                 {/* Center: Editor */}
-                <div className="flex-1 flex flex-col bg-[#09090b] relative">
+                <div className="flex-1 flex flex-col bg-max-surface-alt relative">
                     {/* Editor Toolbar */}
-                    <div className="h-10 border-b border-white/5 flex items-center justify-between px-4 bg-[#09090b]/50 backdrop-blur shrink-0">
-                        <span className="text-xs text-gray-500 font-mono">
+                    <div className="h-10 border-b border-max-border flex items-center justify-between px-4 bg-max-surface-alt/50 backdrop-blur shrink-0">
+                        <span className="text-xs text-max-text-muted font-mono">
                             {activeChapter?.title || '未选择章节'}
                         </span>
                         <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-gray-600">
+                            <span className="text-[10px] text-max-text-muted">
                                 {activeChapter?.content ? `${activeChapter.content.length} 字` : '0 字'}
                             </span>
                         </div>
@@ -1668,11 +2357,11 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                             {activeChapter ? (
                                 <>
                                     {activeChapter.content ? (
-                                        <div className="prose prose-invert prose-p:leading-loose prose-p:text-gray-300 prose-lg max-w-none font-serif">
+                                        <div className="prose prose-invert prose-p:leading-loose prose-p:text-max-text prose-lg max-w-none font-serif">
                                             <ReactMarkdown>{activeChapter.content}</ReactMarkdown>
                                         </div>
                                     ) : (
-                                        <div className="h-[400px] flex flex-col items-center justify-center text-gray-700 gap-4 border-2 border-dashed border-white/5 rounded-xl">
+                                        <div className="h-[400px] flex flex-col items-center justify-center text-max-text-muted gap-4 border-2 border-dashed border-max-border rounded-xl">
                                             <Sparkles className="w-8 h-8 opacity-20" />
                                             <p>本章暂无内容</p>
                                             <button
@@ -1684,7 +2373,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                     }));
                                                     handleBatchGenerate();
                                                 }}
-                                                className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition-colors"
+                                                className="px-4 py-2 bg-max-surface hover:bg-max-surface-alt rounded-lg text-xs transition-colors"
                                             >
                                                 生成当前章节
                                             </button>
@@ -1692,7 +2381,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     )}
                                 </>
                             ) : (
-                                <div className="text-center text-gray-600 mt-20">请在左侧选择一个章节</div>
+                                <div className="text-center text-max-text-muted mt-20">请在左侧选择一个章节</div>
                             )}
                         </div>
                     </div>
@@ -1700,14 +2389,14 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             </div>
 
             {showWorksManager && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-                        <div className="flex items-center justify-between p-4 border-b border-white/10">
-                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <div className="fixed inset-0 bg-max-backdrop backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+                        <div className="flex items-center justify-between p-4 border-b border-max-border">
+                            <h2 className="text-sm font-bold text-max-text flex items-center gap-2">
                                 作品管理
                                 <button 
                                     onClick={() => setShowCloudSync(true)}
-                                    className="ml-2 p-1.5 rounded-full bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 hover:text-purple-300 transition-colors"
+                                    className="ml-2 p-1.5 rounded-full bg-max-accent/10 text-max-accent hover:bg-max-accent/20 hover:text-max-accent-hover transition-colors"
                                     title="云端同步"
                                 >
                                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -1717,7 +2406,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     </svg>
                                 </button>
                             </h2>
-                            <button onClick={() => setShowWorksManager(false)} className="text-gray-500 hover:text-white">
+                            <button onClick={() => setShowWorksManager(false)} className="text-max-text-muted hover:text-max-text">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -1730,54 +2419,65 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter') handleAddWork();
                                     }}
-                                    className="flex-1 px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
+                                    className="flex-1 px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all"
                                     placeholder="输入作品名称..."
                                 />
                                 <button
                                     type="button"
                                     onClick={handleAddWork}
-                                    className="px-4 py-2 text-xs font-bold bg-purple-600 text-white rounded-lg hover:bg-purple-500 transition-colors"
+                                    className="px-4 py-2 text-xs font-bold bg-max-accent text-white rounded-lg hover:opacity-90 transition-colors"
                                 >
                                     新增作品
                                 </button>
                             </div>
                             {works.length === 0 ? (
-                                <div className="text-xs text-gray-500">暂无作品</div>
+                                <div className="text-xs text-max-text-muted">暂无作品</div>
                             ) : (
                                 <div className="space-y-2">
                                     {works.map(work => (
                                         <div
                                             key={work.id}
                                             onClick={() => handleSelectWork(work.id)}
-                                            className={`flex items-center justify-between px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg cursor-pointer group ${activeWorkId === work.id ? 'bg-purple-500/10 border-purple-500/40' : 'hover:bg-white/5'
+                                            className={`flex items-center justify-between px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg cursor-pointer group ${activeWorkId === work.id ? 'bg-max-accent/10 border-max-accent/40' : 'hover:bg-max-surface-alt'
                                                 }`}
                                         >
                                             <div className="flex items-center gap-2 min-w-0">
                                                 {activeWorkId === work.id && (
-                                                    <Check className="w-3 h-3 text-purple-400 shrink-0" />
+                                                    <Check className="w-3 h-3 text-max-accent shrink-0" />
                                                 )}
-                                                <span className="text-xs text-gray-200 truncate">{work.title}</span>
+                                                <span className="text-xs text-max-text truncate">{work.title}</span>
+                                                <button
+                                                    type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleFolderExport(work);
+                                                    }}
+                                                    className="p-1 text-max-text-muted hover:text-max-accent transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="导出到本地文件夹 (大纲/细纲/正文)"
+                                                >
+                                                    <FolderOutput className="w-3 h-3" />
+                                                </button>
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleExportWork(work);
                                                     }}
-                                                    className="p-1 text-gray-500 hover:text-purple-300 transition-colors opacity-0 group-hover:opacity-100"
-                                                    title="导出作品"
+                                                    className="p-1 text-max-text-muted hover:text-max-accent transition-colors opacity-0 group-hover:opacity-100"
+                                                    title="导出作品 (ZIP)"
                                                 >
                                                     <Download className="w-3 h-3" />
                                                 </button>
                                             </div>
                                             <div className="flex items-center gap-2">
-                                                <span className="text-[10px] text-gray-500">{new Date(work.createdAt).toLocaleDateString()}</span>
+                                                <span className="text-[10px] text-max-text-muted">{new Date(work.createdAt).toLocaleDateString()}</span>
                                                 <button
                                                     type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation();
                                                         handleDeleteWork(work.id, work.title);
                                                     }}
-                                                    className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                                                    className="p-1 text-max-text-muted hover:text-red-400 transition-colors"
                                                     title="删除作品"
                                                 >
                                                     <Trash2 className="w-3 h-3" />
@@ -1802,14 +2502,14 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
 
             {/* Settings Modal */}
             {showSettings && (
-                <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
-                        <div className="flex items-center justify-between p-4 border-b border-white/10">
-                            <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                                <Settings className="w-4 h-4 text-gray-400" />
+                <div className="fixed inset-0 bg-max-backdrop backdrop-blur-sm z-50 flex items-center justify-center">
+                    <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl">
+                        <div className="flex items-center justify-between p-4 border-b border-max-border">
+                            <h2 className="text-sm font-bold text-max-text flex items-center gap-2">
+                                <Settings className="w-4 h-4 text-max-text-muted" />
                                 细纲设置
                             </h2>
-                            <button onClick={() => setShowSettings(false)} className="text-gray-500 hover:text-white">
+                            <button onClick={() => setShowSettings(false)} className="text-max-text-muted hover:text-max-text">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
@@ -1817,22 +2517,22 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-6">
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2">世界观 / 背景设定</label>
+                                <label className="block text-xs font-bold text-max-text-muted mb-2">世界观 / 背景设定</label>
                                 <textarea
                                     value={worldSetting}
                                     onChange={(e) => setWorldSetting(e.target.value)}
                                     rows={5}
-                                    className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all resize-y custom-scrollbar placeholder:text-gray-600"
+                                    className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all resize-y custom-scrollbar placeholder:text-max-text-muted/50"
                                     placeholder="输入小说的世界观、力量体系、背景故事等..."
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2">关联卡牌 (角色/设定)</label>
+                                <label className="block text-xs font-bold text-max-text-muted mb-2">关联卡牌 (角色/设定)</label>
                                 {(selectedCards?.length || 0) === 0 ? (
                                     <div
                                         onClick={() => setShowCardSelector(true)}
-                                        className="w-full h-20 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:bg-white/5 hover:text-gray-400 hover:border-white/20 transition-all cursor-pointer gap-2"
+                                        className="w-full h-20 border border-dashed border-max-border rounded-lg flex flex-col items-center justify-center text-max-text-muted hover:bg-max-surface hover:text-max-text hover:border-max-border/50 transition-all cursor-pointer gap-2"
                                     >
                                         <User className="w-5 h-5 opacity-50" />
                                         <span className="text-xs">点击选择角色卡 / 设定卡</span>
@@ -1840,11 +2540,11 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                 ) : (
                                     <div className="flex flex-wrap gap-2">
                                         {selectedCards?.map(card => (
-                                            <div key={card.id} className="group relative px-3 py-1.5 bg-[#27272a] border border-white/10 rounded-lg flex items-center gap-2 max-w-full">
-                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 shrink-0">
+                                            <div key={card.id} className="group relative px-3 py-1.5 bg-max-surface border border-max-border rounded-lg flex items-center gap-2 max-w-full">
+                                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-max-surface-alt text-max-text-muted shrink-0">
                                                     {card.type}
                                                 </span>
-                                                <span className="text-xs text-gray-300 truncate max-w-[120px]" title={card.title}>
+                                                <span className="text-xs text-max-text truncate max-w-[120px]" title={card.title}>
                                                     {card.title}
                                                 </span>
                                                 <button
@@ -1852,7 +2552,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                         e.stopPropagation();
                                                         setSelectedCards(prev => prev.filter(c => c.id !== card.id));
                                                     }}
-                                                    className="ml-1 text-gray-500 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="ml-1 text-max-text-muted hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity"
                                                 >
                                                     <X className="w-3 h-3" />
                                                 </button>
@@ -1860,7 +2560,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                         ))}
                                         <button
                                             onClick={() => setShowCardSelector(true)}
-                                            className="px-3 py-1.5 border border-dashed border-white/20 rounded-lg text-xs text-gray-500 hover:text-white hover:border-white/40 transition-all"
+                                            className="px-3 py-1.5 border border-dashed border-max-border rounded-lg text-xs text-max-text-muted hover:text-max-text hover:border-max-accent/50 transition-all"
                                         >
                                             <Plus className="w-3 h-3" />
                                         </button>
@@ -1869,52 +2569,41 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2">
+                                <label className="block text-xs font-bold text-max-text-muted mb-2">
                                     当前细纲文本 (可手动编辑)
                                 </label>
                                 <textarea
                                     value={outlineRaw}
                                     onChange={(e) => setOutlineRaw(e.target.value)}
                                     rows={10}
-                                    className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all resize-y custom-scrollbar placeholder:text-gray-600 font-mono"
+                                    className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all resize-y custom-scrollbar placeholder:text-max-text-muted/50 font-mono"
                                     placeholder={`第1章 觉醒\n主角在废墟中醒来，发现自己...\n\n第2章 逃离\n遭遇变异生物，开始逃亡...`}
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2">写作风格</label>
+                                <label className="block text-xs font-bold text-max-text-muted mb-2">写作风格</label>
                                 <input
                                     type="text"
                                     value={styleRef}
                                     onChange={(e) => setStyleRef(e.target.value)}
-                                    className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
+                                    className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all"
                                     placeholder="例如：赛博朋克、黑暗、快节奏、轻松搞笑..."
                                 />
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2">模型选择</label>
-                                <select
-                                    value={generationConfig.model}
-                                    onChange={(e) => setGenerationConfig(p => ({ ...p, model: e.target.value }))}
-                                    className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
-                                >
-                                    {availableModels.length > 0 ? (
-                                        availableModels.map(model => (
-                                            <option key={model} value={model}>{model}</option>
-                                        ))
-                                    ) : (
-                                        <>
-                                            <option value="gpt-4o">GPT-4o</option>
-                                            <option value="gpt-4o-mini">GPT-4o Mini</option>
-                                            <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
-                                        </>
+                                <label className="block text-xs font-bold text-max-text-muted mb-2">当前使用模型</label>
+                                <div className="px-3 py-2 bg-max-surface border border-max-border rounded-lg text-xs text-max-text">
+                                    {modelConfig.model || '未配置'}
+                                    {userLevel === 'PROMAX' && (
+                                        <span className="ml-2 text-max-text-muted">(请在顶部导航栏配置)</span>
                                     )}
-                                </select>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="block text-xs font-bold text-gray-400 mb-2">单章目标字数</label>
+                                <label className="block text-xs font-bold text-max-text-muted mb-2">单章目标字数</label>
                                 <div className="flex items-center gap-3">
                                     <input
                                         type="number"
@@ -1922,25 +2611,25 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                         step="100"
                                         value={generationConfig.wordCount || 2000}
                                         onChange={(e) => setGenerationConfig(p => ({ ...p, wordCount: Number(e.target.value) }))}
-                                        className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
+                                        className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all"
                                         placeholder="默认2000"
                                     />
-                                    <span className="text-xs text-gray-500 shrink-0">字以上</span>
+                                    <span className="text-xs text-max-text-muted shrink-0">字以上</span>
                                 </div>
                             </div>
 
                         </div>
 
-                        <div className="p-4 border-t border-white/10 flex justify-end gap-3">
+                        <div className="p-4 border-t border-max-border flex justify-end gap-3">
                             <button
                                 onClick={() => setShowSettings(false)}
-                                className="px-4 py-2 text-xs font-bold text-gray-400 hover:text-white transition-colors"
+                                className="px-4 py-2 text-xs font-bold text-max-text-muted hover:text-max-text transition-colors"
                             >
                                 取消
                             </button>
                             <button
                                 onClick={handleSaveSettings}
-                                className="px-6 py-2 text-xs font-bold bg-white text-black rounded-lg hover:bg-gray-200 transition-colors"
+                                className="px-6 py-2 text-xs font-bold bg-max-accent text-white rounded-lg hover:opacity-90 transition-colors"
                             >
                                 保存设置
                             </button>
@@ -1951,38 +2640,38 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
 
             {/* AI Outline Generator Modal (Independent) */}
             {showOutlineGen && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                <div className="fixed inset-0 bg-max-backdrop backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-4xl h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
                         {/* Header */}
-                        <div className="flex items-center justify-between p-4 border-b border-white/10 bg-[#27272a]/50 rounded-t-xl">
-                            <h2 className="text-base font-bold text-white flex items-center gap-2">
-                                <BrainCircuit className="w-5 h-5 text-purple-500" />
+                        <div className="flex items-center justify-between p-4 border-b border-max-border bg-max-surface/50 rounded-t-xl">
+                            <h2 className="text-base font-bold text-max-text flex items-center gap-2">
+                                <BrainCircuit className="w-5 h-5 text-max-accent" />
                                 AI 智能细纲生成器
                             </h2>
-                            <button onClick={() => setShowOutlineGen(false)} className="text-gray-500 hover:text-white p-1 rounded-md hover:bg-white/10">
+                            <button onClick={() => setShowOutlineGen(false)} className="text-max-text-muted hover:text-max-text p-1 rounded-md hover:bg-max-surface-alt">
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
 
                         <div className="flex-1 flex overflow-hidden">
                             {/* Left: Inputs */}
-                            <div className="w-1/3 border-r border-white/10 p-5 flex flex-col gap-6 overflow-y-auto custom-scrollbar bg-[#09090b]/30">
+                            <div className="w-1/3 border-r border-max-border p-5 flex flex-col gap-6 overflow-y-auto custom-scrollbar bg-max-surface-alt/30">
                                 <div className="space-y-3">
-                                    <label className="text-sm font-bold text-gray-300">1. 大纲</label>
+                                    <label className="text-sm font-bold text-max-text">1. 大纲</label>
                                     <textarea
                                         value={outlineIdea}
                                         onChange={(e) => setOutlineIdea(e.target.value)}
-                                        className="w-full h-32 px-3 py-3 bg-[#09090b] border border-white/10 rounded-lg outline-none text-sm text-gray-300 focus:border-purple-500/50 resize-none"
+                                        className="w-full h-32 px-3 py-3 bg-max-surface-alt border border-max-border rounded-lg outline-none text-sm text-max-text focus:border-max-accent resize-none"
                                         placeholder="自动带入大纲生成内容，可在此调整"
                                     />
                                 </div>
 
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-sm font-bold text-gray-300">关联卡牌 ({selectedCards.length})</label>
+                                        <label className="text-sm font-bold text-max-text">关联卡牌 ({selectedCards.length})</label>
                                         <button
                                             onClick={() => setShowCardSelector(true)}
-                                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                                            className="text-xs text-max-accent hover:text-max-accent-hover flex items-center gap-1"
                                         >
                                             <Plus className="w-3 h-3" /> 添加/管理
                                         </button>
@@ -1990,7 +2679,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     {selectedCards.length > 0 && (
                                         <div className="flex flex-wrap gap-2">
                                             {selectedCards.map(c => (
-                                                <span key={c.id} className="text-[10px] px-2 py-1 bg-[#27272a] border border-white/10 rounded text-gray-300 flex items-center gap-1">
+                                                <span key={c.id} className="text-[10px] px-2 py-1 bg-max-surface border border-max-border rounded text-max-text-muted flex items-center gap-1">
                                                     <span className={`w-1.5 h-1.5 rounded-full ${c.type === '角色' ? 'bg-blue-400' : 'bg-green-400'
                                                         }`}></span>
                                                     {c.title}
@@ -2002,10 +2691,10 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
 
                                 <div className="space-y-3">
                                     <div className="flex items-center justify-between">
-                                        <label className="text-sm font-bold text-gray-300">2. 细纲生成范式</label>
+                                        <label className="text-sm font-bold text-max-text">2. 细纲生成范式</label>
                                         <button
                                             onClick={() => setShowPromptManager(true)}
-                                            className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                                            className="text-xs text-max-accent hover:text-max-accent-hover flex items-center gap-1"
                                         >
                                             <FileText className="w-3 h-3" /> 提示词库
                                         </button>
@@ -2013,25 +2702,25 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     <textarea
                                         value={customSystemPrompt}
                                         onChange={(e) => setCustomSystemPrompt(e.target.value)}
-                                        className="w-full h-32 px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 resize-y placeholder:text-gray-600"
+                                        className="w-full h-32 px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent resize-y placeholder:text-max-text-muted/50"
                                         placeholder="输入自定义系统提示词..."
                                     />
                                 </div>
 
                                 <div className="space-y-3">
-                                    <label className="text-sm font-bold text-gray-300">3. 生成设置</label>
+                                    <label className="text-sm font-bold text-max-text">3. 生成设置</label>
                                     <div className="space-y-4">
                                         {/* Total Chapter Count Input - Removed as requested */}
                                         {/* 
-                                        <div className="flex items-center justify-between text-xs text-gray-400">
+                                        <div className="flex items-center justify-between text-xs text-max-text-muted">
                                             <span>总章数参考 (可选)</span>
                                             ...
                                         </div> 
                                         */}
                                         
-                                        <div className="pt-2 border-t border-white/5 space-y-3">
+                                        <div className="pt-2 border-t border-max-border space-y-3">
                                             <div className="flex items-center justify-between">
-                                                <label className="text-[11px] font-bold text-purple-400 uppercase tracking-wider">分卷识别 / 章节范围</label>
+                                                <label className="text-[11px] font-bold text-max-accent uppercase tracking-wider">分卷识别 / 章节范围</label>
                                             </div>
                                             
                                             {/* Volume Selector */}
@@ -2044,25 +2733,25 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                         setOutlineStartChapter(vol.startIndex);
                                                         setOutlineEndChapter(vol.endIndex);
                                                     }}
-                                                    className="px-2 py-1 text-[10px] rounded bg-purple-500/10 border border-purple-500/20 text-purple-300 hover:bg-purple-500/20 transition-colors truncate max-w-full text-left"
+                                                    className="px-2 py-1 text-[10px] rounded bg-max-accent/10 border border-max-accent/20 text-max-accent hover:bg-max-accent/20 transition-colors truncate max-w-full text-left"
                                                     title={`点击应用：第${vol.startIndex}-${vol.endIndex}章`}
                                                 >
                                                     <span className="font-bold">{vol.title}</span>
-                                                    <span className="text-gray-500 ml-1 opacity-70">({vol.startIndex}-{vol.endIndex}章)</span>
+                                                    <span className="text-max-text-muted ml-1 opacity-70">({vol.startIndex}-{vol.endIndex}章)</span>
                                                 </button>
                                             ))}
                                         </div>
                                     )}
 
-                                    <div className="p-3 bg-purple-500/5 border border-purple-500/10 rounded-lg">
-                                        <p className="text-[10px] text-purple-300/70 leading-relaxed mb-3">
+                                    <div className="p-3 bg-max-accent/5 border border-max-accent/10 rounded-lg">
+                                        <p className="text-[10px] text-max-accent/70 leading-relaxed mb-3">
                                             {detectedVolumes.length > 0 
                                                 ? "已从大纲中识别出分卷，点击上方标签可快速设置生成范围。" 
                                                 : "在大纲中输入“第X卷”即可自动识别分卷。"}
                                         </p>
-                                                <div className="flex items-center gap-3 bg-[#09090b] p-2 rounded-lg border border-white/5 shadow-inner">
+                                                <div className="flex items-center gap-3 bg-max-surface-alt p-2 rounded-lg border border-max-border shadow-inner">
                                                     <div className="flex-1 space-y-1">
-                                                        <span className="text-[10px] text-gray-500 ml-1">起始章</span>
+                                                        <span className="text-[10px] text-max-text-muted ml-1">起始章</span>
                                                         <input
                                                             type="number"
                                                             min={1}
@@ -2072,12 +2761,12 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                 const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                                                                 setOutlineStartChapter(val);
                                                             }}
-                                                            className="w-full px-2 py-1.5 bg-[#18181b] border border-white/10 rounded outline-none text-xs text-white focus:border-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                            className="w-full px-2 py-1.5 bg-max-bg border border-max-border rounded outline-none text-xs text-max-text focus:border-max-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         />
                                                     </div>
-                                                    <div className="text-gray-600 mt-4">至</div>
+                                                    <div className="text-max-text-muted mt-4">至</div>
                                                     <div className="flex-1 space-y-1">
-                                                        <span className="text-[10px] text-gray-500 ml-1">结束章</span>
+                                                        <span className="text-[10px] text-max-text-muted ml-1">结束章</span>
                                                         <input
                                                             type="number"
                                                             min={1}
@@ -2087,7 +2776,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                 const val = e.target.value === '' ? 0 : parseInt(e.target.value);
                                                                 setOutlineEndChapter(val);
                                                             }}
-                                                            className="w-full px-2 py-1.5 bg-[#18181b] border border-white/10 rounded outline-none text-xs text-white focus:border-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                            className="w-full px-2 py-1.5 bg-max-bg border border-max-border rounded outline-none text-xs text-max-text focus:border-max-accent [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                         />
                                                     </div>
                                                 </div>
@@ -2095,8 +2784,8 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                         </div>
                                     </div>
                                     <div className="pt-2">
-                                        <p className="text-xs text-gray-500 leading-relaxed">
-                                            * 系统将调用 <span className="text-purple-400">RAG推理模型</span> 进行深度构思。<br />
+                                        <p className="text-xs text-max-text-muted leading-relaxed">
+                                            * 系统将调用 <span className="text-max-accent">RAG推理模型</span> 进行深度构思。<br />
                                             * 生成的内容包含每章标题和详细细纲。
                                         </p>
                                     </div>
@@ -2106,7 +2795,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                     <button
                                         onClick={handleGenerateOutline}
                                         disabled={outlineGenState.isGenerating}
-                                        className="w-full py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg text-sm font-bold hover:opacity-90 shadow-lg shadow-purple-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                                        className="w-full py-3 bg-max-accent text-white rounded-lg text-sm font-bold hover:opacity-90 shadow-lg shadow-max-accent/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
                                     >
                                         {outlineGenState.isGenerating ? (
                                             <>
@@ -2124,42 +2813,25 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                             </div>
 
                             {/* Right: Result Preview */}
-                            <div className="flex-1 flex flex-col bg-[#09090b]">
-                                <div className="p-3 border-b border-white/5 flex items-center justify-between bg-[#18181b]/50">
+                            <div className="flex-1 flex flex-col bg-max-surface-alt">
+                                <div className="p-3 border-b border-max-border flex items-center justify-between bg-max-bg/50">
                                     <div className="flex items-center gap-3">
-                                        <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">生成结果预览</span>
-                                        <select
-                                            value={generationConfig.model}
-                                            onChange={(e) => setGenerationConfig(p => ({ ...p, model: e.target.value }))}
-                                            className="px-2 py-1 bg-[#27272a] border border-white/10 rounded text-xs text-gray-300 outline-none focus:border-purple-500/50"
-                                        >
-                                            {availableModels.length > 0 ? (
-                                                availableModels.map(model => (
-                                                    <option key={model} value={model}>{model}</option>
-                                                ))
-                                            ) : (
-                                                <>
-                                                    <option value="gpt-4o">GPT-4o</option>
-                                                    <option value="gpt-4o-mini">GPT-4o Mini</option>
-                                                    <option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
-                                                </>
-                                            )}
-                                        </select>
+                                        <span className="text-xs font-bold text-max-text-muted uppercase tracking-wider">生成结果预览</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-[10px] text-gray-600">可直接编辑下方文本</span>
+                                        <span className="text-[10px] text-max-text-muted">可直接编辑下方文本</span>
                                     </div>
                                 </div>
                                 <textarea
                                     value={outlineRaw}
                                     onChange={(e) => setOutlineRaw(e.target.value)}
-                                    className="flex-1 w-full p-6 bg-transparent outline-none text-gray-300 font-mono text-sm leading-relaxed resize-none custom-scrollbar"
+                                    className="flex-1 w-full p-6 bg-transparent outline-none text-max-text font-mono text-sm leading-relaxed resize-none custom-scrollbar"
                                     placeholder="生成的大纲将显示在这里..."
                                 />
-                                <div className="p-4 border-t border-white/10 bg-[#18181b] flex justify-end gap-3">
+                                <div className="p-4 border-t border-max-border bg-max-bg flex justify-end gap-3">
                                     <button
                                         onClick={() => setShowOutlineGen(false)}
-                                        className="px-4 py-2 text-sm font-medium text-gray-500 hover:text-white transition-colors"
+                                        className="px-4 py-2 text-sm font-medium text-max-text-muted hover:text-max-text transition-colors"
                                     >
                                         关闭
                                     </button>
@@ -2179,8 +2851,8 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
             )}
             {/* Prompt Manager Modal */}
             {showPromptManager && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+                <div className="fixed inset-0 bg-max-backdrop backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+                    <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
                         <Module10Manager
                             initialModuleId="module_max"
                             onSelectPrompt={(content) => {
@@ -2195,34 +2867,34 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
 
             {/* Card Selector Modal */}
             {showCardSelector && (
-                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-2xl max-h-[70vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
-                        <div className="flex items-center justify-between p-4 border-b border-white/10">
-                            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                                <Layers className="w-4 h-4 text-purple-500" />
+                <div className="fixed inset-0 bg-max-backdrop backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+                    <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-2xl max-h-[70vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+                        <div className="flex items-center justify-between p-4 border-b border-max-border">
+                            <h3 className="text-sm font-bold text-max-text flex items-center gap-2">
+                                <Layers className="w-4 h-4 text-max-accent" />
                                 选择卡牌资料
                             </h3>
-                            <button onClick={() => setShowCardSelector(false)} className="text-gray-500 hover:text-white">
+                            <button onClick={() => setShowCardSelector(false)} className="text-max-text-muted hover:text-max-text">
                                 <X className="w-4 h-4" />
                             </button>
                         </div>
 
-                        <div className="p-4 border-b border-white/5">
+                        <div className="p-4 border-b border-max-border">
                             <div className="relative">
-                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-gray-500" />
+                                <Search className="absolute left-3 top-2.5 w-4 h-4 text-max-text-muted" />
                                 <input
                                     type="text"
                                     value={cardSearch}
                                     onChange={(e) => setCardSearch(e.target.value)}
                                     placeholder="搜索卡牌名称..."
-                                    className="w-full pl-9 pr-4 py-2 bg-[#27272a] border border-white/10 rounded-lg text-sm text-gray-300 outline-none focus:border-purple-500/50"
+                                    className="w-full pl-9 pr-4 py-2 bg-max-surface border border-max-border rounded-lg text-sm text-max-text outline-none focus:border-max-accent"
                                 />
                             </div>
                         </div>
 
                         <div className="flex-1 overflow-y-auto custom-scrollbar p-2">
                             {cardLibrary.length === 0 ? (
-                                <div className="h-40 flex flex-col items-center justify-center text-gray-500 gap-2">
+                                <div className="h-40 flex flex-col items-center justify-center text-max-text-muted gap-2">
                                     <Layers className="w-8 h-8 opacity-20" />
                                     <p className="text-sm">暂无卡牌，请先去“拆书/卡牌”模块添加</p>
                                 </div>
@@ -2238,8 +2910,8 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                 <div
                                                     key={card.id}
                                                     className={`relative p-3 rounded-lg border transition-all flex flex-col gap-2 group ${isSelected
-                                                            ? 'bg-purple-600/10 border-purple-500/50'
-                                                            : 'bg-[#27272a] border-white/5 hover:border-white/20'
+                                                            ? 'bg-max-accent/10 border-max-accent/50'
+                                                            : 'bg-max-surface border-max-border hover:border-max-text/20'
                                                         }`}
                                                 >
                                                     {/* Selection Overlay (Click anywhere to select, unless editing) */}
@@ -2259,7 +2931,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                     <div className="flex items-center justify-between z-10 relative pointer-events-none">
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded ${card.type === '角色' ? 'bg-blue-500/20 text-blue-300' :
                                                                 card.type === '世界观' ? 'bg-green-500/20 text-green-300' :
-                                                                    'bg-gray-700 text-gray-400'
+                                                                    'bg-max-surface-alt text-max-text-muted'
                                                             }`}>
                                                             {card.type}
                                                         </span>
@@ -2271,25 +2943,25 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                         setEditingCardId(card.id);
                                                                         setEditingCardContent(card.analysis || card.example || '');
                                                                     }}
-                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-white/10 rounded text-gray-400 hover:text-white transition-all"
+                                                                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-max-surface-alt rounded text-max-text-muted hover:text-max-text transition-all"
                                                                     title="编辑内容"
                                                                 >
                                                                     <Edit2 className="w-3 h-3" />
                                                                 </button>
                                                             )}
-                                                            {isSelected && <Check className="w-3 h-3 text-purple-400" />}
+                                                            {isSelected && <Check className="w-3 h-3 text-max-accent" />}
                                                         </div>
                                                     </div>
 
-                                                    <div className="font-bold text-sm text-gray-200 truncate z-10 relative pointer-events-none">{card.title}</div>
+                                                    <div className="font-bold text-sm text-max-text truncate z-10 relative pointer-events-none">{card.title}</div>
                                                     
-                                                    <div className="text-[10px] text-gray-500 z-10 relative pointer-events-auto">
+                                                    <div className="text-[10px] text-max-text-muted z-10 relative pointer-events-auto">
                                                         {isEditing ? (
                                                             <div className="mt-1 space-y-2">
                                                                 <textarea
                                                                     value={editingCardContent}
                                                                     onChange={(e) => setEditingCardContent(e.target.value)}
-                                                                    className="w-full h-24 bg-black/50 border border-white/10 rounded p-2 text-xs text-gray-300 outline-none focus:border-purple-500/50 resize-none"
+                                                                    className="w-full h-24 bg-max-surface-alt border border-max-border rounded p-2 text-xs text-max-text outline-none focus:border-max-accent resize-none"
                                                                     autoFocus
                                                                     onClick={(e) => e.stopPropagation()}
                                                                     onKeyDown={(e) => e.stopPropagation()} // Prevent bubbling
@@ -2300,7 +2972,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                             e.stopPropagation();
                                                                             setEditingCardId(null);
                                                                         }}
-                                                                        className="p-1 hover:bg-white/10 rounded text-gray-400"
+                                                                        className="p-1 hover:bg-max-surface-alt rounded text-max-text-muted"
                                                                     >
                                                                         <X className="w-3 h-3" />
                                                                     </button>
@@ -2324,7 +2996,7 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                                                                             });
                                                                             setEditingCardId(null);
                                                                         }}
-                                                                        className="p-1 bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 rounded"
+                                                                        className="p-1 bg-max-accent/20 hover:bg-max-accent/40 text-max-accent rounded"
                                                                     >
                                                                         <Save className="w-3 h-3" />
                                                                     </button>
@@ -2343,11 +3015,11 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                             )}
                         </div>
 
-                        <div className="p-4 border-t border-white/10 flex justify-between items-center bg-[#18181b] rounded-b-xl">
-                            <span className="text-xs text-gray-500">已选择 {selectedCards.length} 张卡牌</span>
+                        <div className="p-4 border-t border-max-border flex justify-between items-center bg-max-bg rounded-b-xl">
+                            <span className="text-xs text-max-text-muted">已选择 {selectedCards.length} 张卡牌</span>
                             <button
                                 onClick={() => setShowCardSelector(false)}
-                                className="px-6 py-2 bg-white text-black text-xs font-bold rounded-lg hover:bg-gray-200 transition-colors"
+                                className="px-6 py-2 bg-max-accent text-white text-xs font-bold rounded-lg hover:opacity-90 transition-colors"
                             >
                                 确认选择
                             </button>

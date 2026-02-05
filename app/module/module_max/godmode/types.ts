@@ -12,6 +12,9 @@ export type WorldLayer =
     | 'power'     // 力量
     | 'rule'      // 法则
     | 'artifact'  // 神器
+    | 'relation'  // 关系
+    | 'secret'    // 伏笔
+    | 'other'     // 其他
     // Meta
     | 'plot'      // 剧情 (special layer)
     | 'timeline'; // 时间线 (chapter-date mapping)
@@ -42,6 +45,11 @@ export interface GodNodeData {
     props?: Record<string, any>; // Layer-specific properties
     hasChildWorld?: boolean; // Can drill down?
     worldPosition: Coordinates; // Moved inside data for React Flow compatibility
+    
+    // Timeline Integration
+    startChapter?: number; // Exists from this chapter
+    endChapter?: number;   // Exists until this chapter (null/undefined means forever)
+    status?: 'active' | 'destroyed' | 'hidden'; // Dynamic status based on timeline
 }
 
 // React Flow compatible Node definition
@@ -73,13 +81,16 @@ export type LayerVisibility = Record<WorldLayer, boolean>;
 export const LAYER_CONFIG: Record<WorldLayer, { label: string; color: string; icon: string }> = {
     geo: { label: '地理', color: '#10b981', icon: 'Map' },
     resource: { label: '资源', color: '#f59e0b', icon: 'Gem' },
-    race: { label: '种族', color: '#8b5cf6', icon: 'Users' },
+    race: { label: '角色/种族', color: '#8b5cf6', icon: 'Users' },
     faction: { label: '势力', color: '#ef4444', icon: 'Flag' },
     economy: { label: '经济', color: '#eab308', icon: 'Coins' },
     culture: { label: '文化', color: '#ec4899', icon: 'BookOpen' },
     power: { label: '力量', color: '#3b82f6', icon: 'Zap' },
     rule: { label: '法则', color: '#6366f1', icon: 'Scale' },
     artifact: { label: '神器', color: '#d946ef', icon: 'Crown' },
+    relation: { label: '关系', color: '#f43f5e', icon: 'Users' },
+    secret: { label: '伏笔', color: '#64748b', icon: 'FileText' },
+    other: { label: '其他', color: '#94a3b8', icon: 'FileText' },
     plot: { label: '剧情', color: '#f97316', icon: 'FileText' },
     timeline: { label: '时间线', color: '#06b6d4', icon: 'Clock' },
 };

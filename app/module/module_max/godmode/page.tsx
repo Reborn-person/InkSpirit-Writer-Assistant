@@ -1,16 +1,37 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { GodModeProvider, useGodMode } from './store/GodModeContext';
 import { GodCanvas } from './components/GodCanvas';
 import { useEditorAgent } from '@/contexts/EditorAgentContext';
 import { Settings, Share2, Save, RotateCcw, Check, Shield } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { ModelConfigPanel, ModelConfig } from '@/app/components/ModelConfigPanel';
+import { useState } from 'react';
 
 // --- Main Layout ---
 function GodModePageContent() {
+    const pathname = usePathname();
     const { isAiOpen } = useEditorAgent();
     const { state, dispatch, saveWorld } = useGodMode();
+
+    const [modelConfig, setModelConfig] = useState<ModelConfig>({
+        provider: 'siliconflow',
+        model: 'deepseek-ai/DeepSeek-V3',
+        apiKey: '',
+        baseUrl: 'https://api.siliconflow.cn/v1'
+    });
+
+    const isMaxHome = pathname === '/module/module_max';
+    const isMaxIdea = pathname === '/module/module_max/idea';
+    const isMaxDismantle = pathname === '/module/module_max/dismantle';
+    const isMaxOutline = pathname === '/module/module_max/outline';
+    const isMaxCreation = pathname === '/module/module_max/creation';
+    const isMaxPolish = pathname === '/module/module_max/polish';
+    const isMaxConsistency = pathname === '/module/module_max/consistency';
+    const isMaxHumanizer = pathname === '/module/module_max/humanizer';
+    const isMaxGodMode = pathname === '/module/module_max/godmode';
 
     const handleReset = () => {
         if (confirm('确定要重置世界吗？所有未保存的更改将丢失。')) {
@@ -22,32 +43,52 @@ function GodModePageContent() {
         await saveWorld();
     };
 
+    // useEffect(() => {
+    //     // Force enable Max Mode styles globally
+    //     document.body.classList.add('max-mode');
+    //     return () => {
+    //         document.body.classList.remove('max-mode');
+    //     };
+    // }, []);
+
     return (
-        <div className={`transition-all duration-300 h-screen flex flex-col bg-[#18181b] overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
-
-            {/* Header / Toolbar */}
-            <header className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#18181b] z-20 shrink-0">
+        <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-max-bg-alt text-max-text font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
+            {/* Top Bar */}
+            <header className="h-14 border-b border-max-border flex items-center justify-between px-4 bg-max-bg shrink-0 z-20">
                 <div className="flex items-center gap-4">
-                    <h1 className="text-sm font-bold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-indigo-400 flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                        上帝模式 (God Mode)
-                    </h1>
+                    <div className="flex bg-max-surface rounded-lg p-1 border border-max-border overflow-x-auto no-scrollbar max-w-[60vw]">
+                        <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHome ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>MAX 主页</Link>
+                        <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxIdea ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>脑洞风暴</Link>
+                        <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxDismantle ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>拆书</Link>
+                        <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxOutline ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>大纲生成</Link>
+                        <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxCreation ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>万字冲刺</Link>
+                        <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxPolish ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>自循环</Link>
+                        <Link href="/module/module_max/consistency" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxConsistency ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>一致性</Link>
+                        <Link href="/module/module_max/humanizer" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHumanizer ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>AI去味</Link>
+                        <Link href="/module/module_max/godmode" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxGodMode ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>上帝模式</Link>
+                    </div>
                     <div className="h-4 w-[1px] bg-white/10"></div>
-                    <span className="text-xs text-gray-500">全息世界构建系统 v3.0</span>
+                    <h1 className="text-sm font-bold text-max-text flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
+                        上帝模式
+                    </h1>
+                    <div className="ml-4">
+                        <ModelConfigPanel moduleKey="godmode" onConfigChange={setModelConfig} />
+                    </div>
+                </div>
 
+                <div className="flex items-center gap-3">
                     {/* Auto-save Indicator */}
                     {state.lastSaved && (
-                        <div className="flex items-center gap-1.5 ml-4 px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-[10px] text-green-400">
+                        <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-green-500/10 border border-green-500/20 text-[10px] text-green-400">
                             <Check className="w-3 h-3" />
                             已保存 {new Date(state.lastSaved).toLocaleTimeString()}
                         </div>
                     )}
-                </div>
-
-                <div className="flex items-center gap-3">
+                    
                     <button
                         onClick={handleReset}
-                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/10"
+                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-max-text-muted hover:text-max-text hover:bg-max-surface-alt rounded-lg transition-colors border border-transparent hover:border-max-border"
                         title="重置为初始演示数据"
                     >
                         <RotateCcw className="w-3.5 h-3.5" />
@@ -56,27 +97,18 @@ function GodModePageContent() {
 
                     <div className="h-4 w-[1px] bg-white/10"></div>
 
-                    <Link
-                        href="/module/module_max/consistency"
-                        className="flex items-center gap-2 px-3 py-1.5 text-xs text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors border border-transparent hover:border-white/10"
-                        title="一致性检查"
-                    >
-                        <Shield className="w-3.5 h-3.5" />
-                        一致性检查
-                    </Link>
-
                     <button
                         onClick={handleSave}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs rounded-lg transition-all shadow-lg shadow-purple-900/20"
+                        className="flex items-center gap-2 px-3 py-1.5 bg-max-accent text-white text-xs rounded-lg transition-all shadow-lg shadow-max-accent/20 hover:opacity-90"
                     >
                         <Save className="w-3.5 h-3.5" />
-                        保存
+                        保存世界
                     </button>
 
-                    <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                    <button className="p-2 text-max-text-muted hover:text-max-text hover:bg-max-surface-alt rounded-lg transition-colors">
                         <Share2 className="w-4 h-4" />
                     </button>
-                    <button className="p-2 text-gray-400 hover:text-white hover:bg-white/5 rounded-lg transition-colors">
+                    <button className="p-2 text-max-text-muted hover:text-max-text hover:bg-max-surface-alt rounded-lg transition-colors">
                         <Settings className="w-4 h-4" />
                     </button>
                 </div>
@@ -84,7 +116,7 @@ function GodModePageContent() {
 
             {/* Canvas Area */}
             <div className="flex-1 relative overflow-hidden">
-                <GodCanvas />
+                <GodCanvas modelConfig={modelConfig} />
             </div>
         </div>
     );

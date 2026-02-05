@@ -60,6 +60,7 @@ export const STORAGE_KEYS = {
   LAST_SAVE_TIME: 'novel_writer_last_save_time',
   USER_AVATAR: 'novel_writer_user_avatar',
   USER_NAME: 'novel_writer_user_name',
+  UI_THEME: 'novel_writer_ui_theme',
 
   // Token Statistics
   TOKEN_USAGE: 'novel_writer_token_usage',
@@ -513,9 +514,10 @@ export class StorageManager {
       // 添加新记录
       history.push(record);
 
-      // 限制历史记录数量 (保留最近 10000 条)
-      if (history.length > 10000) {
-        history = history.slice(-10000);
+      // 限制历史记录数量为2000条（优化：从10000减少到2000，节省存储空间）
+      const MAX_TOKEN_HISTORY = 2000;
+      if (history.length > MAX_TOKEN_HISTORY) {
+        history = history.slice(-MAX_TOKEN_HISTORY);
       }
 
       // 保存
@@ -542,7 +544,7 @@ export class StorageManager {
       total: 0,
       today: 0,
       byModel: {} as Record<string, number>,
-      history
+      history: history as TokenUsageRecord[]
     };
 
     const todayStr = new Date().toISOString().split('T')[0];

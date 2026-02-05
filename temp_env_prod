@@ -1,0 +1,7 @@
+DATABASE_URL="file:/data/db.sqlite"
+JWT_SECRET="aimax-secret-key-change-this-in-prod"
+ADMIN_USERNAMES="1619615068"
+SETTINGS_ENCRYPTION_KEY="random-key-please-change-me-to-something-long"
+ADMIN_INVITE_CODE="admin888"
+MAX_BACKUP_BYTES="104857600"
+NODE_ENV="production"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import { Bot, X, Send, Loader2, Maximize2, Minimize2, Trash2, Settings2, Image as ImageIcon, Check, Download, PenTool, Eraser, Undo2, BookOpen, AtSign, FileText, Calculator, User, Settings, Globe, List, Type, Smile, Book, Zap, Copy, Users, Wand2, Sparkles } from 'lucide-react';
 import { generateAIContent, generateAIContentStream, generateImage } from '@/lib/ai';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
@@ -111,9 +111,11 @@ interface NovelFile {
 
 export default function FloatingAI() {
     const pathname = usePathname();
-    const { activeEditor, activeEditorId, isAiOpen, setIsAiOpen, readEditorContent, readSelection, writeToEditor, deleteSelection, undo, pendingPrompt, setPendingPrompt, shouldAutoSend, isMaxMode, runPageSkill } = useEditorAgent();
+    const { activeEditor, activeEditorId, isAiOpen, setIsAiOpen, readEditorContent, readSelection, writeToEditor, deleteSelection, undo, pendingPrompt, setPendingPrompt, shouldAutoSend, isMaxMode, runPageSkill, userLevel } = useEditorAgent();
     const isMaxRoute = pathname.startsWith('/module/module_max');
-    const isDocked = activeEditorId === 'module7' || isMaxMode || isMaxRoute;
+    const isDocked = activeEditorId === 'module7' || isMaxMode || isMaxRoute || activeEditorId === 'module12';
+    const isNeonMode = activeEditorId === 'module12'; // Use this for status light only
+    
     // const [isOpen, setIsOpen] = useState(false); // Moved to context
     const [messages, setMessages] = useState<Message[]>([
         { role: 'assistant', content: '你好！我是墨灵写作助手。有什么我可以帮你的吗？\n你可以问我关于小说设定的问题，或者让我帮你润色一段文字。', id: 'init' }
@@ -153,7 +155,7 @@ export default function FloatingAI() {
     const [reviewPrompt, setReviewPrompt] = useState('');
 
     const [showMcpPanel, setShowMcpPanel] = useState(false);
-    const [mcpTool, setMcpTool] = useState<'material' | 'outline_check' | 'card_link' | 'task_plan'>('material');
+    const [mcpTool, setMcpTool] = useState<'material' | 'outline_check' | 'card_link' | 'task_plan' | 'chart_scan'>('material');
     const [mcpQuery, setMcpQuery] = useState('');
     const [mcpFocus, setMcpFocus] = useState('结构完整性、节奏、钩子强度、冲突密度');
     const [mcpTaskCount, setMcpTaskCount] = useState(30);
@@ -162,6 +164,8 @@ export default function FloatingAI() {
     const [mcpSelectedCardIds, setMcpSelectedCardIds] = useState<string[]>([]);
     const [mcpApplyCardLink, setMcpApplyCardLink] = useState(false);
     const [mcpApplyTaskPlan, setMcpApplyTaskPlan] = useState(false);
+    const [mcpScanSource, setMcpScanSource] = useState('qidian_monthly');
+    const [mcpScanResults, setMcpScanResults] = useState('');
 
     // @ Context Reference State
     const [showAtMenu, setShowAtMenu] = useState(false);
@@ -176,6 +180,28 @@ export default function FloatingAI() {
     const [atQuery, setAtQuery] = useState('');
 
     const [linkedFiles, setLinkedFiles] = useState<NovelFile[]>([]); // Keep this
+
+    // Filter providers based on user level
+    const visibleProviders = useMemo(() => {
+        // Only PROMAX users can see all providers (including SiliconFlow and Alibaba)
+        if (userLevel === 'PROMAX') {
+            return ['siliconflow', 'vectorengine', 'alibaba', 'openai', 'custom'];
+        }
+        // Other users (MAX, PRO, PRO_PLUS) can only see platform-provided/allowed providers
+        return ['vectorengine', 'openai', 'custom'];
+    }, [userLevel]);
+
+    // Ensure current provider is valid for the user level
+    useEffect(() => {
+        if (!visibleProviders.includes(currentProvider)) {
+            // Default to vectorengine if available, otherwise first available
+            if (visibleProviders.includes('vectorengine')) {
+                setCurrentProvider('vectorengine');
+            } else if (visibleProviders.length > 0) {
+                setCurrentProvider(visibleProviders[0]);
+            }
+        }
+    }, [visibleProviders, currentProvider]);
 
     // MAX Mode Visual State
     // const [isMaxSettingEnabled, setIsMaxSettingEnabled] = useState(false);
@@ -569,7 +595,7 @@ export default function FloatingAI() {
                 return;
             }
             const { apiKey, baseUrl, model, provider } = resolveChatConfig();
-            if (!apiKey) {
+            if (!apiKey && provider !== 'siliconflow') {
                 appendAssistantMessage(`请先在设置中配置 ${provider} 的 API Key。`);
                 return;
             }
@@ -655,7 +681,7 @@ export default function FloatingAI() {
                 return;
             }
             const { apiKey, baseUrl, model, provider } = resolveChatConfig();
-            if (!apiKey) {
+            if (!apiKey && provider !== 'siliconflow') {
                 appendAssistantMessage(`请先在设置中配置 ${provider} 的 API Key。`);
                 return;
             }
@@ -680,6 +706,54 @@ export default function FloatingAI() {
             }
         } catch (e: any) {
             appendAssistantMessage(e?.message || '章节任务编排失败，请稍后重试。');
+        } finally {
+            setMcpLoading(false);
+        }
+    };
+
+    const runMcpChartScan = async () => {
+        setMcpLoading(true);
+        try {
+            appendAssistantMessage('正在尝试获取起点月票榜数据，请稍候...');
+            const res = await fetch('/api/mcp/scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ source: mcpScanSource })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+            
+            const listText = data.books.map((b: any) => `${b.rank}. 《${b.title}》 - ${b.author}\n   简介：${b.intro || '无'}`).join('\n\n');
+            setMcpScanResults(listText);
+            appendAssistantMessage(`扫榜成功！已获取榜单前 ${data.books.length} 名。\n\n你可以点击“分析热门题材”来获取趋势分析。`);
+        } catch (e: any) {
+            appendAssistantMessage(`扫榜失败：${e.message}\n\n建议手动复制榜单内容到输入框。`);
+        } finally {
+            setMcpLoading(false);
+        }
+    };
+
+    const runMcpTrendAnalysis = async () => {
+        if (!mcpScanResults.trim()) {
+            appendAssistantMessage('请先扫榜或在下方输入榜单内容。');
+            return;
+        }
+        setMcpLoading(true);
+        try {
+            const { apiKey, baseUrl, model, provider } = resolveChatConfig();
+            if (!apiKey && provider !== 'siliconflow') {
+                appendAssistantMessage(`请先在设置中配置 ${provider} 的 API Key。`);
+                return;
+            }
+            const systemPrompt = '你是资深网文市场分析师，擅长从榜单中提炼热门题材和创新点。';
+            const userPrompt = `请分析以下小说榜单，总结当前的【热门题材】、【核心爽点】和【创新趋势】。\n\n榜单内容：\n${mcpScanResults}`;
+            
+            appendAssistantMessage('正在分析热门题材，请稍候...');
+            const analysis = await generateAIContent(apiKey, systemPrompt, userPrompt, baseUrl, model);
+            appendAssistantMessage(`【热门题材分析】\n\n${analysis}`);
+            
+        } catch (e: any) {
+            appendAssistantMessage(`分析失败：${e.message}`);
         } finally {
             setMcpLoading(false);
         }
@@ -1002,7 +1076,7 @@ export default function FloatingAI() {
 
             // Use currentModel state instead of reading from storage again
 
-            if (!apiKey) {
+            if (!apiKey && currentProvider !== 'siliconflow') {
                 setMessages(prev => prev.map(m =>
                     m.id === assistantMsgId ? { ...m, content: `请先在设置中配置 ${currentProvider === 'siliconflow' ? '硅基流动' : currentProvider === 'vectorengine' ? '向量引擎' : currentProvider} 的 API Key。` } : m
                 ));
@@ -1170,7 +1244,11 @@ export default function FloatingAI() {
             appendToolMessage(toolSteps);
 
             // Build context from previous messages (limit to last 10 to save tokens)
-            let contextPrompt = systemPromptOverride || `你是一个专业的小说写作助手。请简短、直接地回答用户的问题。所有回复请使用中文。`;
+            let contextPrompt = systemPromptOverride || (
+                isNeonMode
+                    ? `你是一个对话式写作的共写助手。你的目标是通过对话协作，产出可直接进入正文的内容。所有回复请使用中文。`
+                    : `你是一个专业的小说写作助手。请简短、直接地回答用户的问题。所有回复请使用中文。`
+            );
 
             // Append instructions even if overridden, unless we want complete replacement?
             // Usually we want to keep the tool instructions (XML tags)
@@ -1203,6 +1281,10 @@ export default function FloatingAI() {
 - 如果只是回答问题或解释，不要使用标签。
 - 使用标签时，标签外不要有多余的解释性文字，除非你觉得有必要说明。
 `;
+
+            if (isNeonMode) {
+                contextPrompt += `\n\n【模块12：对话式写作】\n- 如果用户是在要求写作/续写/润色/改写，请优先用 <write> 直接输出最终正文。\n- 如果用户是在讨论设定/策略/结构而不是要落字，不要使用标签。`;
+            }
 
             if (isMaxMode || isMaxRoute) {
                 contextPrompt += `\n\n【Max 模式技能】\n当你需要操控 Max 页面时，仅输出技能 XML，不要附加其他说明。\n<skill name="page_control">{\"action\":\"动作\",\"value\":\"值\"}</skill>\n`;
@@ -1622,38 +1704,40 @@ ${pageContext}
             {/* Review Settings Modal */}
             {showReviewSettings && (
                 <div className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-[600px] max-w-full flex flex-col max-h-[80vh]">
-                        <div className="p-4 border-b border-ink/10 flex items-center justify-between bg-paper/50 rounded-t-xl">
-                            <h3 className="font-bold text-ink flex items-center gap-2">
-                                <Settings2 className="w-4 h-4 text-daiqing" />
+                    <div className={`${isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-white border-ink/10'} border rounded-xl shadow-2xl w-[600px] max-w-full flex flex-col max-h-[80vh]`}>
+                        <div className={`p-4 border-b flex items-center justify-between rounded-t-xl ${isVisualMax ? 'bg-white/5 border-white/10' : 'bg-paper/50 border-ink/10'}`}>
+                            <h3 className={`font-bold flex items-center gap-2 ${isVisualMax ? 'text-[#f4f4f5]' : 'text-ink'}`}>
+                                <Settings2 className={`w-4 h-4 ${isVisualMax ? 'text-purple-400' : 'text-daiqing'}`} />
                                 配置评审提示词 (模块8)
                             </h3>
-                            <button onClick={() => setShowReviewSettings(false)} className="text-ink/40 hover:text-ink">
+                            <button onClick={() => setShowReviewSettings(false)} className={`${isVisualMax ? 'text-gray-400 hover:text-white' : 'text-ink/40 hover:text-ink'}`}>
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         <div className="p-4 flex-1 overflow-hidden flex flex-col">
-                            <p className="text-xs text-ink/50 mb-2">
+                            <p className={`text-xs mb-2 ${isVisualMax ? 'text-gray-400' : 'text-ink/50'}`}>
                                 此处修改将同步更新【模块8：文章评审】的自定义提示词。
                                 <br />建议包含：评审角色、评分标准、输出格式等。
                             </p>
                             <textarea
                                 value={reviewPrompt}
                                 onChange={(e) => setReviewPrompt(e.target.value)}
-                                className="flex-1 w-full p-3 border border-ink/20 rounded-lg outline-none focus:border-daiqing resize-none text-sm font-mono leading-relaxed bg-paper/30"
+                                className={`flex-1 w-full p-3 border rounded-lg outline-none resize-none text-sm font-mono leading-relaxed ${isVisualMax 
+                                    ? 'bg-[#18181b] border-white/10 text-gray-300 focus:border-purple-500' 
+                                    : 'bg-paper/30 border-ink/20 text-ink focus:border-daiqing'}`}
                                 placeholder="请输入评审提示词..."
                             />
                         </div>
-                        <div className="p-4 border-t border-ink/10 flex justify-end gap-2 bg-white rounded-b-xl">
+                        <div className={`p-4 border-t flex justify-end gap-2 rounded-b-xl ${isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-white border-ink/10'}`}>
                             <button
                                 onClick={() => setShowReviewSettings(false)}
-                                className="px-4 py-2 text-xs text-ink/60 hover:bg-paper rounded-lg transition-colors"
+                                className={`px-4 py-2 text-xs rounded-lg transition-colors ${isVisualMax ? 'text-gray-400 hover:bg-white/10' : 'text-ink/60 hover:bg-paper'}`}
                             >
                                 取消
                             </button>
                             <button
                                 onClick={handleSaveReviewPrompt}
-                                className="px-4 py-2 text-xs bg-daiqing text-white rounded-lg hover:bg-daiqing/90 transition-colors shadow-sm"
+                                className={`px-4 py-2 text-xs text-white rounded-lg transition-colors shadow-sm ${isVisualMax ? 'bg-purple-600 hover:bg-purple-700' : 'bg-daiqing hover:bg-daiqing/90'}`}
                             >
                                 保存并生效
                             </button>
@@ -1661,34 +1745,45 @@ ${pageContext}
                     </div>
                 </div>
             )}
-
             {/* Chat Window */}
             {isAiOpen && (
                 <div
                     className={`${isDocked
-                        ? `fixed top-0 right-0 h-full w-[360px] rounded-l-none border-l shadow-[-5px_0_20px_-5px_rgba(0,0,0,0.1)] z-40 ${isVisualMax ? 'bg-[#18181b] border-white/5' : 'bg-[#FBF9F6] border-ink/10'}`
+                        ? `fixed top-0 right-0 h-full w-[360px] rounded-l-none border-l shadow-[-5px_0_20px_-5px_rgba(0,0,0,0.1)] z-40 ${
+                            isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-[#FBF9F6] border-ink/10'
+                        }`
                         : `absolute ${expandDirection === 'up' ? 'bottom-16 origin-bottom-right' : 'top-16 origin-top-right'} right-0 backdrop-blur-md border rounded-2xl shadow-2xl ${isExpanded ? 'w-[800px] h-[80vh]' : 'w-[400px] h-[600px]'} max-w-[calc(100vw-2rem)] max-h-[calc(100vh-6rem)] ${isVisualMax ? 'bg-[#18181b]/95 border-white/10' : 'bg-white/95 border-ink/10'}`
                         } flex flex-col transition-all duration-500 ease-in-out overflow-hidden`}
                 >
                     {/* Header */}
-                    <div className={`flex items-center justify-between p-4 border-b ${isDocked ? (isVisualMax ? 'bg-[#18181b] border-white/5' : 'bg-[#F5F2EC] border-ink/5') : (isVisualMax ? 'bg-[#18181b] border-white/5' : 'bg-paper/80 border-ink/5')} cursor-move relative`}>
-                        <div className={`flex items-center gap-2 ${isVisualMax ? 'text-purple-400' : 'text-daiqing'}`}>
+                    <div className={`flex items-center justify-between p-4 border-b cursor-move relative ${
+                        isDocked ? (isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-[#F5F2EC] border-ink/5') : (isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-paper/80 border-ink/5')
+                    }`}>
+                        <div className={`flex items-center gap-2 ${
+                            isVisualMax ? 'text-[#ff9966]' : 'text-daiqing'
+                        }`}>
                             <Bot className="w-5 h-5" />
                             <div className="flex flex-col">
                                 <span className="font-bold text-sm flex items-center gap-2">
-                                    <span className={isVisualMax ? 'text-gray-200' : 'text-ink'}>墨灵助手</span>
+                                    <span className={
+                                        isVisualMax ? 'text-[#f4f4f5]' : 'text-ink'
+                                    }>
+                                        墨灵助手
+                                    </span>
                                     {isVisualMax && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30">MAX</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ff9966]/20 text-[#ff9966] border border-[#ff9966]/30">MAX</span>
                                     )}
                                     {activeEditor ? (
-                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${isVisualMax ? 'bg-purple-500' : 'bg-green-500'}`} title={isVisualMax ? "MAX 模式已激活" : "已连接到编辑器"}></span>
+                                        <span className={`w-1.5 h-1.5 rounded-full animate-pulse ${
+                                            isNeonMode ? 'bg-[#00ffcc] shadow-[0_0_8px_#00ffcc,0_0_12px_#00ffcc]' : (isVisualMax ? 'bg-[#ff9966]' : 'bg-green-500')
+                                        }`} title={isNeonMode ? "霓虹模式 (已连接)" : (isVisualMax ? "MAX 模式已激活" : "已连接到编辑器")}></span>
                                     ) : (
-                                        <span className={`w-1.5 h-1.5 rounded-full ${isVisualMax ? 'bg-purple-300' : 'bg-gray-300'}`} title={isVisualMax ? "MAX 模式 (未连接)" : "未连接编辑器"}></span>
+                                        <span className={`w-1.5 h-1.5 rounded-full ${isVisualMax ? 'text-[#f4f4f5]/30' : 'bg-gray-300'}`} title={isVisualMax ? "MAX 模式 (未连接)" : "未连接编辑器"}></span>
                                     )}
                                 </span>
-                                <div className={`flex items-center gap-2 text-[10px] ${isVisualMax ? 'text-gray-500' : 'text-ink/40'}`}>
+                                <div className={`flex items-center gap-2 text-[10px] ${isVisualMax ? 'text-[#f4f4f5]/60' : 'text-ink/40'}`}>
                                     <div
-                                        className={`flex items-center gap-1 cursor-pointer transition-colors ${isVisualMax ? 'hover:text-purple-300' : 'hover:text-daiqing'}`}
+                                        className={`flex items-center gap-1 cursor-pointer transition-colors ${isVisualMax ? 'hover:text-[#ff9966]' : 'hover:text-daiqing'}`}
                                         onClick={() => setShowProviderSelector(!showProviderSelector)}
                                     >
                                         <span>{currentProvider === 'siliconflow' ? '硅基流动' : currentProvider === 'vectorengine' ? '向量引擎' : currentProvider === 'openai' ? 'OpenAI' : '自定义'}</span>
@@ -1696,7 +1791,7 @@ ${pageContext}
                                     </div>
                                     <span className={isVisualMax ? 'text-white/10' : 'text-ink/20'}>|</span>
                                     <div
-                                        className={`flex items-center gap-1 cursor-pointer transition-colors ${isVisualMax ? 'hover:text-purple-300' : 'hover:text-daiqing'}`}
+                                        className={`flex items-center gap-1 cursor-pointer transition-colors ${isVisualMax ? 'hover:text-[#ff9966]' : 'hover:text-daiqing'}`}
                                         onClick={() => setShowModelSelector(!showModelSelector)}
                                     >
                                         <span>{currentModel.split('/').pop()}</span>
@@ -1708,16 +1803,16 @@ ${pageContext}
 
                         {/* Provider Selector Dropdown */}
                         {showProviderSelector && (
-                            <div className={`absolute top-14 left-4 z-50 border rounded-lg shadow-xl py-1 w-32 animate-fade-in-up ${isVisualMax ? 'bg-[#1f1f22] border-white/10' : 'bg-white border-ink/10'}`}>
-                                <div className={`px-3 py-2 text-xs font-bold border-b mb-1 ${isVisualMax ? 'text-gray-500 border-white/5' : 'text-ink/40 border-ink/5'}`}>切换服务商</div>
-                                {['siliconflow', 'vectorengine', 'alibaba', 'openai', 'custom'].map(provider => (
+                            <div className={`absolute top-14 left-4 z-50 border rounded-lg shadow-xl py-1 w-32 animate-fade-in-up ${isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-white border-ink/10'}`}>
+                                <div className={`px-3 py-2 text-xs font-bold border-b mb-1 ${isVisualMax ? 'text-[#f4f4f5]/60 border-white/10' : 'text-ink/40 border-ink/5'}`}>切换服务商</div>
+                                {visibleProviders.map(provider => (
                                     <button
                                         key={provider}
                                         onClick={() => handleProviderChange(provider)}
-                                        className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between ${isVisualMax ? 'hover:bg-white/5' : 'hover:bg-paper'} ${currentProvider === provider ? (isVisualMax ? 'text-purple-300 bg-purple-500/10 font-medium' : 'text-daiqing bg-daiqing/5 font-medium') : (isVisualMax ? 'text-gray-400' : 'text-ink/70')}`}
+                                        className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between ${isVisualMax ? 'hover:bg-white/5' : 'hover:bg-paper'} ${currentProvider === provider ? (isVisualMax ? 'text-[#ff9966] bg-[#ff9966]/10 font-medium' : 'text-daiqing bg-daiqing/5 font-medium') : (isVisualMax ? 'text-[#f4f4f5]/60' : 'text-ink/70')}`}
                                     >
                                         {provider === 'siliconflow' ? '硅基流动' : provider === 'vectorengine' ? '向量引擎' : provider === 'alibaba' ? '阿里大模型' : provider === 'openai' ? 'OpenAI' : '自定义'}
-                                        {currentProvider === provider && <span className={`w-1.5 h-1.5 rounded-full ${isVisualMax ? 'bg-purple-500' : 'bg-daiqing'}`}></span>}
+                                        {currentProvider === provider && <span className={`w-1.5 h-1.5 rounded-full ${isVisualMax ? 'bg-[#ff9966]' : 'bg-daiqing'}`}></span>}
                                     </button>
                                 ))}
                             </div>
@@ -1725,23 +1820,58 @@ ${pageContext}
 
                         {/* Model Selector Dropdown */}
                         {showModelSelector && (
-                            <div className={`absolute top-14 left-24 z-50 border rounded-lg shadow-xl py-1 w-64 animate-fade-in-up ${isVisualMax ? 'bg-[#1f1f22] border-white/10' : 'bg-white border-ink/10'}`}>
-                                <div className={`px-3 py-2 text-xs font-bold border-b mb-1 ${isVisualMax ? 'text-gray-500 border-white/5' : 'text-ink/40 border-ink/5'}`}>
+                            <div className={`absolute top-14 left-24 z-50 border rounded-lg shadow-xl py-1 w-64 animate-fade-in-up ${isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-white border-ink/10'}`}>
+                                <div className={`px-3 py-2 text-xs font-bold border-b mb-1 ${isVisualMax ? 'text-[#f4f4f5]/60 border-white/10' : 'text-ink/40 border-ink/5'}`}>
                                     {isImageMode ? '切换生图模型' : '切换对话模型'} ({currentProvider})
                                 </div>
                                 {((isImageMode ? IMAGE_PROVIDER_MODELS : PROVIDER_MODELS)[currentProvider as keyof typeof PROVIDER_MODELS] || []).map(model => (
                                     <button
                                         key={model}
                                         onClick={() => handleModelChange(model)}
-                                        className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between ${isVisualMax ? 'hover:bg-white/5' : 'hover:bg-paper'} ${currentModel === model ? (isVisualMax ? 'text-purple-300 bg-purple-500/10 font-medium' : 'text-daiqing bg-daiqing/5 font-medium') : (isVisualMax ? 'text-gray-400' : 'text-ink/70')}`}
+                                        className={`w-full text-left px-3 py-2 text-xs transition-colors flex items-center justify-between ${isVisualMax ? 'hover:bg-white/5' : 'hover:bg-paper'} ${currentModel === model ? (isVisualMax ? 'text-[#ff9966] bg-[#ff9966]/10 font-medium' : 'text-daiqing bg-daiqing/5 font-medium') : (isVisualMax ? 'text-[#f4f4f5]/60' : 'text-ink/70')}`}
                                     >
                                         {model.split('/').pop()}
-                                        {currentModel === model && <span className={`w-1.5 h-1.5 rounded-full ${isVisualMax ? 'bg-purple-500' : 'bg-daiqing'}`}></span>}
+                                        {currentModel === model && <span className={`w-1.5 h-1.5 rounded-full ${isVisualMax ? 'bg-[#ff9966]' : 'bg-daiqing'}`}></span>}
                                     </button>
                                 ))}
                                 {currentProvider === 'custom' && (
-                                    <div className={`px-3 py-2 text-xs italic ${isVisualMax ? 'text-gray-500' : 'text-ink/50'}`}>
+                                    <div className={`px-3 py-2 text-xs italic ${isVisualMax ? 'text-[#f4f4f5]/60' : 'text-ink/50'}`}>
                                         自定义模式请在设置中手动输入模型名称
+                                    </div>
+                                )}
+
+                                {mcpTool === 'chart_scan' && (
+                                    <div className="space-y-2">
+                                        <div className="flex items-center gap-2">
+                                            <select
+                                                value={mcpScanSource}
+                                                onChange={(e) => setMcpScanSource(e.target.value)}
+                                                className={`flex-1 px-3 py-2 rounded-lg border outline-none ${isVisualMax ? 'bg-[#27272a] border-white/10 text-gray-200' : 'bg-white border-ink/10 text-ink/80'}`}
+                                            >
+                                                <option value="qidian_monthly">起点月票榜</option>
+                                                <option value="fanqie">番茄热榜 (需手动粘贴)</option>
+                                            </select>
+                                            <button
+                                                onClick={runMcpChartScan}
+                                                disabled={mcpLoading || mcpScanSource === 'fanqie'}
+                                                className={`px-3 py-1.5 rounded-lg text-white ${isVisualMax ? 'bg-purple-600 hover:bg-purple-700' : 'bg-daiqing hover:bg-daiqing/90'} disabled:opacity-60`}
+                                            >
+                                                {mcpLoading ? '扫描中...' : '开始扫榜'}
+                                            </button>
+                                        </div>
+                                        <textarea
+                                            value={mcpScanResults}
+                                            onChange={(e) => setMcpScanResults(e.target.value)}
+                                            className={`w-full h-32 px-3 py-2 rounded-lg border outline-none resize-none ${isVisualMax ? 'bg-[#27272a] border-white/10 text-gray-200' : 'bg-white border-ink/10 text-ink/80'}`}
+                                            placeholder="榜单内容将显示在这里，也可以手动粘贴..."
+                                        />
+                                        <button
+                                            onClick={runMcpTrendAnalysis}
+                                            disabled={mcpLoading}
+                                            className={`w-full px-3 py-1.5 rounded-lg text-white ${isVisualMax ? 'bg-purple-600 hover:bg-purple-700' : 'bg-daiqing hover:bg-daiqing/90'} disabled:opacity-60`}
+                                        >
+                                            {mcpLoading ? '分析中...' : '分析热门题材'}
+                                        </button>
                                     </div>
                                 )}
                             </div>
@@ -1770,7 +1900,9 @@ ${pageContext}
                     </div>
 
                     {/* Messages */}
-                    <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar ${isVisualMax ? 'bg-[#0b0b0c]' : 'bg-rice-texture'}`}>
+                    <div className={`flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar ${
+                        isVisualMax ? 'bg-[#0b0b0c]' : 'bg-rice-texture'
+                    }`}>
                         {messages.map((msg) => (
                             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                                 <div
@@ -1785,9 +1917,13 @@ ${pageContext}
                         ))}
                         {isLoading && (
                             <div className="flex justify-start items-center gap-2">
-                                <div className={`rounded-2xl rounded-bl-none p-3 shadow-sm flex items-center gap-2 ${isVisualMax ? 'bg-[#27272a] border border-white/10' : 'bg-white border border-ink/5'}`}>
-                                    <Loader2 className={`w-4 h-4 animate-spin ${isVisualMax ? 'text-purple-400' : 'text-daiqing'}`} />
-                                    <span className="text-xs text-gray-400 animate-pulse">正在思考...</span>
+                                <div className={`rounded-2xl rounded-bl-none p-3 shadow-sm flex items-center gap-2 ${
+                                    isVisualMax ? 'bg-[#27272a] border border-white/10' : 'bg-white border border-ink/5'
+                                }`}>
+                                    <Loader2 className={`w-4 h-4 animate-spin ${
+                                        isVisualMax ? 'text-purple-400' : 'text-daiqing'
+                                    }`} />
+                                    <span className="text-xs animate-pulse text-gray-400">正在思考...</span>
                                 </div>
                                 <button
                                     onClick={handleStop}
@@ -1802,7 +1938,9 @@ ${pageContext}
                     </div>
 
                     {/* Input */}
-                    <div className={`p-4 border-t ${isVisualMax ? 'bg-[#18181b] border-white/5' : (isDocked ? 'bg-[#F5F2EC] border-ink/5' : 'bg-white/80 border-ink/5')}`}>
+                    <div className={`p-4 border-t ${
+                        isVisualMax ? 'bg-[#18181b] border-white/5' : (isDocked ? 'bg-[#F5F2EC] border-ink/5' : 'bg-white/80 border-ink/5')
+                    }`}>
 
                         {/* Linked Files Toolbar */}
                         {!isImageMode && (
@@ -1916,6 +2054,12 @@ ${pageContext}
                                         className={`px-3 py-1 rounded-lg border transition-colors ${mcpTool === 'task_plan' ? (isVisualMax ? 'bg-purple-500/20 text-purple-200 border-purple-500/40' : 'bg-daiqing/10 text-daiqing border-daiqing') : (isVisualMax ? 'border-white/10 text-gray-400 hover:text-white' : 'border-ink/10 text-ink/60 hover:text-daiqing')}`}
                                     >
                                         章节编排
+                                    </button>
+                                    <button
+                                        onClick={() => setMcpTool('chart_scan')}
+                                        className={`px-3 py-1 rounded-lg border transition-colors ${mcpTool === 'chart_scan' ? (isVisualMax ? 'bg-purple-500/20 text-purple-200 border-purple-500/40' : 'bg-daiqing/10 text-daiqing border-daiqing') : (isVisualMax ? 'border-white/10 text-gray-400 hover:text-white' : 'border-ink/10 text-ink/60 hover:text-daiqing')}`}
+                                    >
+                                        扫榜分析
                                     </button>
                                 </div>
 
@@ -2209,12 +2353,12 @@ ${pageContext}
                         {isImageMode && (
                             <div className="flex flex-col gap-2 mb-2">
                                 {/* Mode Toggle Row */}
-                                <div className="flex items-center justify-between pb-2 border-b border-ink/5">
+                                <div className={`flex items-center justify-between pb-2 border-b ${isVisualMax ? 'border-white/10' : 'border-ink/5'}`}>
                                     <button
                                         onClick={() => setIsBookCoverMode(!isBookCoverMode)}
                                         className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${isBookCoverMode
-                                            ? 'bg-amber-100 text-amber-700 border border-amber-200'
-                                            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                            ? (isVisualMax ? 'bg-amber-900/40 text-amber-200 border border-amber-700/50' : 'bg-amber-100 text-amber-700 border border-amber-200')
+                                            : (isVisualMax ? 'bg-white/10 text-gray-400 hover:bg-white/15' : 'bg-gray-100 text-gray-500 hover:bg-gray-200')
                                             }`}
                                     >
                                         <BookOpen className="w-3.5 h-3.5" />
@@ -2229,8 +2373,8 @@ ${pageContext}
                                                     key={style.label}
                                                     onClick={() => setSelectedCoverStyle(selectedCoverStyle === style.label ? '' : style.label)}
                                                     className={`px-2 py-1 text-[10px] rounded-full whitespace-nowrap transition-colors border ${selectedCoverStyle === style.label
-                                                        ? 'bg-daiqing text-white border-daiqing'
-                                                        : 'bg-white text-ink/60 border-ink/10 hover:border-daiqing/30'
+                                                        ? (isVisualMax ? 'bg-purple-600 text-white border-purple-500' : 'bg-daiqing text-white border-daiqing')
+                                                        : (isVisualMax ? 'bg-transparent text-gray-400 border-white/10 hover:border-purple-500/50' : 'bg-white text-ink/60 border-ink/10 hover:border-daiqing/30')
                                                         }`}
                                                 >
                                                     {style.label}
@@ -2253,7 +2397,7 @@ ${pageContext}
                                                 onClick={() => setImageSize(size.value)}
                                                 className={`px-2 py-1 text-xs rounded-md border transition-colors whitespace-nowrap ${imageSize === size.value
                                                     ? 'bg-amber-600 text-white border-amber-700'
-                                                    : 'bg-white text-ink/60 border-ink/10 hover:border-amber-300 hover:text-amber-600'
+                                                    : (isVisualMax ? 'bg-transparent text-gray-400 border-white/10 hover:text-amber-400' : 'bg-white text-ink/60 border-ink/10 hover:border-amber-300 hover:text-amber-600')
                                                     }`}
                                             >
                                                 {size.label}
@@ -2277,7 +2421,7 @@ ${pageContext}
                                                 onClick={() => setImageSize(size.value)}
                                                 className={`px-2 py-1 text-xs rounded-md border transition-colors whitespace-nowrap ${imageSize === size.value
                                                     ? 'bg-pink-500 text-white border-pink-600'
-                                                    : 'bg-white text-ink/60 border-ink/10 hover:border-pink-300 hover:text-pink-500'
+                                                    : (isVisualMax ? 'bg-transparent text-gray-400 border-white/10 hover:text-pink-400' : 'bg-white text-ink/60 border-ink/10 hover:border-pink-300 hover:text-pink-500')
                                                     }`}
                                             >
                                                 {size.label}
@@ -2298,7 +2442,8 @@ ${pageContext}
                                         ? `描述封面内容（已选风格：${selectedCoverStyle || '默认'}），例如：一把断剑插在雪地里...`
                                         : "输入画面描述，例如：一只在雨中漫步的猫...")
                                     : "输入问题，Shift+Enter 换行..."}
-                                className={`w-full pl-4 pr-12 py-3 border rounded-xl focus:ring-2 outline-none resize-none text-sm max-h-[200px] custom-scrollbar ${isVisualMax ? 'bg-[#27272a] text-gray-200 placeholder:text-gray-500' : 'bg-paper/50 text-ink placeholder:text-ink/30'
+                                className={`w-full pl-4 pr-12 py-3 border rounded-xl focus:ring-2 outline-none resize-none text-sm max-h-[200px] custom-scrollbar ${
+                                    isVisualMax ? 'bg-[#27272a] text-gray-200 placeholder:text-gray-500' : 'bg-paper/50 text-ink placeholder:text-ink/30'
                                     } ${isImageMode
                                         ? (isBookCoverMode ? 'border-amber-300 focus:ring-amber-200 focus:border-amber-400' : 'border-pink-300 focus:ring-pink-200 focus:border-pink-400')
                                         : (isVisualMax ? 'border-white/10 focus:ring-purple-500/20 focus:border-purple-500' : 'border-ink/10 focus:ring-daiqing/20 focus:border-daiqing')
@@ -2337,10 +2482,10 @@ ${pageContext}
                         setIsAiOpen(!isAiOpen);
                     }}
                     className={`w-14 h-14 rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95 flex items-center justify-center border border-white/20 backdrop-blur-sm cursor-move relative overflow-hidden ${isAiOpen
-                        ? 'bg-ink text-white'
-                        : isVisualMax
+                        ? (isVisualMax ? 'bg-[#27272a] text-white border-white/10' : 'bg-ink text-white')
+                        : (isVisualMax
                             ? 'bg-purple-600 text-white hover:bg-purple-700'
-                            : 'bg-daiqing text-white hover:bg-daiqing/90'
+                            : 'bg-daiqing text-white hover:bg-daiqing/90')
                         }`}
                 >
                     {/* '墨' Character State */}

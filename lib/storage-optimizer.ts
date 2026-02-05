@@ -88,22 +88,49 @@ export class StorageOptimizer {
 
 export class EnhancedStorageManager {
   // 智能保存：大文件走 IndexedDB，小文件走 LocalStorage (兼容旧接口)
-  // 注意：此方法现在是异步的，但为了兼容旧代码，可能需要调整调用方
   static async smartSave(key: string, data: any): Promise<void> {
-    // 假设大于 100KB 的数据为“大文本”，或者特定的 Key (如 module7 内容, 书架)
-    const isLarge = (typeof data === 'string' && data.length > 50000) || 
-                    (Array.isArray(data) && JSON.stringify(data).length > 50000) ||
-                    key.includes('module7') || 
-                    key.includes('novel_projects');
+    // 1. 快速检查 Key 是否明确要求大存储
+    const isKnownLargeKey = key.includes('module7') || 
+                            key.includes('novel_projects') || 
+                            key.includes('max_context') ||
+                            key.includes('max_works');
+
+    if (isKnownLargeKey) {
+      await StorageOptimizer.set(key, data);
+      localStorage.setItem(`${key}_is_indexeddb`, 'true');
+      return;
+    }
+
+    // 2. 估算数据大小，避免在大数据上频繁调用 JSON.stringify
+    let isLarge = false;
+    if (typeof data === 'string') {
+      isLarge = data.length > 50000;
+    } else if (data && typeof data === 'object') {
+      // 对于对象，我们只在数据量可能较大时才进行序列化检查
+      // 或者使用一种更廉价的估算方式
+      try {
+        const str = JSON.stringify(data);
+        isLarge = str.length > 50000;
+        if (isLarge) {
+          await StorageOptimizer.set(key, data);
+          localStorage.setItem(`${key}_is_indexeddb`, 'true');
+          return;
+        }
+        localStorage.setItem(key, str);
+        localStorage.removeItem(`${key}_is_indexeddb`);
+        return;
+      } catch (e) {
+        console.warn('Serialization failed for key:', key, e);
+      }
+    }
 
     if (isLarge) {
       await StorageOptimizer.set(key, data);
-      // 标记该 Key 存储在 IndexedDB 中，以便读取时识别
       localStorage.setItem(`${key}_is_indexeddb`, 'true');
     } else {
       const str = typeof data === 'string' ? data : JSON.stringify(data);
       localStorage.setItem(key, str);
-      localStorage.removeItem(`${key}_is_indexeddb`); // 确保清理标记
+      localStorage.removeItem(`${key}_is_indexeddb`);
     }
   }
 

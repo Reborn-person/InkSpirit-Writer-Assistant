@@ -1,5 +1,6 @@
 services:
   app:
+    image: ai-novel-writer:latest
     build:
       context: ..
       dockerfile: Dockerfile
@@ -15,6 +16,7 @@ services:
       MAX_BACKUP_BYTES: ${MAX_BACKUP_BYTES}
     volumes:
       - ../data:/data
+      - ../data/db.sqlite:/app/prisma/dev.db
     expose:
       - "3000"
 

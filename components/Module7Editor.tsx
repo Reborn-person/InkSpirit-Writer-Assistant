@@ -49,6 +49,7 @@ export default function Module7Editor() {
           cursorRestoreRef.current = null;
       }
   }, [content]);
+
   const [history, setHistory] = useState<string[]>(['']);
   const [historyIndex, setHistoryIndex] = useState(0);
   const historyTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -59,29 +60,20 @@ export default function Module7Editor() {
       setHistory(prev => {
           const newHistory = prev.slice(0, historyIndex + 1);
           newHistory.push(newContent);
-          // Limit history size
-          if (newHistory.length > 50) newHistory.shift();
+           if (newHistory.length > 15) newHistory.shift(); // 优化：从50减少到15，节省内存
           return newHistory;
       });
-      setHistoryIndex(prev => {
-          const newLen = Math.min(prev + 1, 50); // Simplified logic, correct index depends on slice
-          // Actually better to calculate based on newHistory length
-          // But since we are inside setHistory, we can't easily sync.
-          // Let's use functional update properly or ref.
-          // To keep it simple: just update index based on length logic
-          return prev < 49 ? prev + 1 : 49;
-      });
+      setHistoryIndex(prev => Math.min(prev + 1, 49));
   }, [historyIndex]);
 
-  // Fix history index sync issue by using a more robust approach
   const addToHistory = (newContent: string) => {
       setHistory(prev => {
           const current = prev.slice(0, historyIndex + 1);
           current.push(newContent);
-          if (current.length > 50) current.shift();
+           if (current.length > 15) current.shift(); // 优化：从50减少到15
           return current;
       });
-      setHistoryIndex(prev => Math.min(prev + 1, 49)); // Max index is 49 (length 50)
+      setHistoryIndex(prev => Math.min(prev + 1, 49));
   };
 
   const handleUndo = () => {
@@ -153,12 +145,12 @@ export default function Module7Editor() {
   const [generatingSummaryId, setGeneratingSummaryId] = useState<string | null>(null);
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({});
   const [collapsedBookSettings, setCollapsedBookSettings] = useState<Record<string, boolean>>({});
-  // Use a map to store search query for each book separately to avoid conflicts
+
   const [bookSearchQueries, setBookSearchQueries] = useState<Record<string, string>>({});
 
   const getBookSearchQuery = (bookId: string) => bookSearchQueries[bookId] || '';
   const setBookSearchQuery = (bookId: string, query: string) => {
-      setBookSearchQueries(prev => ({...prev, [bookId]: query}));
+      setBookSearchQueries(prev => ({ ...prev, [bookId]: query }));
   };
 
   // Modal State
@@ -177,7 +169,6 @@ export default function Module7Editor() {
   });
 
   // Context State
-  const [detailedOutlineChapters, setDetailedOutlineChapters] = useState(5);
   const [context, setContext] = useState<EditorContext>({
     outline: '',
     detailedOutline: '',
@@ -739,7 +730,7 @@ export default function Module7Editor() {
 请阅读小说章节，提取登场的主要角色及其最新剧情信息。
 【严格约束】
 1. 必须且只能输出一个合法的 JSON 数组。
-2. 严禁输出 Markdown 标记（如 \`\`\`）、思考过程（<think>...）或任何解释性文字。
+2. 严禁输出 Markdown 标记（如 \`\`\`）、思考过程（<thinking>...</thinking>）或任何解释性文字。
 3. 格式：[{"name": "角色名", "info": "最新状态或经历简述"}]
 4. 若无重要角色更新，输出 []。`;
           const extractUser = `章节标题：${chapterTitle}
@@ -756,11 +747,11 @@ ${chapterContent.slice(0, 4000)}`; // Slightly reduced context to speed up
           
           let characters: { name: string; info: string }[] = [];
           try {
-              // Enhanced Cleanup: Handle DeepSeek R1 <think> tags and markdown
+              // Enhanced Cleanup: Handle DeepSeek R1 <thinking> tags and markdown
               let jsonStr = extractResult.trim();
               
-              // Remove <think> blocks if present
-              jsonStr = jsonStr.replace(/<think>[\s\S]*?<\/think>/gi, '').trim();
+              // Remove <thinking> blocks if present
+              jsonStr = jsonStr.replace(/<thinking>[\s\S]*?<\/thinking>/gi, '').trim();
               
               // Remove markdown code blocks
               jsonStr = jsonStr.replace(/```(?:json)?|```/g, '').trim();
@@ -912,30 +903,34 @@ ${charInfo.info}`;
       }
   };
 
-  // Auto-Update Characters Logic (Independent of Summary)
   useEffect(() => {
       const timer = setTimeout(async () => {
-          if (!activeFileId || !content || content.length < 50) return; // Lower threshold for testing
+          if (!activeFileId || !content || content.length < 100) return;
 
-          // Find current file and check if it's a chapter
-          let currentChapter: NovelFile | null = null;
-          let currentBook: NovelFile | null = null;
+          // Find the chapter and book
+          let targetChapter: NovelFile | null = null;
+          let targetBook: NovelFile | null = null;
           
-          const findChapter = (nodes: NovelFile[], parentBook: NovelFile | null) => {
+          const findRecursive = (nodes: NovelFile[], parentBook: NovelFile | null = null): boolean => {
               for (const node of nodes) {
-                  if (node.id === activeFileId) {
+                  if (node.type === 'book') {
+                      if (findRecursive(node.children || [], node)) return true;
+                  } else if (node.id === activeFileId) {
                       if (node.type === 'chapter') {
-                          currentChapter = node;
-                          currentBook = parentBook;
+                          targetChapter = node;
+                          targetBook = parentBook;
                       }
-                      return;
+                      return true;
+                  } else if (node.children) {
+                      if (findRecursive(node.children, parentBook)) return true;
                   }
-                  if (node.children) findChapter(node.children, parentBook || (node.type === 'book' ? node : null));
               }
+              return false;
           };
-          findChapter(books, null);
+          
+          findRecursive(books);
 
-          if (!currentChapter || !currentBook) return;
+          if (!targetChapter || !targetBook) return;
 
           // Config check
           const apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
@@ -947,70 +942,67 @@ ${charInfo.info}`;
           // Call the extraction
           await handleAutoUpdateCharacters(activeFileId, content, apiKey, baseUrl, model);
 
-      }, 8000); // 8 seconds debounce (slightly longer than summary to stagger requests)
+      }, 8000); // 8 seconds debounce
 
       return () => clearTimeout(timer);
   }, [content, activeFileId]);
 
-  // Auto-Summarize Logic
   useEffect(() => {
       const timer = setTimeout(async () => {
           if (!activeFileId || !content || content.length < 100) return;
+
+          // Find the chapter and book
+          let targetChapter: NovelFile | null = null;
+          let targetBook: NovelFile | null = null;
           
-          const locateChapter = (
-              nodes: NovelFile[],
-              parentBook: NovelFile | null
-          ): { chapter: NovelFile | null; book: NovelFile | null } => {
+          const findRecursive = (nodes: NovelFile[], parentBook: NovelFile | null = null): boolean => {
               for (const node of nodes) {
-                  if (node.id === activeFileId) {
-                      if (node.type === 'chapter') return { chapter: node, book: parentBook };
-                      return { chapter: null, book: null };
-                  }
-                  if (node.children) {
-                      const res = locateChapter(node.children, parentBook || (node.type === 'book' ? node : null));
-                      if (res.chapter) return res;
+                  if (node.type === 'book') {
+                      if (findRecursive(node.children || [], node)) return true;
+                  } else if (node.id === activeFileId) {
+                      if (node.type === 'chapter') {
+                          targetChapter = node;
+                          targetBook = parentBook;
+                      }
+                      return true;
+                  } else if (node.children) {
+                      if (findRecursive(node.children, parentBook)) return true;
                   }
               }
-              return { chapter: null, book: null };
+              return false;
           };
+          
+          findRecursive(books);
 
-          const located = locateChapter(books, null);
-          const currentChapter = located.chapter;
-          const currentBook = located.book;
-
-          if (!currentChapter || !currentBook) return;
+          if (!targetChapter || !targetBook) return;
 
           // Check if there is a "next chapter" to decide if we should summarize
-          // User rule: "If you created the second chapter, it won't summarize (the first one)"
-          // Interpretation: Only summarize if this is the LAST chapter in the book (or volume?)
-          // Let's check if there are any chapters AFTER this one in the whole book structure.
-          
           let isLatest = true;
           let foundCurrent = false;
           
-          const checkLatest = (nodes: NovelFile[]) => {
+          const checkRecursive = (nodes: NovelFile[]): boolean => {
               for (const node of nodes) {
                   if (node.type === 'chapter') {
                       if (foundCurrent) {
-                          // We found another chapter AFTER the current one
-                          isLatest = false; 
-                          return;
+                          isLatest = false;
+                          return true; // Found next chapter, stop
                       }
                       if (node.id === activeFileId) {
                           foundCurrent = true;
                       }
                   }
-                  if (node.children) checkLatest(node.children);
-                  if (!isLatest) return;
+                  if (node.children) {
+                      if (checkRecursive(node.children)) return true;
+                  }
               }
+              return false;
           };
-          checkLatest(currentBook.children ?? []);
+          
+          checkRecursive(targetBook.children || []);
 
           if (!isLatest) return; // Skip if not the latest chapter
 
           // Perform Summarization
-          // Instead of creating a separate doc, we save it to currentChapter.summary
-          
           try {
               const apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
               const baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || 'https://api.siliconflow.cn/v1';
@@ -1020,9 +1012,9 @@ ${charInfo.info}`;
 
               const systemPrompt = `你是一个网文细纲助手。请根据用户提供的章节正文，总结出一份约 200 字的【章节细纲】。
 包含：核心冲突、剧情推进、伏笔（如有）。直接输出细纲内容，不要废话。`;
-              const userPrompt = `章节标题：${currentChapter.title}
+              const userPrompt = `章节标题：${targetChapter.title}
 正文内容：
-${content.slice(0, 3000)}...`; // Limit context
+${content.slice(0, 3000)}...`;
 
               const summary = await generateAIContent(apiKey, systemPrompt, userPrompt, baseUrl, model);
               
@@ -1257,7 +1249,6 @@ ${content.slice(0, 3000)}...`; // Limit context
                           }
                           
                           if (!firstChapterId) {
-                              // Try to find first chapter in volumes if not found in preVolume
                               const firstVol = volumes[0];
                               const firstChap = (firstVol.children || [])[0];
                               if (firstChap) firstChapterId = firstChap.id;
@@ -1283,171 +1274,6 @@ ${content.slice(0, 3000)}...`; // Limit context
               StorageManager.setJSON(STORAGE_KEYS.NOVEL_PROJECTS, newBooks);
               return newBooks;
           });
-          setTimeout(() => {
-              if (firstChapterId) {
-                  setActiveFileId(firstChapterId);
-                  setContent(firstChapterContent || '');
-              }
-          }, 0);
-      };
-      input.click();
-  };
-
-  const handleImportDocs = (bookId: string) => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.txt,.md,.text';
-      input.multiple = true;
-      input.onchange = async () => {
-          const files = Array.from(input.files || []);
-          if (files.length === 0) return;
-          const readFile = (file: File) =>
-              new Promise<{ name: string; text: string }>((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => resolve({ name: file.name.replace(/\.[^.]+$/, ''), text: String(reader.result || '') });
-                  reader.onerror = reject;
-                  reader.readAsText(file, 'utf-8');
-              });
-          const results: { name: string; text: string }[] = [];
-          for (const f of files) {
-              try {
-                  results.push(await readFile(f));
-              } catch {}
-          }
-          if (results.length === 0) return;
-
-          setBooks(prev => {
-              const newBooks = prev.map(book => {
-                  if (book.id !== bookId) return book;
-                  
-                  // Create Doc nodes
-                  const newDocs = results.map(res => {
-                      let docType: NovelFile['docType'] = 'other';
-                      const nameLower = res.name.toLowerCase();
-                      if (nameLower.includes('人设') || nameLower.includes('角色') || nameLower.includes('character')) docType = 'character';
-                      else if (nameLower.includes('世界') || nameLower.includes('背景') || nameLower.includes('设定') || nameLower.includes('world')) docType = 'world';
-                      else if (nameLower.includes('势力') || nameLower.includes('组织') || nameLower.includes('force')) docType = 'force';
-                      else if (nameLower.includes('文风') || nameLower.includes('style')) docType = 'style';
-                      else if (nameLower.includes('金手指') || nameLower.includes('goldfinger')) docType = 'goldfinger';
-                      else if (nameLower.includes('要求') || nameLower.includes('requirement')) docType = 'requirement';
-                      else if (nameLower.includes('概要') || nameLower.includes('大纲') || nameLower.includes('summary')) docType = 'summary';
-
-                      const doc: NovelFile = {
-                          id: generateId(),
-                          title: res.name,
-                          type: 'doc',
-                          docType: docType,
-                          content: res.text
-                      };
-                      return doc;
-                  });
-
-                  return { 
-                      ...book, 
-                      isOpen: true, 
-                      children: [...newDocs, ...(book.children || [])] // Prepend new docs
-                  };
-              });
-              StorageManager.setJSON(STORAGE_KEYS.NOVEL_PROJECTS, newBooks);
-              return newBooks;
-          });
-      };
-      input.click();
-  };
-
-  const handleImportBook = () => {
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.txt,.md,.text';
-      input.multiple = true;
-      input.onchange = async () => {
-          const files = Array.from(input.files || []);
-          if (files.length === 0) return;
-          const readFile = (file: File) =>
-              new Promise<{ name: string; text: string }>((resolve, reject) => {
-                  const reader = new FileReader();
-                  reader.onload = () => resolve({ name: file.name.replace(/\.[^.]+$/, ''), text: String(reader.result || '') });
-                  reader.onerror = reject;
-                  reader.readAsText(file, 'utf-8');
-              });
-          const results: { name: string; text: string }[] = [];
-          for (const f of files) {
-              try {
-                  results.push(await readFile(f));
-              } catch {}
-          }
-          if (results.length === 0) return;
-
-          let firstChapterId: string | null = null;
-          let firstChapterContent: string | null = null;
-
-          setBooks(prev => {
-              const newBooks = [...prev];
-              
-              for (const res of results) {
-                  const { volumes, chaptersWithoutVolume } = parseTextToStructure(res.text);
-                  const newBookId = generateId();
-                  
-                  let children: NovelFile[] = [];
-                  
-                  if (volumes.length > 0) {
-                      if (chaptersWithoutVolume.length > 0) {
-                           const preVolume: NovelFile = {
-                                  id: generateId(),
-                                  title: '序章/前言',
-                                  type: 'volume',
-                                  children: chaptersWithoutVolume,
-                                  isOpen: true
-                           };
-                           children = [preVolume, ...volumes];
-                      } else {
-                           children = [...volumes];
-                      }
-                  } else {
-                      // If only chapters without volume, create a default volume if there are many?
-                      // Or just put them in a volume named "正文"
-                      if (chaptersWithoutVolume.length > 0) {
-                          const vol: NovelFile = {
-                              id: generateId(),
-                              title: '正文',
-                              type: 'volume',
-                              children: chaptersWithoutVolume,
-                              isOpen: true
-                          };
-                          children = [vol];
-                      }
-                  }
-
-                  // Find first chapter to activate
-                  if (!firstChapterId) {
-                       const findFirst = (nodes: NovelFile[]) => {
-                           for (const n of nodes) {
-                               if (n.type === 'chapter') {
-                                   firstChapterId = n.id;
-                                   firstChapterContent = n.content || '';
-                                   return true;
-                               }
-                               if (n.children && findFirst(n.children)) return true;
-                           }
-                           return false;
-                       };
-                       findFirst(children);
-                  }
-
-                  const newBook: NovelFile = {
-                      id: newBookId,
-                      title: res.name,
-                      type: 'book',
-                      children: children,
-                      isOpen: true
-                  };
-                  newBooks.push(newBook);
-              }
-
-              StorageManager.setJSON(STORAGE_KEYS.NOVEL_PROJECTS, newBooks);
-              return newBooks;
-          });
-
           setTimeout(() => {
               if (firstChapterId) {
                   setActiveFileId(firstChapterId);
@@ -1522,7 +1348,7 @@ ${content.slice(0, 3000)}...`; // Limit context
           type: 'input',
           title: `新建${defaultTitle}`,
           message: `请输入${defaultTitle}名称：`,
-          defaultValue: defaultTitle, // Pre-fill with default
+          defaultValue: defaultTitle,
           onConfirm: (title) => {
               if (!title) title = defaultTitle;
               let newDocId = '';
@@ -1542,7 +1368,6 @@ ${content.slice(0, 3000)}...`; // Limit context
                               ...book,
                               isOpen: true,
                               children: [
-                                  // Add docs at the beginning or end? Usually beginning for reference.
                                   doc,
                                   ...(book.children || [])
                               ]
@@ -1581,13 +1406,10 @@ ${content.slice(0, 3000)}...`; // Limit context
                               ...book,
                               children: book.children.map(volume => {
                                   if (volume.id === volumeId) {
-                                      // Get current chapter count in this volume
                                       const chapterCount = (volume.children || []).filter(c => c.type === 'chapter').length;
-                                      const nextIndex = chapterCount + 1;
-                                      
                                       const chapter: NovelFile = {
                                           id: generateId(),
-                                          title: title, // Store raw title
+                                          title: title,
                                           type: 'chapter' as const,
                                           content: ''
                                       };
@@ -1651,7 +1473,6 @@ ${content.slice(0, 3000)}...`; // Limit context
   };
 
   const handleSelectFile = async (file: NovelFile) => {
-      // Force save current file before switching if unsaved
       if (saveStatus === 'unsaved') {
           await saveCurrentContent(activeFileId, content);
           setSaveStatus('saved');
@@ -1660,14 +1481,11 @@ ${content.slice(0, 3000)}...`; // Limit context
       if (file.type === 'chapter' || file.type === 'doc') {
           setActiveFileId(file.id);
           
-          // Try to load from individual key first, fallback to memory content
           const individualContent = await StorageManager.getAsync(`chapter_content_${file.id}`);
-          // If we found content in individual key, use it. Otherwise use file.content (legacy)
           const finalContent = individualContent !== null ? individualContent : (file.content || '');
           
           setContent(finalContent);
           
-          // If it's a chapter and has a summary, update the context detailed outline
           if (file.type === 'chapter' && file.summary) {
               setContext(prev => ({
                   ...prev,
@@ -1680,7 +1498,6 @@ ${content.slice(0, 3000)}...`; // Limit context
               }));
           }
       } else {
-          // Toggle expand/collapse
           const toggleOpen = (nodes: NovelFile[]): NovelFile[] => {
               return nodes.map(node => {
                   if (node.id === file.id) {
@@ -1694,7 +1511,7 @@ ${content.slice(0, 3000)}...`; // Limit context
           };
           setBooks(prev => {
               const newBooks = toggleOpen(prev);
-              saveBookshelfStructure(newBooks); // Save structure change
+              saveBookshelfStructure(newBooks);
               return newBooks;
           });
       }
@@ -1732,12 +1549,8 @@ ${content.slice(0, 3000)}...`; // Limit context
       });
   };
 
-  // --- End Bookshelf Logic ---
-
-  // Parse Chapters and Volumes
   useEffect(() => {
     const timer = setTimeout(() => {
-        // Optimized: Remove unused variables and debounce
         const fullRegex = /(?:^\s*|\n\s*)((?:第[0-9零一二三四五六七八九十百千万]+[卷部]|Volume\s*\d+).*)|(?:^\s*|\n\s*)((?:第[0-9零一二三四五六七八九十百千万]+[章回]|Chapter\s*\d+|[0-9]+\.|序章|楔子|尾声).*)/g;
         
         let match;
@@ -1748,12 +1561,11 @@ ${content.slice(0, 3000)}...`; // Limit context
 
         while ((match = fullRegex.exec(content)) !== null) {
             const fullMatch = match[0];
-            const volumeTitle = match[1]; // Capture group 1 is volume
-            const chapterTitle = match[2]; // Capture group 2 is chapter
-            const index = match.index + (fullMatch.startsWith('\n') ? 1 : 0); // Adjust for newline if present
+            const volumeTitle = match[1];
+            const chapterTitle = match[2];
+            const index = match.index + (fullMatch.startsWith('\n') ? 1 : 0);
             
             if (volumeTitle) {
-                // It's a volume
                 const node: ChapterNode = {
                     title: volumeTitle.trim(),
                     index: index,
@@ -1763,7 +1575,6 @@ ${content.slice(0, 3000)}...`; // Limit context
                 newNodes.push(node);
                 lastVolumeNode = node;
             } else if (chapterTitle) {
-                // It's a chapter
                 const node: ChapterNode = {
                     title: chapterTitle.trim(),
                     index: index,
@@ -1779,7 +1590,7 @@ ${content.slice(0, 3000)}...`; // Limit context
         }
         
         setChapters(newNodes);
-    }, 500); // 500ms debounce
+    }, 500);
 
     return () => clearTimeout(timer);
   }, [content]);
@@ -1788,15 +1599,10 @@ ${content.slice(0, 3000)}...`; // Limit context
       if (textareaRef.current) {
           textareaRef.current.focus();
           textareaRef.current.setSelectionRange(index, index);
-          // Scroll to the position
-          // Calculating scroll position for textarea is tricky.
-          // A simple hack is blur and focus, or using scrollHeight estimation.
-          // Or just let setSelectionRange handle it (some browsers do).
           
-          // Better approach: Calculate line number
           const textBefore = content.substring(0, index);
           const lineNum = textBefore.split('\n').length;
-          const lineHeight = 32; // Approximate line height in px (text-lg leading-relaxed)
+          const lineHeight = 32;
           const scrollTop = (lineNum - 1) * lineHeight;
           
           textareaRef.current.scrollTop = scrollTop;
@@ -1804,21 +1610,15 @@ ${content.slice(0, 3000)}...`; // Limit context
   };
 
   const maybePredict = useCallback(async (currentContent: string) => {
-      // 1. Basic checks
       if (!editorConfig.predictEnabled || isPredicting || currentContent.length < 10) return;
       
-      // 2. Cursor check: Only predict if cursor is at the end of the document
-      // We don't want to trigger "continuation" when editing the middle of the text
       if (textareaRef.current) {
           const { selectionStart, value } = textareaRef.current;
-          // Allow a small buffer (e.g. whitespace) but generally should be at end
           if (selectionStart < value.trimEnd().length) return;
       }
 
-      // Don't predict if content hasn't changed enough or we just predicted
       if (currentContent === lastPredictContentRef.current) return;
       
-      // Abort previous prediction if running
       if (predictAbortControllerRef.current) {
           predictAbortControllerRef.current.abort();
       }
@@ -1826,7 +1626,6 @@ ${content.slice(0, 3000)}...`; // Limit context
       setIsPredicting(true);
       setPredictionError(null);
       
-      // Create new controller
       predictAbortControllerRef.current = new AbortController();
       const signal = predictAbortControllerRef.current.signal;
       
@@ -1840,7 +1639,6 @@ ${content.slice(0, 3000)}...`; // Limit context
               return;
           }
 
-          // Take last 1000 chars as context
           const context = currentContent.slice(-1000);
           
           const systemPrompt = `你是一个网文写作助手。请根据用户输入的上文，续写接下来的内容。
@@ -1849,14 +1647,10 @@ ${content.slice(0, 3000)}...`; // Limit context
 2. 续写内容必须严格控制在 ${editorConfig.predictLength} 字以内，绝对不能超标。
 3. 直接输出续写内容，不要包含任何解释或对话。`;
 
-          // Pass predictLength * 2 as max_tokens (approximate token/char ratio for Chinese)
-          // But DeepSeek V3 might count tokens differently. Safe margin is good.
-          // However, max_tokens is a hard limit, so we should set it a bit higher than the char limit.
           const maxTokens = Math.ceil(editorConfig.predictLength * 2.5); 
 
           const predictionText = await generateAIContent(apiKey, systemPrompt, context, baseUrl, model, maxTokens, signal);
           
-          // 3. Stale check: Ensure content hasn't changed while we were waiting
           if (contentRef.current !== currentContent) {
               return;
           }
@@ -1882,47 +1676,39 @@ ${content.slice(0, 3000)}...`; // Limit context
       }
   }, [editorConfig, isPredicting]);
 
-
   const handleCompositionStart = () => {
     isComposingRef.current = true;
   };
 
   const handleCompositionEnd = (e: React.CompositionEvent<HTMLTextAreaElement>) => {
     isComposingRef.current = false;
-    // Trigger content change logic manually to ensure prediction checks run if needed
     handleContentChange(e as any);
   };
 
   const handleContentChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newText = e.target.value;
     
-    // Don't run prediction logic while composing (e.g. typing Pinyin)
     if (isComposingRef.current) {
         setContent(newText);
         return;
     }
 
-    // Clear existing prediction when user types
     if (prediction) setPrediction(null);
     if (predictionError) setPredictionError(null);
     
-    // Abort active prediction if any
     if (predictAbortControllerRef.current) {
         predictAbortControllerRef.current.abort();
         predictAbortControllerRef.current = null;
     }
 
-    // Update length ref
     prevLenRef.current = newText.length;
     setContent(newText);
     
-    // Debounce history update
     if (historyTimeoutRef.current) clearTimeout(historyTimeoutRef.current);
     historyTimeoutRef.current = setTimeout(() => {
         addToHistory(newText);
     }, 800);
 
-    // Debounce Prediction
     if (editorConfig.predictEnabled) {
         if (predictTimerRef.current) clearTimeout(predictTimerRef.current);
         predictTimerRef.current = setTimeout(() => {
@@ -1931,13 +1717,9 @@ ${content.slice(0, 3000)}...`; // Limit context
     }
   };
 
-
-
-
   const handleGenerateSummary = async (e: React.MouseEvent, chapter: NovelFile) => {
       e.stopPropagation();
       
-      // Special logic for "Book" type -> Force Refresh All Characters
       if (chapter.type === 'book') {
           setGeneratingSummaryId(chapter.id);
           const apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
@@ -1949,61 +1731,51 @@ ${content.slice(0, 3000)}...`; // Limit context
               return alert('请先配置 API Key');
           }
           
-          // Iterate all chapters and update characters
-           // This is heavy, maybe just update from currently active chapter if it belongs to this book?
-           // Or user wants to scan whole book?
-           // User said "Update chapter -> Read profile". This is manual trigger.
-           // Let's just run update for the ACTIVE file content if it is in this book.
-           
-           // Determine content to scan: Prefer active file if it's in this book, otherwise scan first chapter
-           let contentToScan = content;
-           let chapterIdToScan = activeFileId || '';
-           
-           // Check if active file is in this book
-           let isActiveInBook = false;
-           const checkInBook = (nodes: NovelFile[]): boolean => {
-               for (const n of nodes) {
-                   if (n.id === activeFileId) return true;
-                   if (n.children && checkInBook(n.children)) return true;
-               }
-               return false;
-           };
-           isActiveInBook = checkInBook(chapter.children || []);
-           
-           if (!isActiveInBook || !contentToScan || contentToScan.length < 50) {
-               // Try to find first chapter content from storage
-               const findFirstChapter = (nodes: NovelFile[]): NovelFile | null => {
-                   for (const n of nodes) {
-                       if (n.type === 'chapter') return n;
-                       if (n.children) {
-                           const res = findFirstChapter(n.children);
-                           if (res) return res;
-                       }
-                   }
-                   return null;
-               };
-               const firstChap = findFirstChapter(chapter.children || []);
-               if (firstChap) {
-                   chapterIdToScan = firstChap.id;
-                   // Try fetch content
-                   const saved = await StorageManager.getAsync(`chapter_content_${firstChap.id}`);
-                   contentToScan = saved || firstChap.content || '';
-               }
-           }
+          let contentToScan = content;
+          let chapterIdToScan = activeFileId || '';
+          
+          let isActiveInBook = false;
+          const checkInBook = (nodes: NovelFile[]): boolean => {
+              for (const n of nodes) {
+                  if (n.id === activeFileId) return true;
+                  if (n.children && checkInBook(n.children)) return true;
+              }
+              return false;
+          };
+          isActiveInBook = checkInBook(chapter.children || []);
+          
+          if (!isActiveInBook || !contentToScan || contentToScan.length < 50) {
+              const findFirstChapter = (nodes: NovelFile[]): NovelFile | null => {
+                  for (const n of nodes) {
+                      if (n.type === 'chapter') return n;
+                      if (n.children) {
+                          const res = findFirstChapter(n.children);
+                          if (res) return res;
+                      }
+                  }
+                  return null;
+              };
+              const firstChap = findFirstChapter(chapter.children || []);
+              if (firstChap) {
+                  chapterIdToScan = firstChap.id;
+                  const saved = await StorageManager.getAsync(`chapter_content_${firstChap.id}`);
+                  contentToScan = saved || firstChap.content || '';
+              }
+          }
 
-           if (chapterIdToScan && contentToScan && contentToScan.length > 50) {
-                await handleAutoUpdateCharacters(chapterIdToScan, contentToScan, apiKey, baseUrl, model, true);
-           } else {
-                alert('未找到有效的章节内容进行扫描（请先撰写章节正文）');
-           }
-           setGeneratingSummaryId(null);
-           return;
-       }
+          if (chapterIdToScan && contentToScan && contentToScan.length > 50) {
+               await handleAutoUpdateCharacters(chapterIdToScan, contentToScan, apiKey, baseUrl, model, true);
+          } else {
+               alert('未找到有效的章节内容进行扫描（请先撰写章节正文）');
+          }
+          setGeneratingSummaryId(null);
+          return;
+      }
 
       if (!chapter.content || chapter.content.length < 50) {
           setModalConfig({
               isOpen: true,
-              type: 'confirm', // Use confirm style but just for alert
+              type: 'confirm',
               title: '无法生成',
               message: '章节内容过少，无法生成细纲。请先撰写正文。',
               onConfirm: () => {}
@@ -2067,30 +1839,27 @@ ${chapter.content.slice(0, 3000)}...`;
 
   return (
     <div className="flex h-screen bg-rice-paper overflow-hidden font-serif text-ink relative">
-       {/* Chapter Navigation Sidebar (Left Column) */}
        <div 
          ref={sidebarRef}
-         className={`bg-[#F5F2EC] border-r border-ink/10 h-full flex flex-col relative transition-[width] duration-0 ease-linear ${!isResizing && 'transition-all duration-300'}
+         className={`bg-rice-paper sidebar-shell text-ink border-r border-ink/10 h-full flex flex-col relative transition-[width] duration-0 ease-linear ${!isResizing && 'transition-all duration-300'}
             absolute z-20 md:relative md:z-auto shadow-2xl md:shadow-none
          `}
          style={{ width: isNavOpen ? sidebarWidth : 0, overflow: isNavOpen ? 'visible' : 'hidden' }}
        >
           
-          {/* Resizer Handle */}
           <div
             className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-daiqing/20 active:bg-daiqing/50 z-50 transition-colors"
             onMouseDown={startResizing}
           />
           
-          {/* Sidebar Header / Tab Switcher */}
-          <div className="border-b border-ink/10 bg-rice-texture flex items-stretch">
+          <div className="border-b border-ink/10 bg-rice-texture sidebar-header flex items-stretch">
              <div className="flex-1 flex">
                  <button
                      onClick={() => setActiveTab('books')}
                      className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
                          activeTab === 'books' 
-                            ? 'bg-[#F5F2EC] text-daiqing border-t-2 border-daiqing' 
-                            : 'text-gray-500 hover:bg-black/5'
+                           ? 'bg-rice-paper sidebar-active text-daiqing border-t-2 border-daiqing' 
+                           : 'text-gray-500 hover:bg-black/5'
                      }`}
                  >
                      <Book className="w-4 h-4" /> 书架
@@ -2099,8 +1868,8 @@ ${chapter.content.slice(0, 3000)}...`;
                      onClick={() => setActiveTab('outline')}
                      className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-all ${
                          activeTab === 'outline' 
-                            ? 'bg-[#F5F2EC] text-daiqing border-t-2 border-daiqing' 
-                            : 'text-gray-500 hover:bg-black/5'
+                           ? 'bg-rice-paper sidebar-active text-daiqing border-t-2 border-daiqing' 
+                           : 'text-gray-500 hover:bg-black/5'
                      }`}
                  >
                      <List className="w-4 h-4" /> 大纲
@@ -2116,7 +1885,6 @@ ${chapter.content.slice(0, 3000)}...`;
           </div>
 
           <div className="flex-1 overflow-y-auto p-3 space-y-2 custom-scrollbar">
-             {/* Tab Content: Bookshelf */}
              {activeTab === 'books' && (
                  <div className="space-y-3 p-1">
                      <div className="flex gap-2">
@@ -2136,7 +1904,6 @@ ${chapter.content.slice(0, 3000)}...`;
                      
                      {books.map((book) => (
                          <div key={book.id} className="space-y-1">
-                             {/* Book Item */}
                              <div className="group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors">
                                 <button 
                                     onClick={() => handleSelectFile(book)}
@@ -2161,7 +1928,7 @@ ${chapter.content.slice(0, 3000)}...`;
                                         {openAddMenuId === book.id && (
                                             <>
                                                 <div className="fixed inset-0 z-40" onClick={(e) => { e.stopPropagation(); setOpenAddMenuId(null); }} />
-                                                <div className="absolute right-0 top-full mt-1 w-28 bg-white border border-ink/10 rounded-lg shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
+                                                <div className="absolute right-0 top-full mt-1 w-28 bg-rice-paper border border-ink/10 rounded-lg shadow-xl py-1 z-50 animate-in fade-in zoom-in-95 duration-100">
                                                     <button onClick={(e) => { e.stopPropagation(); setOpenAddMenuId(null); handleAddVolume(book.id); }} className="w-full text-left px-3 py-1.5 text-xs hover:bg-paper flex items-center gap-2">
                                                         <FolderPlus className="w-3 h-3" /> 分卷
                                                     </button>
@@ -2203,7 +1970,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                 </div>
                              </div>
 
-                             {/* Docs (Settings) Group */}
                              {(() => {
                                 const docs = book.children?.filter(c => c.type === 'doc') || [];
                                 const characterDocs = docs.filter(doc => doc.docType === 'character');
@@ -2213,7 +1979,6 @@ ${chapter.content.slice(0, 3000)}...`;
 
                                  return (
                                      <div className="ml-3 space-y-1 border-l border-ink/10 pl-3">
-                                         {/* Virtual Folder Header */}
                                          <div 
                                              className="group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors cursor-pointer"
                                              onClick={() => setCollapsedBookSettings(prev => ({...prev, [book.id]: !prev[book.id]}))}
@@ -2225,7 +1990,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                              </div>
                                          </div>
 
-                                        {/* Docs List */}
                                         {!isCollapsed && (
                                             <>
                                                 {characterDocs.length > 0 && (
@@ -2313,7 +2077,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                  );
                              })()}
 
-                             {/* Volumes */}
                              {book.isOpen && book.children?.filter(c => c.type === 'volume').map((volume) => (
                                  <div key={volume.id} className="ml-3 space-y-1 border-l border-ink/10 pl-3">
                                      <div className="group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors">
@@ -2331,7 +2094,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                         </div>
                                      </div>
 
-                                     {/* Chapters */}
                                      {volume.isOpen && volume.children?.map((chapter, index) => (
                                          <div key={chapter.id} className="ml-3 border-l border-ink/10 pl-3">
                                              <div className={`group flex items-center justify-between hover:bg-black/5 rounded px-2 py-1.5 transition-colors ${activeFileId === chapter.id ? 'bg-daiqing/10 text-daiqing selection-cinnabar' : 'text-gray-600'}`}>
@@ -2361,19 +2123,17 @@ ${chapter.content.slice(0, 3000)}...`;
                              ))}
                              
                              {(!book.children || book.children.length === 0) && (
-                                 <div className="ml-6 text-xs text-gray-400 py-1 italic">暂无分卷</div>
+                                <div className="ml-6 text-xs text-gray-400 py-1 italic">暂无分卷</div>
                              )}
                          </div>
                      ))}
                  </div>
              )}
 
-             {/* Tab Content: Outline (Mapped from Bookshelf) */}
              {activeTab === 'outline' && (
                  <div className="space-y-3 p-1">
                     {books.map((book) => (
                          <div key={book.id} className="space-y-1">
-                             {/* Book Item */}
                              <button 
                                 onClick={() => handleSelectFile(book)}
                                 className="w-full flex items-center gap-2 px-2 py-1.5 font-bold text-ink text-sm hover:bg-black/5 rounded transition-colors text-left"
@@ -2383,7 +2143,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                 {book.title}
                              </button>
 
-                             {/* Volumes */}
                              {book.isOpen && book.children?.filter(c => c.type === 'volume').map((volume) => (
                                  <div key={volume.id} className="ml-3 space-y-1 border-l border-ink/10 pl-3">
                                      <button 
@@ -2395,7 +2154,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                          {volume.title}
                                      </button>
 
-                                     {/* Chapters (as Summary Links) */}
                                      {volume.isOpen && volume.children?.filter(c => c.type === 'chapter').map((chapter, index) => (
                                          <div key={chapter.id} className="ml-3 border-l border-ink/10 pl-3">
                                              <div className="flex items-center gap-1 group/item w-full hover:bg-black/5 rounded px-2 py-1.5 transition-colors">
@@ -2415,7 +2173,6 @@ ${chapter.content.slice(0, 3000)}...`;
                                                                           for (const node of nodes) {
                                                                               if (node.id === chapter.id) {
                                                                                   node.summary = newSummary;
-                                                                                  // If this is the currently active file, update the right panel immediately
                                                                                   if (activeFileId === chapter.id) {
                                                                                       setContext(prev => ({ ...prev, detailedOutline: newSummary }));
                                                                                   }
@@ -2434,8 +2191,8 @@ ${chapter.content.slice(0, 3000)}...`;
                                                      }}
                                                      className="flex-1 text-left flex items-center gap-2 text-xs text-gray-600"
                                                  >
-                                                     <FileText className="w-3 h-3 flex-shrink-0 opacity-70 text-indigo-500" />
-                                                     <span>{chapter.title} 细纲</span>
+                                                    <FileText className="w-3 h-3 flex-shrink-0 opacity-70 text-indigo-500" />
+                                                    <span>{chapter.title} 细纲</span>
                                                  </button>
                                                 <button
                                                     onClick={(e) => handleGenerateSummary(e, chapter)}
@@ -2463,9 +2220,7 @@ ${chapter.content.slice(0, 3000)}...`;
           </div>
        </div>
 
-      {/* Main Editor Area (Center Column) */}
       <div className={`flex-1 flex flex-col p-3 md:p-6 h-full relative z-0 transition-all duration-500 ease-in-out ${isAiOpen ? 'mr-[360px]' : ''}`}>
-         {/* Toggle Nav Button (when closed) */}
          {!isNavOpen && (
              <button 
                 onClick={() => setIsNavOpen(true)}
@@ -2485,7 +2240,6 @@ ${chapter.content.slice(0, 3000)}...`;
                 </h1>
             </div>
             
-            {/* Editor Toolbar */}
             <div className="flex items-center gap-2 bg-white/50 backdrop-blur-sm px-3 py-1.5 rounded-lg border border-ink/5 shadow-sm">
                 <div className="flex items-center gap-1 border-r border-ink/10 pr-2 mr-1">
                     <button 
@@ -2563,7 +2317,6 @@ ${chapter.content.slice(0, 3000)}...`;
             agentState === 'reading' ? 'ring-4 ring-daiqing/30 shadow-daiqing/20' : 
             agentState === 'writing' ? 'ring-4 ring-cinnabar/30 shadow-cinnabar/20' : ''
         }`}>
-            {/* Ghost Layer for Phantom Text */}
             <div 
                 ref={ghostRef}
                 className="absolute inset-0 p-8 pb-32 resize-none outline-none font-serif text-transparent bg-transparent z-0 custom-scrollbar whitespace-pre-wrap break-words pointer-events-none overflow-y-auto"
@@ -2581,8 +2334,6 @@ ${chapter.content.slice(0, 3000)}...`;
                 )}
             </div>
 
-
-            {/* Agent Status Indicators */}
             {agentState === 'reading' && (
                 <div className="absolute top-4 right-4 bg-daiqing/90 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse z-30 flex items-center gap-2 pointer-events-none">
                     <Loader2 className="w-3 h-3 animate-spin" />
@@ -2590,13 +2341,12 @@ ${chapter.content.slice(0, 3000)}...`;
                 </div>
             )}
             {agentState === 'writing' && (
-                <div className="absolute top-4 right-4 bg-cinnabar/90 text-white px-3 py-1 rounded-full text-xs font-bold animate-pulse z-30 flex items-center gap-2 pointer-events-none">
+                <div className="absolute top-4 right-4 bg-cinnabar/90 text白 px-3 py-1 rounded-full text-xs font-bold animate-pulse z-30 flex items-center gap-2 pointer-events-none">
                     <PenTool className="w-3 h-3 animate-bounce" />
                     AI 正在撰写...
                 </div>
             )}
 
-            {/* Editor Inner Border (Ink Line) */}
             <div className="absolute inset-2 border border-ink/5 pointer-events-none rounded-lg z-10"></div>
             
             <textarea
@@ -2614,7 +2364,6 @@ ${chapter.content.slice(0, 3000)}...`;
                     }
                 }}
                 onKeyDown={(e) => {
-                    // Handle Prediction Acceptance
                     if (prediction && e.key === 'Tab') {
                         e.preventDefault();
                         const textToInsert = prediction.text;
@@ -2626,7 +2375,6 @@ ${chapter.content.slice(0, 3000)}...`;
                         prevLenRef.current = newContent.length;
                         setPrediction(null);
                         
-                        // Restore cursor after insertion
                         setTimeout(() => {
                             if (textareaRef.current) {
                                 textareaRef.current.selectionStart = start + textToInsert.length;
@@ -2642,27 +2390,23 @@ ${chapter.content.slice(0, 3000)}...`;
                          return;
                     }
 
-                    // Handle Auto-Indent on Enter
                     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
                         e.preventDefault();
                         const start = e.currentTarget.selectionStart;
                         const end = e.currentTarget.selectionEnd;
                         const value = e.currentTarget.value;
                         
-                        // Insert newline + 2 full-width spaces
                         const insertion = '\n　　';
                         const newValue = value.substring(0, start) + insertion + value.substring(end);
                         
                         setContent(newValue);
                         prevLenRef.current = newValue.length;
                         
-                        // Queue cursor restore for next render cycle
                         cursorRestoreRef.current = { start: start + insertion.length, end: start + insertion.length };
                         
                         return;
                     }
 
-                    // Handle Undo/Redo
                     if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
                         e.preventDefault();
                         if (e.shiftKey) {
@@ -2746,12 +2490,8 @@ ${chapter.content.slice(0, 3000)}...`;
                     )}
                 </div>
             )}
-            
-            {/* Suggestion Overlay - Removed */}
-
         </div>
         
-        {/* Status Bar */}
         <div className="mt-2 flex justify-between items-center text-xs text-gray-400 px-4 py-2 border-t border-ink/5 bg-white/30 backdrop-blur-sm rounded-lg flex-wrap gap-y-2">
              <div className="flex gap-4 items-center flex-wrap">
                  <span>字数: {content.length}</span>
@@ -2780,7 +2520,6 @@ ${chapter.content.slice(0, 3000)}...`;
                      </span>
                  </div>
 
-                 {/* Auto-save Status */}
                  <div className={`flex items-center gap-1.5 transition-colors ${
                      saveStatus === 'saved' ? 'text-green-600' : 
                      saveStatus === 'saving' ? 'text-daiqing' : 'text-amber-500'
@@ -2804,14 +2543,11 @@ ${chapter.content.slice(0, 3000)}...`;
         </div>
       </div>
 
-      {/* Context Panel (Right Column) - Removed as per user request */}
-      
-      {/* Floating Toolbar */}
       {toolbarState.show && (
           <div 
               className="fixed z-[100] flex items-center gap-1 p-1.5 bg-white rounded-lg shadow-xl border border-ink/10 animate-in fade-in zoom-in-95 duration-200"
               style={{ top: toolbarState.y, left: toolbarState.x, transform: 'translateX(-50%)' }}
-              onMouseDown={(e) => e.preventDefault()} // Prevent blur
+              onMouseDown={(e) => e.preventDefault()}
           >
               <button 
                   type="button"
@@ -2862,7 +2598,6 @@ ${chapter.content.slice(0, 3000)}...`;
           </div>
       )}
 
-      {/* Custom UI Modal (InputDialog / ConfirmDialog) */}
       {modalConfig.isOpen && (
           <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-ink/10">
@@ -2883,7 +2618,6 @@ ${chapter.content.slice(0, 3000)}...`;
                               onKeyDown={(e) => {
                                   if (e.nativeEvent.isComposing) return;
                                   
-                                  // Handle Undo/Redo
                                   if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
                                       e.preventDefault();
                                       if (e.shiftKey) {
@@ -2919,11 +2653,6 @@ ${chapter.content.slice(0, 3000)}...`;
                               className="w-full h-48 px-4 py-3 bg-white border border-ink/20 rounded-xl focus:ring-2 focus:ring-daiqing outline-none transition-all text-ink resize-none custom-scrollbar"
                               placeholder="请输入内容..."
                               onChange={(e) => {
-                                  // We can use a ref or just let onConfirm read the value from e.target in a different way?
-                                  // But the confirm button is outside.
-                                  // Let's use a temporary ref for the modal content specifically?
-                                  // Or just assign it to modalInputRef for simplicity if types allow (it expects HTMLInputElement)
-                                  // Let's cast it or create a new ref.
                                   if (modalInputRef.current) {
                                       (modalInputRef.current as any).value = e.target.value;
                                   }
@@ -2967,3 +2696,164 @@ ${chapter.content.slice(0, 3000)}...`;
     </div>
   );
 }
+
+  const handleImportDocs = (bookId: string) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt,.md,.text';
+      input.multiple = true;
+      input.onchange = async () => {
+          const files = Array.from(input.files || []);
+          if (files.length === 0) return;
+          const readFile = (file: File) =>
+              new Promise<{ name: string; text: string }>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve({ name: file.name.replace(/\.[^.]+$/, ''), text: String(reader.result || '') });
+                  reader.onerror = reject;
+                  reader.readAsText(file, 'utf-8');
+              });
+          const results: { name: string; text: string }[] = [];
+          for (const f of files) {
+              try {
+                  results.push(await readFile(f));
+              } catch {}
+          }
+          if (results.length === 0) return;
+
+          setBooks(prev => {
+              const newBooks = prev.map(book => {
+                  if (book.id !== bookId) return book;
+                  
+                  const newDocs = results.map(res => {
+                      let docType: NovelFile['docType'] = 'other';
+                      const nameLower = res.name.toLowerCase();
+                      if (nameLower.includes('人设') || nameLower.includes('角色') || nameLower.includes('character')) docType = 'character';
+                      else if (nameLower.includes('世界') || nameLower.includes('背景') || nameLower.includes('设定') || nameLower.includes('world')) docType = 'world';
+                      else if (nameLower.includes('势力') || nameLower.includes('组织') || nameLower.includes('force')) docType = 'force';
+                      else if (nameLower.includes('文风') || nameLower.includes('style')) docType = 'style';
+                      else if (nameLower.includes('金手指') || nameLower.includes('goldfinger')) docType = 'goldfinger';
+                      else if (nameLower.includes('要求') || nameLower.includes('requirement')) docType = 'requirement';
+                      else if (nameLower.includes('概要') || nameLower.includes('大纲') || nameLower.includes('summary')) docType = 'summary';
+
+                      const doc: NovelFile = {
+                          id: generateId(),
+                          title: res.name,
+                          type: 'doc',
+                          docType: docType,
+                          content: res.text
+                      };
+                      return doc;
+                  });
+
+                  return { 
+                      ...book, 
+                      isOpen: true, 
+                      children: [...newDocs, ...(book.children || [])]
+                  };
+              });
+              StorageManager.setJSON(STORAGE_KEYS.NOVEL_PROJECTS, newBooks);
+              return newBooks;
+          });
+      };
+      input.click();
+  };
+
+  const handleImportBook = () => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = '.txt,.md,.text';
+      input.multiple = true;
+      input.onchange = async () => {
+          const files = Array.from(input.files || []);
+          if (files.length === 0) return;
+          const readFile = (file: File) =>
+              new Promise<{ name: string; text: string }>((resolve, reject) => {
+                  const reader = new FileReader();
+                  reader.onload = () => resolve({ name: file.name.replace(/\.[^.]+$/, ''), text: String(reader.result || '') });
+                  reader.onerror = reject;
+                  reader.readAsText(file, 'utf-8');
+              });
+          const results: { name: string; text: string }[] = [];
+          for (const f of files) {
+              try {
+                  results.push(await readFile(f));
+              } catch {}
+          }
+          if (results.length === 0) return;
+
+          let firstChapterId: string | null = null;
+          let firstChapterContent: string | null = null;
+
+          setBooks(prev => {
+              const newBooks = [...prev];
+              
+              for (const res of results) {
+                  const { volumes, chaptersWithoutVolume } = parseTextToStructure(res.text);
+                  const newBookId = generateId();
+                  
+                  let children: NovelFile[] = [];
+                  
+                  if (volumes.length > 0) {
+                      if (chaptersWithoutVolume.length > 0) {
+                           const preVolume: NovelFile = {
+                                  id: generateId(),
+                                  title: '序章/前言',
+                                  type: 'volume',
+                                  children: chaptersWithoutVolume,
+                                  isOpen: true
+                           };
+                           children = [preVolume, ...volumes];
+                      } else {
+                           children = [...volumes];
+                      }
+                  } else {
+                      if (chaptersWithoutVolume.length > 0) {
+                          const vol: NovelFile = {
+                              id: generateId(),
+                              title: '正文',
+                              type: 'volume',
+                              children: chaptersWithoutVolume,
+                              isOpen: true
+                          };
+                          children = [vol];
+                      }
+                  }
+
+                  if (!firstChapterId) {
+                       const findFirst = (nodes: NovelFile[]): boolean => {
+                           for (const n of nodes) {
+                               if (n.type === 'chapter') {
+                                   firstChapterId = n.id;
+                                   firstChapterContent = n.content || '';
+                                   return true;
+                               }
+                               if (n.children && findFirst(n.children)) return true;
+                           }
+                           return false;
+                       };
+                       findFirst(children);
+                  }
+
+                  const newBook: NovelFile = {
+                      id: newBookId,
+                      title: res.name,
+                      type: 'book',
+                      children: children,
+                      isOpen: true
+                  };
+                  newBooks.push(newBook);
+              }
+
+              StorageManager.setJSON(STORAGE_KEYS.NOVEL_PROJECTS, newBooks);
+              return newBooks;
+          });
+
+          setTimeout(() => {
+              if (firstChapterId) {
+                  setActiveFileId(firstChapterId);
+                  setContent(firstChapterContent || '');
+              }
+          }, 0);
+      };
+      input.click();
+  };

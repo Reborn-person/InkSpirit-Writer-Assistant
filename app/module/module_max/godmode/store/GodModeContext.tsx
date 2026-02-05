@@ -38,7 +38,8 @@ const DEMO_NODES: Node<GodNodeData>[] = [
         data: {
             name: '魂殿',
             layer: 'faction',
-            desc: '大陆第一阴暗势力，在此处设有分殿。',
+            desc: '大陆第一阴暗势力，在此处设有分殿。（第5章出现）',
+            startChapter: 5,
             worldPosition: { x: 600, y: 500, z: 0, parentId: null }
         }
     },
@@ -72,7 +73,8 @@ const DEMO_NODES: Node<GodNodeData>[] = [
         data: {
             name: '云岚宗',
             layer: 'faction',
-            desc: '加玛帝国最强宗门。',
+            desc: '加玛帝国最强宗门。（第10章覆灭）',
+            endChapter: 10,
             worldPosition: { x: 250, y: 300, z: 1, parentId: 'n1' }
         }
     },
@@ -99,6 +101,7 @@ interface GodModeState {
     // Navigation
     currentLevel: number;
     currentParentId: string | null;
+    currentChapter: number;
     history: { level: number; parentId: string | null; name: string }[];
 
     // Visibility
@@ -124,6 +127,7 @@ type Action =
     | { type: 'SET_LAYER_VISIBILITY'; payload: { layer: WorldLayer; visible: boolean } }
     | { type: 'NAVIGATE_DOWN'; payload: { id: string; name: string } }
     | { type: 'NAVIGATE_UP'; payload: number }
+    | { type: 'SET_CURRENT_CHAPTER'; payload: number }
     | { type: 'SELECT_NODE'; payload: string | null }
     | { type: 'TOGGLE_SIDEBAR' }
     | { type: 'LOAD_STATE'; payload: Partial<GodModeState> }
@@ -153,6 +157,7 @@ const INITIAL_STATE: GodModeState = {
     edges: [],
     currentLevel: 0,
     currentParentId: null,
+    currentChapter: 1,
     history: [{ level: 0, parentId: null, name: '世界全景' }],
     visibleLayers: INITIAL_LAYERS,
     selectedNodeId: null,
@@ -197,6 +202,8 @@ function godModeReducer(state: GodModeState, action: Action): GodModeState {
                     [action.payload.layer]: action.payload.visible
                 }
             };
+        case 'SET_CURRENT_CHAPTER':
+            return { ...state, currentChapter: action.payload };
         case 'NAVIGATE_DOWN':
             return {
                 ...state,
@@ -237,7 +244,7 @@ function godModeReducer(state: GodModeState, action: Action): GodModeState {
 interface GodModeContextType {
     state: GodModeState;
     dispatch: React.Dispatch<Action>;
-    getVisibleNodes: () => Node[];
+    visibleNodes: Node[];
     saveWorld: () => Promise<void>;
 }
 
@@ -308,15 +315,15 @@ export function GodModeProvider({ children }: { children: React.ReactNode }) {
 
         saveTimeoutRef.current = setTimeout(() => {
             saveWorld();
-        }, 2000); // Auto-save after 2 seconds of inactivity
+        }, 3000); // Increase to 3 seconds for better performance
 
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
         };
     }, [state.nodes, state.edges, state.hasLoaded, saveWorld]);
 
-    // 3. Filter Nodes Helper
-    const getVisibleNodes = useCallback(() => {
+    // 3. Memoized Filtered Nodes
+    const visibleNodes = React.useMemo(() => {
         return state.nodes.filter(node => {
             const visibleData = node.data as any;
             const nodeParentId = visibleData?.worldPosition?.parentId || null;
@@ -326,12 +333,18 @@ export function GodModeProvider({ children }: { children: React.ReactNode }) {
             const layer = node.data?.layer as WorldLayer;
             const isLayerVisible = state.visibleLayers[layer];
 
-            return isLayerVisible && isChildOfCurrent;
+            // Timeline check
+            const start = node.data.startChapter || 1;
+            const end = node.data.endChapter;
+            const current = state.currentChapter;
+            const isTimeVisible = current >= start && (end === undefined || end === null || current <= end);
+
+            return isLayerVisible && isChildOfCurrent && isTimeVisible;
         });
-    }, [state.nodes, state.visibleLayers, state.currentParentId]);
+    }, [state.nodes, state.visibleLayers, state.currentParentId, state.currentChapter]);
 
     return (
-        <GodModeContext.Provider value={{ state, dispatch, getVisibleNodes, saveWorld }}>
+        <GodModeContext.Provider value={{ state, dispatch, visibleNodes, saveWorld }}>
             {children}
         </GodModeContext.Provider>
     );

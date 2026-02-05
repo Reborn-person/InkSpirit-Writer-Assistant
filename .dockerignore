@@ -12,3 +12,15 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.log
+
+# Large binaries and non-essential files (新增排除项)
+docker.exe
+docker-compose.exe
+deploy_test.tar
+*.tar
+*.rar
+*.zip
+*.gz
+.git
+.gitignore
+deploy_temp_build/

@@ -1,14 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { LAYER_CONFIG, WorldLayer } from '../types';
+import { LAYER_CONFIG } from '../types';
 import { StorageManager } from '@/lib/storage';
-import { Search, Database, Layers, Sparkles } from 'lucide-react';
+import { Search, Database, Layers, Sparkles, Upload } from 'lucide-react';
+import { ImportDialog } from './ImportDialog';
+import { ModelConfig } from '@/app/components/ModelConfigPanel';
 
-export function AssetPanel() {
+export function AssetPanel({ modelConfig }: { modelConfig?: ModelConfig }) {
     const [activeTab, setActiveTab] = useState<'basic' | 'cards'>('basic');
     const [cards, setCards] = useState<any[]>([]);
     const [search, setSearch] = useState('');
+    const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
 
     // Load cards from storage
     useEffect(() => {
@@ -30,25 +33,39 @@ export function AssetPanel() {
     );
 
     return (
-        <div className="absolute top-4 left-4 bottom-4 w-64 bg-[#18181b]/95 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl flex flex-col z-20 pointer-events-auto">
+        <>
+            <ImportDialog 
+                isOpen={isImportDialogOpen} 
+                onClose={() => setIsImportDialogOpen(false)} 
+                modelConfig={modelConfig}
+            />
+            <div className="absolute top-4 left-4 bottom-4 w-64 bg-max-bg/95 backdrop-blur-md border border-max-border rounded-xl shadow-2xl flex flex-col z-20 pointer-events-auto">
 
-            {/* Tabs */}
-            <div className="flex border-b border-white/10">
-                <button
-                    onClick={() => setActiveTab('basic')}
-                    className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'basic' ? 'text-purple-400 bg-white/5 border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'
-                        }`}
-                >
-                    <Layers className="w-3.5 h-3.5" /> 基础元件
-                </button>
-                <button
-                    onClick={() => setActiveTab('cards')}
-                    className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'cards' ? 'text-purple-400 bg-white/5 border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'
-                        }`}
-                >
-                    <Database className="w-3.5 h-3.5" /> 卡牌库
-                </button>
-            </div>
+                {/* Tabs */}
+                <div className="flex border-b border-white/10 relative">
+                    <button
+                        onClick={() => setActiveTab('basic')}
+                        className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'basic' ? 'text-purple-400 bg-white/5 border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'
+                            }`}
+                    >
+                        <Layers className="w-3.5 h-3.5" /> 基础元件
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('cards')}
+                        className={`flex-1 py-3 text-xs font-bold flex items-center justify-center gap-2 transition-colors ${activeTab === 'cards' ? 'text-purple-400 bg-white/5 border-b-2 border-purple-500' : 'text-gray-500 hover:text-gray-300'
+                            }`}
+                    >
+                        <Database className="w-3.5 h-3.5" /> 卡牌库
+                    </button>
+                    
+                    <button 
+                        onClick={() => setIsImportDialogOpen(true)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-purple-400 transition-colors"
+                        title="从编辑器导入内容"
+                    >
+                        <Upload className="w-3.5 h-3.5" />
+                    </button>
+                </div>
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-4">
@@ -63,7 +80,7 @@ export function AssetPanel() {
                                         key={key}
                                         draggable
                                         onDragStart={(e) => handleDragStart(e, 'godNode', { layer: key, name: `新${config.label}` })}
-                                        className="flex items-center gap-2 p-2 rounded-lg border border-white/5 bg-[#27272a] hover:border-purple-500/50 hover:bg-[#3f3f46] cursor-grab active:cursor-grabbing transition-all group"
+                                        className="flex items-center gap-2 p-2 rounded-lg border border-max-border bg-max-surface hover:border-purple-500/50 hover:bg-[#3f3f46] cursor-grab active:cursor-grabbing transition-all group"
                                     >
                                         <div className="w-2 h-2 rounded-full" style={{ backgroundColor: config.color }}></div>
                                         <span className="text-xs text-gray-300 group-hover:text-white">{config.label}</span>
@@ -100,7 +117,7 @@ export function AssetPanel() {
                                         // Map card type to layer heuristic could be added here
                                         // e.g. card.type === '人物' -> 'race' or 'faction'
                                     })}
-                                    className="bg-[#27272a] p-2.5 rounded-lg border border-white/5 cursor-grab active:cursor-grabbing hover:border-purple-500/50 transition-all"
+                                    className="bg-max-surface p-2.5 rounded-lg border border-max-border cursor-grab active:cursor-grabbing hover:border-purple-500/50 transition-all"
                                 >
                                     <div className="flex items-center justify-between mb-1">
                                         <span className="text-xs font-bold text-gray-200 line-clamp-1">{card.title}</span>
@@ -121,5 +138,6 @@ export function AssetPanel() {
 
             </div>
         </div>
+        </>
     );
 }

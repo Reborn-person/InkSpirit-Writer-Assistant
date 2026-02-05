@@ -88,7 +88,7 @@ export default function CloudSyncModal({ onClose }: CloudSyncModalProps) {
   const handleUpload = async () => {
     setLoading(true);
     try {
-      const data = await StorageManager.exportProject();
+      const data = StorageManager.exportProject();
       if (!data) throw new Error('No data to export');
 
       const res = await fetch('/api/backup', {

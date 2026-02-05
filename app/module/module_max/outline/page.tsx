@@ -9,6 +9,7 @@ import { useEditorAgent } from '@/contexts/EditorAgentContext';
 import { generateAIContent, generateAIContentStream } from '@/lib/ai';
 import { APIConfigValidator } from '@/lib/api-validator';
 import Module10Manager from '@/components/Module10Manager';
+import { ModelConfigPanel, ModelConfig } from '@/app/components/ModelConfigPanel';
 
 export default function MaxOutlinePage() {
   const pathname = usePathname();
@@ -20,6 +21,9 @@ export default function MaxOutlinePage() {
   const isMaxCreation = pathname === '/module/module_max/creation';
   const isMaxPolish = pathname === '/module/module_max/polish';
   const isMaxOutline = pathname === '/module/module_max/outline';
+  const isMaxConsistency = pathname === '/module/module_max/consistency';
+  const isMaxHumanizer = pathname === '/module/module_max/humanizer';
+  const isMaxGodMode = pathname === '/module/module_max/godmode';
 
   const outlineKey = 'novel_writer_max_outline';
   const outlinePromptKey = 'novel_writer_max_outline_prompt';
@@ -42,6 +46,22 @@ export default function MaxOutlinePage() {
   const [activeSection, setActiveSection] = useState<'generate' | 'optimize'>('generate');
   const abortControllerRef = useRef<AbortController | null>(null);
   const saveTimerRef = useRef<number | null>(null);
+
+  // Model Config
+  const [modelConfig, setModelConfig] = useState<ModelConfig>({
+      provider: 'siliconflow',
+      model: 'deepseek-ai/DeepSeek-V3',
+      apiKey: '',
+      baseUrl: 'https://api.siliconflow.cn/v1'
+  });
+
+  // useEffect(() => {
+  //   // Force enable Max Mode styles globally
+  //   document.body.classList.add('max-mode');
+  //   return () => {
+  //     document.body.classList.remove('max-mode');
+  //   };
+  // }, []);
 
   useEffect(() => {
     const loadSaved = async () => {
@@ -91,14 +111,6 @@ export default function MaxOutlinePage() {
     };
   }, []);
 
-  const getBigModelConfig = () => {
-    const apiKey = StorageManager.get(STORAGE_KEYS.BIG_MODEL_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-    const baseUrl = StorageManager.get(STORAGE_KEYS.BIG_MODEL_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
-    const model = StorageManager.get(STORAGE_KEYS.BIG_MODEL_MODEL) || 'deepseek-ai/DeepSeek-V3';
-    const validation = APIConfigValidator.validateConfig(apiKey, baseUrl, model);
-    return { apiKey, baseUrl, model, validation };
-  };
-
   const parseOutlineScore = (raw: string) => {
     const match = raw.match(/\{[\s\S]*\}/);
     const jsonText = match ? match[0] : raw;
@@ -116,12 +128,10 @@ export default function MaxOutlinePage() {
       alert('请输入核心创意或故事梗概');
       return;
     }
-    const apiKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-    const baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
-    const model = StorageManager.get(STORAGE_KEYS.RAG_MODEL) || 'deepseek-ai/DeepSeek-R1';
+    const { apiKey, baseUrl, model } = modelConfig;
 
-    if (!apiKey) {
-      alert('请先在设置中配置推理模型 API Key');
+    if (!model) {
+      alert('请先配置模型');
       return;
     }
 
@@ -181,9 +191,9 @@ ${paradigmBlock ? `\n${paradigmBlock}\n` : ''}
       return;
     }
 
-    const { apiKey, baseUrl, model, validation } = getBigModelConfig();
-    if (!validation.valid) {
-      setOutlineOptimizeError(`大文本模型配置错误：${validation.errors.join('，')}`);
+    const { apiKey, baseUrl, model } = modelConfig;
+    if (!model) {
+      setOutlineOptimizeError('请先配置模型');
       return;
     }
 
@@ -251,40 +261,46 @@ ${currentText}`;
   }, [registerPageSkill, unregisterPageSkill, handleGenerateOutline, handleOptimizeOutline]);
 
   return (
-    <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-[#18181b] text-gray-300 font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
-      <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#18181b] shrink-0 z-20">
+    <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-max-bg-alt text-max-text font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
+      <header className="h-14 border-b border-max-border flex items-center justify-between px-4 bg-max-bg shrink-0 z-20">
         <div className="flex items-center gap-4">
-          <div className="flex bg-[#27272a] rounded-lg p-1">
-            <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxHome ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>MAX 主页</Link>
-            <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxIdea ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>脑洞风暴</Link>
-            <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxDismantle ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>拆书</Link>
-            <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxOutline ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>大纲生成</Link>
-            <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxCreation ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>万字冲刺</Link>
-            <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxPolish ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>自循环</Link>
+          <div className="flex bg-max-surface rounded-lg p-1 border border-max-border overflow-x-auto no-scrollbar max-w-[60vw]">
+            <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHome ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>MAX 主页</Link>
+            <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxIdea ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>脑洞风暴</Link>
+            <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxDismantle ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>拆书</Link>
+            <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxOutline ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>大纲生成</Link>
+            <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxCreation ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>万字冲刺</Link>
+            <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxPolish ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>自循环</Link>
+            <Link href="/module/module_max/consistency" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxConsistency ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>一致性</Link>
+            <Link href="/module/module_max/humanizer" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHumanizer ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>AI去味</Link>
+            <Link href="/module/module_max/godmode" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxGodMode ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>上帝模式</Link>
           </div>
           <div className="h-4 w-[1px] bg-white/10"></div>
-          <h1 className="text-sm font-bold text-white flex items-center gap-2">
+          <h1 className="text-sm font-bold text-max-text flex items-center gap-2">
             <Layout className="w-4 h-4 text-blue-400" />
             大纲生成
           </h1>
+          <div className="ml-4">
+              <ModelConfigPanel moduleKey="outline" onConfigChange={setModelConfig} />
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden bg-[#09090b]">
+      <div className="flex-1 overflow-hidden bg-max-surface-alt">
         <div className="max-w-7xl mx-auto h-full flex gap-6 p-6">
-          <div className="w-1/3 max-panel rounded-xl p-5 space-y-5 overflow-y-auto custom-scrollbar bg-[#18181b] border border-white/10">
-            <div className="flex rounded-lg bg-[#27272a] p-1">
+          <div className="w-1/3 max-panel rounded-xl p-5 space-y-5 overflow-y-auto custom-scrollbar bg-max-bg border border-max-border">
+            <div className="flex rounded-lg bg-max-surface p-1">
               <button
                 type="button"
                 onClick={() => setActiveSection('generate')}
-                className={`flex-1 px-3 py-2 text-xs font-bold rounded-md transition-all ${activeSection === 'generate' ? 'bg-[#3f3f46] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                className={`flex-1 px-3 py-2 text-xs font-bold rounded-md transition-all ${activeSection === 'generate' ? 'bg-max-accent text-white shadow-sm' : 'text-max-text-muted hover:text-max-text'}`}
               >
                 大纲生成
               </button>
               <button
                 type="button"
                 onClick={() => setActiveSection('optimize')}
-                className={`flex-1 px-3 py-2 text-xs font-bold rounded-md transition-all ${activeSection === 'optimize' ? 'bg-[#3f3f46] text-white shadow-sm' : 'text-gray-400 hover:text-white'}`}
+                className={`flex-1 px-3 py-2 text-xs font-bold rounded-md transition-all ${activeSection === 'optimize' ? 'bg-max-accent text-white shadow-sm' : 'text-max-text-muted hover:text-max-text'}`}
               >
                 大纲优化器
               </button>
@@ -293,21 +309,21 @@ ${currentText}`;
             {activeSection === 'generate' ? (
               <>
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-300">1. 整体大纲 / 总体梗概</label>
+                  <label className="text-sm font-bold text-max-text-muted">1. 整体大纲 / 总体梗概</label>
                   <textarea
                     value={outlineIdea}
                     onChange={(e) => setOutlineIdea(e.target.value)}
-                    className="w-full h-32 px-3 py-3 bg-[#09090b] border border-white/10 rounded-lg outline-none text-sm text-gray-300 focus:border-purple-500/50 resize-none"
+                    className="w-full h-32 px-3 py-3 bg-max-surface-alt border border-max-border rounded-lg outline-none text-sm text-max-text focus:border-max-accent resize-none"
                     placeholder="输入整书大纲要点、主线冲突、主角目标等"
                   />
                 </div>
 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <label className="text-sm font-bold text-gray-300">2. 大纲生成范式</label>
+                    <label className="text-sm font-bold text-max-text-muted">2. 大纲生成范式</label>
                     <button
                       onClick={() => setShowPromptManager(true)}
-                      className="text-xs text-purple-400 hover:text-purple-300 flex items-center gap-1"
+                      className="text-xs text-max-accent hover:text-max-accent-hover flex items-center gap-1"
                     >
                       <FileText className="w-3 h-3" /> 提示词库
                     </button>
@@ -315,15 +331,15 @@ ${currentText}`;
                   <textarea
                     value={outlineParadigm}
                     onChange={(e) => setOutlineParadigm(e.target.value)}
-                    className="w-full h-28 px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 resize-y placeholder:text-gray-600"
+                    className="w-full h-28 px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent resize-y placeholder:text-max-text-muted/50"
                     placeholder="输入可复用的大纲生成范式，例如阶段结构、节奏要求、输出格式等"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-sm font-bold text-gray-300">3. 生成设置</label>
+                  <label className="text-sm font-bold text-max-text-muted">3. 生成设置</label>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-gray-400">
+                    <div className="flex items-center justify-between text-xs text-max-text-muted">
                       <span>章节规模目标</span>
                       <div className="flex items-center gap-2">
                         <input
@@ -336,7 +352,7 @@ ${currentText}`;
                             if (!Number.isFinite(next)) return;
                             setOutlineChapterCount(Math.max(1, Math.min(2000, next)));
                           }}
-                          className="w-20 px-2 py-1 bg-[#09090b] border border-white/10 rounded-md outline-none text-xs text-gray-300 focus:border-purple-500/50"
+                          className="w-20 px-2 py-1 bg-max-surface-alt border border-max-border rounded-md outline-none text-xs text-max-text focus:border-max-accent"
                         />
                         <span>章</span>
                       </div>
@@ -348,7 +364,7 @@ ${currentText}`;
                       step="1"
                       value={outlineChapterCount}
                       onChange={(e) => setOutlineChapterCount(Number(e.target.value))}
-                      className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                      className="w-full h-2 bg-max-surface-alt rounded-lg appearance-none cursor-pointer accent-max-accent"
                     />
                   </div>
                 </div>
@@ -357,7 +373,7 @@ ${currentText}`;
                   <button
                     onClick={handleGenerateOutline}
                     disabled={isGenerating || outlineOptimizeRunning}
-                    className="w-full py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-lg text-sm font-bold hover:opacity-90 shadow-lg shadow-blue-900/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
+                    className="w-full py-3 bg-max-accent text-white rounded-lg text-sm font-bold hover:opacity-90 shadow-lg shadow-max-accent/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
                   >
                     {isGenerating ? (
                       <>
@@ -376,7 +392,7 @@ ${currentText}`;
             ) : (
               <>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-bold text-gray-300">大纲优化器</h3>
+                  <h3 className="text-sm font-bold text-max-text-muted">大纲优化器</h3>
                   {outlineOptimizeRunning && (
                     <span className="text-[10px] text-green-400 bg-green-500/10 px-2 py-1 rounded-full border border-green-500/20">
                       进行中 第 {outlineOptimizeCurrentRound} 轮
@@ -384,36 +400,36 @@ ${currentText}`;
                   )}
                 </div>
                 <div className="space-y-2">
-                  <label className="text-xs font-bold text-gray-400">优化侧重点</label>
+                  <label className="text-xs font-bold text-max-text-muted">优化侧重点</label>
                   <input
                     type="text"
                     value={outlineOptimizeFocus}
                     onChange={(e) => setOutlineOptimizeFocus(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
+                    className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all"
                     placeholder="例如：结构完整性、节奏、爽点分布"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 mb-1">目标分数</label>
+                    <label className="block text-xs font-bold text-max-text-muted mb-1">目标分数</label>
                     <input
                       type="number"
                       min={1}
                       max={10}
                       value={outlineOptimizeTargetScore}
                       onChange={(e) => setOutlineOptimizeTargetScore(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
+                      className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all"
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-gray-400 mb-1">最多轮次</label>
+                    <label className="block text-xs font-bold text-max-text-muted mb-1">最多轮次</label>
                     <input
                       type="number"
                       min={1}
                       max={6}
                       value={outlineOptimizeMaxRounds}
                       onChange={(e) => setOutlineOptimizeMaxRounds(Number(e.target.value))}
-                      className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 transition-all"
+                      className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent transition-all"
                     />
                   </div>
                 </div>
@@ -431,7 +447,7 @@ ${currentText}`;
                       setOutlineOptimizeError('');
                       setOutlineOptimizeCurrentRound(0);
                     }}
-                    className="px-3 py-2 text-xs font-bold bg-[#27272a] text-gray-400 rounded-lg hover:bg-[#3f3f46] hover:text-white transition-colors border border-white/5"
+                    className="px-3 py-2 text-xs font-bold bg-max-surface text-max-text-muted rounded-lg hover:bg-max-surface-alt hover:text-max-text transition-colors border border-max-border"
                   >
                     清空记录
                   </button>
@@ -440,10 +456,10 @@ ${currentText}`;
             )}
           </div>
 
-          <div className="flex-1 max-panel rounded-xl p-5 border border-white/10 bg-[#18181b] flex flex-col">
+          <div className="flex-1 max-panel rounded-xl p-5 border border-max-border bg-max-bg flex flex-col">
             <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-bold text-white">大纲输出</h2>
-              <span className="text-xs text-gray-500">{outlineResult.length} 字</span>
+              <h2 className="text-sm font-bold text-max-text">大纲输出</h2>
+              <span className="text-xs text-max-text-muted">{outlineResult.length} 字</span>
             </div>
             {activeSection === 'generate' && error && (
               <div className="bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl px-4 py-3 text-sm mb-3">
@@ -458,18 +474,18 @@ ${currentText}`;
             <textarea
               value={outlineResult}
               onChange={(e) => setOutlineResult(e.target.value)}
-              className="flex-1 w-full px-3 py-3 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 resize-none custom-scrollbar placeholder:text-gray-600 font-mono"
+              className="flex-1 w-full px-3 py-3 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent resize-none custom-scrollbar placeholder:text-max-text-muted/50 font-mono"
               placeholder="这里将显示生成的大纲内容..."
             />
             {activeSection === 'optimize' && outlineOptimizeRounds.length > 0 && (
               <div className="mt-4 space-y-3 max-h-56 overflow-y-auto custom-scrollbar">
                 {outlineOptimizeRounds.map((item) => (
-                  <div key={item.round} className="bg-[#27272a] border border-white/5 rounded-lg p-3 space-y-2">
-                    <div className="flex items-center justify-between text-xs text-gray-400">
+                  <div key={item.round} className="bg-max-surface border border-max-border rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between text-xs text-max-text-muted">
                       <span>第 {item.round} 轮评分</span>
                       <span className="text-green-400 font-bold text-sm">{item.score} 分</span>
                     </div>
-                    <div className="text-xs text-gray-500 whitespace-pre-wrap leading-relaxed">{item.feedback || '暂无评审建议'}</div>
+                    <div className="text-xs text-max-text-muted whitespace-pre-wrap leading-relaxed">{item.feedback || '暂无评审建议'}</div>
                   </div>
                 ))}
               </div>
@@ -480,7 +496,7 @@ ${currentText}`;
 
       {showPromptManager && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-          <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+          <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-5xl h-[85vh] flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
             <Module10Manager
               initialModuleId="module_max_outline"
               onSelectPrompt={(content) => {

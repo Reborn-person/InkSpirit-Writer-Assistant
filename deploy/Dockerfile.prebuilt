@@ -1,0 +1,28 @@
+
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+
+RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+# Copy prebuilt artifacts
+COPY .next/standalone ./
+COPY .next/static ./.next/static
+COPY public ./public
+COPY prisma ./prisma
+COPY docker-entrypoint.sh ./
+
+# Install prisma client locally if needed, but standalone usually handles it.
+# However, standalone excludes some binaries. Let's ensure prisma client works.
+# Actually, standalone includes node_modules.
+
+RUN chmod +x ./docker-entrypoint.sh
+
+EXPOSE 3000
+
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["node", "server.js"]

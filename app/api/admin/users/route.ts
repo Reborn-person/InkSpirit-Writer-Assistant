@@ -17,7 +17,20 @@ async function getAdminUser() {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; username: string; tokenVersion?: number };
-    if (!ADMIN_USERNAMES.includes(decoded.username)) return null;
+    if (!ADMIN_USERNAMES.includes(decoded.username)) {
+      // Allow fallback if decoded.username is not in list but user in DB is
+      // This happens if token is old or format changed, but user ID is valid
+      const adminUser = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { username: true }
+      });
+      if (!adminUser || !ADMIN_USERNAMES.includes(adminUser.username)) {
+          return null;
+      }
+      // If we are here, DB user is admin, allow access
+      return decoded;
+    }
+    
     if (typeof decoded.tokenVersion !== 'number') return null;
     const adminUser = await prisma.user.findUnique({
       where: { id: decoded.userId },
@@ -49,6 +62,13 @@ export async function GET() {
       level: true,
       membershipExpiresAt: true,
       createdAt: true,
+      quota: {
+        select: {
+          dailyTokensUsed: true,
+          dailyTokenLimit: true,
+          totalTokensUsed: true
+        }
+      },
       invitationCode: {
         select: {
           code: true
@@ -69,6 +89,7 @@ export async function GET() {
       username: user.username,
       level: user.level,
       membershipExpiresAt: user.membershipExpiresAt,
+      quota: user.quota || { dailyTokensUsed: 0, dailyTokenLimit: 0, totalTokensUsed: 0 },
       createdAt: user.createdAt,
       inviteCode: user.invitationCode?.code || null,
       backupCount: user._count.backups
@@ -86,14 +107,14 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
-  const { userId, level, username, membershipDuration } = await request.json();
+  const { userId, level, username, membershipDuration, quota } = await request.json();
   const allowedLevels: UserLevel[] = ['PRO', 'PRO_PLUS', 'MAX', 'PROMAX'];
 
   if (!userId) {
     return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
   }
 
-  const data: Prisma.UserUpdateInput = {};
+  const data: any = {};
 
   if (typeof level !== 'undefined') {
     if (!allowedLevels.includes(level)) {
@@ -129,14 +150,26 @@ export async function PUT(request: Request) {
   if (typeof membershipDuration !== 'undefined') {
     const now = new Date();
     const d = String(membershipDuration);
+    
+    let baseDate = now;
+    if (d !== 'clear') {
+       const currentUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { membershipExpiresAt: true }
+       });
+       if (currentUser?.membershipExpiresAt && currentUser.membershipExpiresAt > now) {
+          baseDate = currentUser.membershipExpiresAt;
+       }
+    }
+
     if (d === 'clear') {
       data.membershipExpiresAt = null;
     } else if (d === 'month') {
-      data.membershipExpiresAt = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+      data.membershipExpiresAt = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, baseDate.getDate());
     } else if (d === 'quarter') {
-      data.membershipExpiresAt = new Date(now.getFullYear(), now.getMonth() + 3, now.getDate());
+      data.membershipExpiresAt = new Date(baseDate.getFullYear(), baseDate.getMonth() + 3, baseDate.getDate());
     } else if (d === 'year') {
-      data.membershipExpiresAt = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate());
+      data.membershipExpiresAt = new Date(baseDate.getFullYear() + 1, baseDate.getMonth(), baseDate.getDate());
     } else if (d === 'millionYears') {
       data.membershipExpiresAt = new Date('9999-12-31T00:00:00.000Z');
     } else {
@@ -144,22 +177,72 @@ export async function PUT(request: Request) {
     }
   }
 
-  if (Object.keys(data).length === 0) {
-    return NextResponse.json({ error: 'No updates provided' }, { status: 400 });
+  // Handle quota updates
+  if (quota && typeof quota === 'object') {
+      const quotaUpdate: any = {};
+      if (typeof quota.dailyTokensUsed === 'number') quotaUpdate.dailyTokensUsed = quota.dailyTokensUsed;
+      if (typeof quota.dailyTokenLimit === 'number') quotaUpdate.dailyTokenLimit = quota.dailyTokenLimit;
+      if (typeof quota.totalTokensUsed === 'number') quotaUpdate.totalTokensUsed = quota.totalTokensUsed;
+      
+      if (Object.keys(quotaUpdate).length > 0) {
+          await prisma.userQuota.upsert({
+              where: { userId },
+              create: { 
+                  userId,
+                  ...quotaUpdate 
+              },
+              update: quotaUpdate
+          });
+      }
+  }
+
+  if (Object.keys(data).length === 0 && !quota) {
+    // Return early if nothing to update
   }
 
   try {
-    const updated = await prisma.user.update({
-      where: { id: userId },
-      data
-    });
+    // Return full updated user
+    // Perform update if there are fields to update
+    let updated;
+    if (Object.keys(data).length > 0) {
+        updated = await prisma.user.update({
+            where: { id: userId },
+            data,
+            include: { 
+                quota: {
+                    select: {
+                        dailyTokensUsed: true,
+                        dailyTokenLimit: true,
+                        totalTokensUsed: true
+                    }
+                }
+            }
+        });
+    } else {
+        // Just fetch
+        updated = await prisma.user.findUnique({
+            where: { id: userId },
+            include: { 
+                quota: {
+                    select: {
+                        dailyTokensUsed: true,
+                        dailyTokenLimit: true,
+                        totalTokensUsed: true
+                    }
+                }
+            }
+        });
+    }
+
+    if (!updated) return NextResponse.json({ error: 'Failed to fetch updated user' }, { status: 500 });
 
     return NextResponse.json({
       data: {
         id: updated.id,
         username: updated.username,
         level: updated.level,
-        membershipExpiresAt: updated.membershipExpiresAt
+        membershipExpiresAt: updated.membershipExpiresAt,
+        quota: updated.quota || { dailyTokensUsed: 0, dailyTokenLimit: 0, totalTokensUsed: 0 }
       }
     });
   } catch (error: any) {

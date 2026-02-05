@@ -2,7 +2,8 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
@@ -32,6 +33,26 @@ model User {
   marketCards    MarketCard[]
   marketIdeas    MarketIdea[]
   settings       UserSettings?
+  novels         Novel[]
+  quota          UserQuota?
+}
+
+model UserQuota {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  dailyTokensUsed Int      @default(0)
+  dailyTokenLimit Int      @default(100000) // Default limit for PRO users
+  totalTokensUsed Int      @default(0)
+  lastResetDate   DateTime @default(now())
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model SystemSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
 }
 
 model InvitationCode {
@@ -101,4 +122,28 @@ model MarketIdea {
   likeCount    Int      @default(0)
   createdAt    DateTime @default(now())
   lastModified DateTime @updatedAt
+}
+
+// New Models for Chapter Persistence
+model Novel {
+  id        String    @id // Allow client-side ID or UUID
+  title     String
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapters  Chapter[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Chapter {
+  id        String   @id // Allow client-side ID or UUID
+  title     String
+  content   String   // Content storage
+  summary   String?
+  novelId   String
+  novel     Novel    @relation(fields: [novelId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+  status    String   @default("draft") 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

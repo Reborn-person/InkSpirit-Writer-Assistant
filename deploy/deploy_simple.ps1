@@ -53,7 +53,7 @@ if (Test-Path $ZipFile) { Remove-Item "$ZipFile" -Force }
 
 Write-Host "4. Extracting and Restarting..." -ForegroundColor Yellow
 # Using unzip on server, handling subdirectory, AND ensuring .env is in deploy folder, AND fixing DB path
-$RemoteCmd = "cd $RemotePath && unzip -o deploy_pkg.zip && rm deploy_pkg.zip && (if [ -d 'ai-novel-writer-build' ]; then echo 'Found subdirectory, moving files...' && cp -rf ai-novel-writer-build/* . && cp -rf ai-novel-writer-build/.* . 2>/dev/null || true && rm -rf ai-novel-writer-build; fi) && cp .env deploy/.env && sed -i 's|DATABASE_URL=.*|DATABASE_URL=\"file:/data/db.sqlite\"|' deploy/.env && cd deploy && docker compose down && docker compose build --no-cache app && docker compose up -d"
+$RemoteCmd = "cd $RemotePath && unzip -o deploy_pkg.zip && rm deploy_pkg.zip && (if [ -d 'ai-novel-writer-build' ]; then echo 'Found subdirectory, moving files...' && cp -rf ai-novel-writer-build/* . && cp -rf ai-novel-writer-build/.* . 2>/dev/null || true && rm -rf ai-novel-writer-build; fi) && cp .env deploy/.env && sed -i 's|DATABASE_URL=.*|DATABASE_URL=`"file:/data/db.sqlite`"|' deploy/.env && cd deploy && docker compose down && docker compose build --no-cache app && docker compose up -d"
 
 ssh -p $Port $User@$ServerIP $RemoteCmd
 

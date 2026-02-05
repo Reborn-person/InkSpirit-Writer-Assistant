@@ -23,6 +23,10 @@ interface EditorAgentContextType {
   // Visual States
   agentState: 'idle' | 'reading' | 'writing';
   setAgentState: (state: 'idle' | 'reading' | 'writing') => void;
+  
+  // Agent Visual Mode
+  agentMode: 'standard' | 'neon';
+  setAgentMode: (mode: 'standard' | 'neon') => void;
 
   // AI Panel State
   isAiOpen: boolean;
@@ -47,6 +51,9 @@ interface EditorAgentContextType {
   // Max Mode
   isMaxMode: boolean;
   setIsMaxMode: (mode: boolean) => void;
+
+  // User Level
+  userLevel: 'PRO' | 'PRO_PLUS' | 'MAX' | 'PROMAX' | null;
 }
 
 const EditorAgentContext = createContext<EditorAgentContextType | null>(null);
@@ -56,17 +63,30 @@ export function EditorAgentProvider({ children }: { children: React.ReactNode })
   const pageSkillsRef = useRef<Record<string, PageSkillHandler>>({});
   const [activeEditorId, setActiveEditorId] = useState<string | null>(null);
   const [agentState, setAgentState] = useState<'idle' | 'reading' | 'writing'>('idle');
+  const [agentMode, setAgentMode] = useState<'standard' | 'neon'>('standard');
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [pendingPrompt, setPendingPromptState] = useState<string | null>(null);
   const [shouldAutoSend, setShouldAutoSend] = useState(true);
+  const MAX_UNDO_STACK = 5; // 优化：从10减少到5，减少内存占用
   const [undoStack, setUndoStack] = useState<{ content: string, selection: { start: number, end: number } }[]>([]);
   const [isMaxMode, setIsMaxMode] = useState(false);
+  const [userLevel, setUserLevel] = useState<'PRO' | 'PRO_PLUS' | 'MAX' | 'PROMAX' | null>(null);
 
   useEffect(() => {
-    if (typeof document === 'undefined') return;
-    document.documentElement.classList.toggle('max-mode', isMaxMode);
-    document.body.classList.toggle('max-mode', isMaxMode);
-  }, [isMaxMode]);
+    // Fetch user info to populate userLevel
+    const fetchUserLevel = async () => {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUserLevel(data.data?.level || null);
+        }
+      } catch (e) {
+        console.error('Failed to fetch user level', e);
+      }
+    };
+    fetchUserLevel();
+  }, []);
 
   const setPendingPrompt = useCallback((prompt: string | null, autoSend: boolean = true) => {
     setShouldAutoSend(autoSend);
@@ -91,7 +111,13 @@ export function EditorAgentProvider({ children }: { children: React.ReactNode })
     if (!activeEditor) return;
     const content = activeEditor.getContent();
     const selection = activeEditor.getSelection();
-    setUndoStack(prev => [...prev.slice(-10), { content, selection }]); // Keep last 10 steps
+    setUndoStack(prev => {
+      const newStack = [...prev, { content, selection }];
+      if (newStack.length > MAX_UNDO_STACK) {
+        return newStack.slice(newStack.length - MAX_UNDO_STACK);
+      }
+      return newStack;
+    });
   }, [activeEditor]);
 
   const undo = useCallback(async () => {
@@ -144,19 +170,14 @@ export function EditorAgentProvider({ children }: { children: React.ReactNode })
       activeEditor.setContent('');
     }
 
-    const chunks = text.match(/.{1,3}/g) || [];
+    const chunkSize = 5;
+    const chunkRegex = new RegExp(`.{1,${chunkSize}}`, 'g');
+    const chunks = text.match(chunkRegex) || [];
 
     for (const chunk of chunks) {
-      const delay = Math.floor(Math.random() * 30) + 10;
+      activeEditor.insertText(chunk);
+      const delay = Math.floor(Math.random() * 10) + 10;
       await new Promise(resolve => setTimeout(resolve, delay));
-
-      if (mode === 'append') {
-        activeEditor.insertText(chunk);
-      } else if (mode === 'overwrite') {
-        activeEditor.insertText(chunk);
-      } else {
-        activeEditor.insertText(chunk);
-      }
     }
 
     setAgentState('idle');
@@ -212,6 +233,8 @@ export function EditorAgentProvider({ children }: { children: React.ReactNode })
       activeEditorId,
       agentState,
       setAgentState,
+      agentMode,
+      setAgentMode,
       isAiOpen,
       setIsAiOpen,
       readEditorContent,
@@ -226,7 +249,8 @@ export function EditorAgentProvider({ children }: { children: React.ReactNode })
       unregisterPageSkill,
       runPageSkill,
       isMaxMode,
-      setIsMaxMode
+      setIsMaxMode,
+      userLevel
     }}>
       {children}
     </EditorAgentContext.Provider>

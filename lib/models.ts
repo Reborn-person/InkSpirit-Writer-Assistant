@@ -1,14 +1,23 @@
 
 export const PROVIDER_MODELS: Record<string, string[]> = {
     'siliconflow': [
-        'deepseek-ai/DeepSeek-V3',
+        'Pro/deepseek-ai/DeepSeek-V3.2',
         'deepseek-ai/DeepSeek-R1',
-        'moonshotai/Kimi-K2-Thinking',
+        'Pro/zai-org/GLM-4.7',
         'zai-org/GLM-4.6',
-        'MiniMaxAI/MiniMax-M2',
-        'zai-org/GLM-4.6V'
+        'zai-org/GLM-4.6V',
+        'Pro/MiniMaxAI/MiniMax-M2.1',
+        'Qwen/Qwen3-Next-80B-A3B-Thinking',
+     
+
+       
     ],
     'vectorengine': [
+        'gemini-3-pro-preview',
+        'deepseek-v3.2-thinking',
+        'gpt-5.1',
+        'claude-3-7-sonnet-20250219',
+        'claude-3-5-sonnet-20241022',
         'grok-4.1',
         'gpt-5.2',
         'doubao-seed-1-8-251228',
@@ -27,13 +36,30 @@ export const PROVIDER_MODELS: Record<string, string[]> = {
         'gpt-4-turbo',
         'gpt-3.5-turbo'
     ],
+    'iflow': [
+        'qwen3-max-preview',
+        'qwen3-max',
+        'qwen3-coder-plus',
+        'qwen3-vl-plus',
+        'kimi-k2-0905',
+        'qwen3-235b-a22b-thinking-2507',
+        'qwen3-235b-a22b-instruct',
+        'glm-4.6',
+        'iflow-rome-30ba3b',
+        'deepseek-v3.2',
+        'deepseek-r1',
+        'deepseek-ai/DeepSeek-V3',
+        'deepseek-ai/DeepSeek-R1',
+        'gpt-4o',
+        'gpt-4o-mini'
+    ],
     'custom': []
 };
 
 export const VECTOR_MODELS: Record<string, string[]> = {
     'siliconflow': [
-        'text-embedding-3-large',
-        'text-embedding-3-small'
+        'Qwen/Qwen3-Embedding-8B',
+        'Qwen/Qwen3-Embedding-4B'
     ],
     'vectorengine': [
         'text-embedding-3-large',
@@ -44,6 +70,10 @@ export const VECTOR_MODELS: Record<string, string[]> = {
         'text-embedding-3-small'
     ],
     'openai': [
+        'text-embedding-3-large',
+        'text-embedding-3-small'
+    ],
+    'iflow': [
         'text-embedding-3-large',
         'text-embedding-3-small'
     ],
@@ -71,6 +101,10 @@ export const IMAGE_MODELS: Record<string, string[]> = {
         'dall-e-3',
         'dall-e-2'
     ],
+    'iflow': [
+        'black-forest-labs/FLUX.1-dev',
+        'black-forest-labs/FLUX.1-schnell'
+    ],
     'custom': []
 };
 
@@ -79,5 +113,6 @@ export const PROVIDER_NAMES: Record<string, string> = {
     'vectorengine': '向量引擎 (VectorEngine)',
     'alibaba': '阿里大模型 (Alibaba)',
     'openai': 'OpenAI',
+    'iflow': '心流 API (iFlow)',
     'custom': '自定义 (Custom)'
 };

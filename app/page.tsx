@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, Wand2, FileText, List, BookOpen, PenTool, Edit3, BookMarked, FlaskConical, Database, ClipboardCheck, Sparkles, Layout, Layers, Feather, Target, Book, GraduationCap } from 'lucide-react';
+import { ArrowRight, Wand2, BookOpen, PenTool, Edit3, BookMarked, FlaskConical, Database, ClipboardCheck, Sparkles, Layout, Layers, Feather, Target, MessageSquare } from 'lucide-react';
 import AnnouncementModal from '@/components/AnnouncementModal';
 
 // Workflow Phases
@@ -97,6 +97,20 @@ const phases = [
                 colorClass: "text-[#008000] bg-[#008000]/10 border-[#008000]/20" // Cui Lv
             },
             {
+                title: "11. 创作备忘录",
+                description: "沉淀灵感与设定，随手记，随时用。",
+                href: "/module/module11",
+                icon: BookOpen,
+                colorClass: "text-[#177CB0] bg-[#177CB0]/10 border-[#177CB0]/20"
+            },
+            {
+                title: "12. 对话写作",
+                description: "以对话驱动写作：多文件协作、智能开场白、流程更顺。",
+                href: "/module/module12",
+                icon: MessageSquare,
+                colorClass: "text-[#ff5a5f] bg-[#ff5a5f]/10 border-[#ff5a5f]/20"
+            },
+            {
                 title: "9. 提示词炼金",
                 description: "对抗生成+自动评测，迭代出最强Prompt。",
                 href: "/module/module9",
@@ -131,6 +145,22 @@ export default function Home() {
           从脑洞到爆款。专为超长篇网文创作打造的<br/>
           <span className="font-medium text-daiqing">全流程 AI 工作流引擎 (InkSpirit Engine)</span>
         </p>
+        <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
+          <Link
+            href="/module/module_max"
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-ink text-paper text-sm font-semibold shadow-sm hover:opacity-90 transition-opacity"
+          >
+            进入 MAX
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+          <Link
+            href="/module/module12"
+            className="inline-flex items-center gap-2 px-5 py-2 rounded-xl border border-ink/10 bg-[#FFFEFA] text-ink text-sm font-semibold shadow-sm hover:border-daiqing/30 hover:text-daiqing transition-colors"
+          >
+            模块12：对话写作
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
       </div>
 
       {/* Workflow Sections */}
@@ -179,7 +209,7 @@ export default function Home() {
             “人们都喜欢做梦，而墨灵让你把梦里的山海、人间的星河，都揉进笔墨里，让虚妄的念想，长出真实的模样。”
           </p>
           <p className="text-xs text-gray-400">
-              v1.2.0 InkSpirit Engine • Designed for Long-form Web Novels
+              v1.3.4 InkSpirit Engine • Designed for Long-form Web Novels
           </p>
       </div>
     </div>

@@ -24,7 +24,7 @@ export function LayerPanel() {
     ];
 
     return (
-        <div className="bg-[#18181b]/90 backdrop-blur-md border border-white/10 rounded-xl p-4 w-64 shadow-2xl">
+        <div className="bg-max-bg/90 backdrop-blur-md border border-max-border rounded-xl p-4 w-64 shadow-2xl">
             <div className="flex items-center gap-2 mb-4 text-gray-200 font-bold border-b border-white/10 pb-2">
                 <Layers className="w-4 h-4 text-purple-500" />
                 <span>全息图层 (Holographic)</span>

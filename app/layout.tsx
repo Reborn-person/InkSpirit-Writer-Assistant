@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
 import "./globals.css";
+
 import { Sidebar } from "@/components/Sidebar";
 import FloatingAI from "@/components/FloatingAI";
 import { EditorAgentProvider } from "@/contexts/EditorAgentContext";
 import { MaxJobProvider } from "@/contexts/MaxJobContext";
+import ThemeProvider from "@/components/ThemeProvider";
 
 export const metadata: Metadata = {
   title: 'AI Novel Writer',
@@ -19,6 +21,7 @@ export default function RootLayout({
     <html lang="zh-CN">
       <body className={`antialiased flex h-screen bg-rice-paper text-ink overflow-hidden font-serif`}>
         <EditorAgentProvider>
+          <ThemeProvider />
           <MaxJobProvider>
             <Sidebar />
             <main className="flex-1 overflow-y-auto p-0 relative">

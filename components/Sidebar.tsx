@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, FileText, List, PenTool, Edit3, Wand2, Home, Settings, Coffee, Database, BookMarked, X, ChevronLeft, ChevronRight, Menu, FlaskConical, ClipboardCheck, Maximize2, Minimize2, Sparkles, Layout, Layers, Target, Feather, User, LogOut, Map } from 'lucide-react';
+import { BookOpen, FileText, List, PenTool, Edit3, Wand2, Home, Settings, Coffee, Database, BookMarked, X, ChevronLeft, ChevronRight, Menu, FlaskConical, ClipboardCheck, Maximize2, Minimize2, Sparkles, Layout, Layers, Target, Feather, User, LogOut, Map, MessageSquare } from 'lucide-react';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import AnnouncementModal from './AnnouncementModal';
 import { useEditorAgent } from '@/contexts/EditorAgentContext';
@@ -25,6 +25,7 @@ const menuItems = [
   { name: '9. 提示词炼金', href: '/module/module9', icon: FlaskConical },
   { name: '10. 提示词管理', href: '/module/module10', icon: Database },
   { name: '11. 创作备忘录', href: '/module/module11', icon: BookOpen },
+  { name: '12. 对话写作', href: '/module/module12', icon: MessageSquare },
   { name: '请开发者喝杯咖啡', href: '/coffee', icon: Coffee },
   { name: '储存管理', href: '/storage', icon: Database },
   { name: '设置', href: '/settings', icon: Settings },
@@ -47,8 +48,8 @@ export function Sidebar() {
   const [membershipExpiresAt, setMembershipExpiresAt] = useState<string | null>(null);
   const [isMaxModeEnabled, setIsMaxModeEnabled] = useState(false);
 
-  // Only MAX and PROMAX users (or dev mode) can access MAX features
-  const canUseMaxMode = process.env.NODE_ENV !== 'production' || userLevel === 'MAX' || userLevel === 'PROMAX';
+  // Only MAX and PROMAX users can access MAX features
+  const canUseMaxMode = userLevel === 'MAX' || userLevel === 'PROMAX';
 
   // Effective MAX mode: user setting AND permission OR currently in MAX route (immersive experience)
   const shouldSimplifyMenu = (isMaxModeEnabled || isVisualMax) && canUseMaxMode;
@@ -61,9 +62,9 @@ export function Sidebar() {
       item.href === '/settings' ||
       item.href === '/coffee' ||
       item.href === '/storage' ||
-      // Keep tools (7, 8, 9, 10, 11) and Godmode if needed, but user said Godmode is inside MAX center.
+      // Keep tools (7, 8, 9, 10, 11, 12) and Godmode if needed, but user said Godmode is inside MAX center.
       // We'll keep tools but hide 0.5-6 as requested.
-      ['/module/module7', '/module/module8', '/module/module9', '/module/module10', '/module/module11'].includes(item.href)
+      ['/module/module7', '/module/module8', '/module/module9', '/module/module10', '/module/module11', '/module/module12'].includes(item.href)
     )
     // When NOT in MAX mode:
     // If user has MAX permission (canUseMaxMode), show EVERYTHING including MAX module.
@@ -245,10 +246,7 @@ export function Sidebar() {
     <>
       {/* Mobile Toggle Button */}
       <button
-        className={`md:hidden fixed top-3 left-3 z-50 p-2 backdrop-blur-sm rounded-full shadow-sm border transition-all ${isVisualMax
-          ? 'bg-black/40 border-white/10 text-white/70 hover:bg-black/55 hover:text-white'
-          : 'bg-white/80 border-gray-200 text-gray-600 hover:bg-white hover:text-daiqing'
-          }`}
+        className="md:hidden fixed top-3 left-3 z-50 p-2 backdrop-blur-sm rounded-full shadow-sm border border-sidebar-border bg-sidebar/80 text-sidebar-text/70 hover:bg-sidebar hover:text-sidebar-text transition-all"
         onClick={() => setIsMobileOpen(!isMobileOpen)}
       >
         {isMobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -271,27 +269,31 @@ export function Sidebar() {
         fixed inset-y-0 left-0 z-40 md:relative md:translate-x-0
         ${isMobileOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}
         ${isCollapsed ? 'w-20' : 'w-64'}
-        ${isVisualMax ? 'bg-[#0f0f12] border-white/10 text-white' : 'bg-[#F5F2EC] border-ink/10 text-ink'}
+        ${isVisualMax ? 'bg-[#18181b] border-white/10 text-[#f4f4f5]' : 'bg-sidebar border-sidebar-border text-sidebar-text'}
       `}
       >
-        <div className={`sidebar-header flex items-center justify-between h-16 px-4 relative ${isVisualMax ? 'border-b border-white/10 bg-[#121214]' : 'border-b border-ink/10 bg-rice-texture'
-          }`}>
-          {/* Minimalist Bamboo Pattern Overlay */}
+        <div className={`sidebar-header flex items-center justify-between h-16 px-4 relative border-b 
+            ${isVisualMax ? 'bg-[#18181b] border-white/10' : 'bg-sidebar-header border-sidebar-border'}
+        `}>
+          {/* Minimalist Bamboo Pattern Overlay - Removed for cleaner look in MAX mode */}
+          {!isVisualMax && (
           <div className="absolute inset-0 opacity-10 pointer-events-none"
             style={{
-              backgroundImage: 'radial-gradient(circle at 10% 20%, #607476 1px, transparent 1px), radial-gradient(circle at 90% 80%, #607476 1px, transparent 1px)',
-              backgroundSize: '20px 20px'
+              backgroundImage: 'radial-gradient(circle at 10% 20%, currentColor 1px, transparent 1px), radial-gradient(circle at 90% 80%, currentColor 1px, transparent 1px)',
+              backgroundSize: '20px 20px',
+              color: 'var(--color-sidebar-text)'
             }}>
           </div>
+          )}
 
           {!isCollapsed && (
-            <span className={`text-xl font-bold truncate tracking-tight ${isVisualMax ? 'text-white' : 'text-ink'}`}>墨灵写作助手</span>
+            <span className="text-xl font-bold truncate tracking-tight text-sidebar-text">墨灵写作助手</span>
           )}
           <div className="flex items-center gap-2 z-10">
             {!isCollapsed && (
               <button
                 onClick={toggleFullscreen}
-                className={`transition-colors p-1 ${isVisualMax ? 'text-white/60 hover:text-white' : 'text-gray-500 hover:text-daiqing'}`}
+                className="transition-colors p-1 text-sidebar-text/60 hover:text-sidebar-text"
                 title="浏览器全屏 (F10)"
               >
                 {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -302,14 +304,11 @@ export function Sidebar() {
               className={`transition-all duration-300 outline-none group ${isCollapsed ? 'mx-auto' : ''}`}
               title={isCollapsed ? "展开侧边栏" : "收起侧边栏"}
             >
-              <div className={`relative rounded-full overflow-hidden border-2 shadow-sm transition-all group-hover:shadow-md flex items-center justify-center ${isCollapsed ? 'w-10 h-10' : 'w-8 h-8'} ${isVisualMax
-                ? 'border-white/20 bg-white/10 group-hover:border-white/40'
-                : 'border-white/50 bg-white/50 group-hover:border-daiqing/50'
-                }`}>
+              <div className={`relative rounded-full overflow-hidden border-2 shadow-sm transition-all group-hover:shadow-md flex items-center justify-center ${isCollapsed ? 'w-10 h-10' : 'w-8 h-8'} border-sidebar-border bg-sidebar-active/20 group-hover:border-sidebar-active/40`}>
                 {userAvatar ? (
                   <img src={userAvatar} alt="Avatar" className="w-full h-full object-cover" />
                 ) : (
-                  <div className={`transition-colors ${isVisualMax ? 'text-white/40 group-hover:text-white' : 'text-gray-400 group-hover:text-daiqing'}`}>
+                  <div className="transition-colors text-sidebar-text/40 group-hover:text-sidebar-text">
                     <User className="w-5 h-5" />
                   </div>
                 )}
@@ -330,7 +329,7 @@ export function Sidebar() {
                   </span>
                 )}
                 {shouldShowExpiry(userLevel) && membershipExpiresAt && (
-                  <span className={`text-xs ${isVisualMax ? 'text-white/50' : 'text-ink/40'}`}>
+                  <span className="text-xs text-sidebar-text/50">
                     到期 {formatExpiryDate(membershipExpiresAt)}
                   </span>
                 )}
@@ -349,13 +348,9 @@ export function Sidebar() {
                     href={item.href}
                     onClick={() => setIsMobileOpen(false)}
                     className={`group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all relative overflow-hidden ${isCollapsed ? 'justify-center' : ''
-                      } ${isVisualMax
-                        ? (isActive
-                          ? 'text-[#ff9966] bg-white/5'
-                          : 'text-white/65 hover:text-white hover:bg-white/5')
-                        : (isActive
-                          ? 'text-cinnabar bg-cinnabar/5 selection-cinnabar'
-                          : 'text-gray-600 hover:text-daiqing hover-ink-smudge')
+                      } ${isActive
+                        ? 'text-sidebar-active-text bg-sidebar-active'
+                        : 'text-sidebar-text/65 hover:text-sidebar-text hover:bg-sidebar-active/50'
                       }`}
                     title={isCollapsed ? item.name : ''}
                   >
@@ -371,10 +366,10 @@ export function Sidebar() {
 
         {/* 公告区域 - 仅在展开时显示 */}
         {showAnnouncement && !isCollapsed && (
-          <div className={`px-4 py-3 relative group ${isVisualMax ? 'bg-white/5 border-t border-white/10' : 'bg-white/50 border-t border-ink/10'}`}>
+          <div className="px-4 py-3 relative group bg-sidebar-active/10 border-t border-sidebar-border">
             <button
               onClick={() => setShowAnnouncement(false)}
-              className={`absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity ${isVisualMax ? 'text-white/40 hover:text-white' : 'text-gray-400 hover:text-daiqing'}`}
+              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-sidebar-text/40 hover:text-sidebar-text"
               title="关闭公告"
               type="button"
             >
@@ -382,36 +377,35 @@ export function Sidebar() {
             </button>
             <div className="flex items-center gap-2 mb-2 text-daiqing font-bold text-xs uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-cinnabar animate-pulse"></span>
-              更新公告 (v1.30)
+              更新公告 (v1.3.3)
             </div>
-            <div className={`text-xs space-y-1.5 leading-relaxed ${isVisualMax ? 'text-white/60' : 'text-gray-600'}`}>
-              <p>1. <span className={`font-bold ${isVisualMax ? 'text-white' : 'text-ink'}`}>MAX 沉浸模式</span>：暗黑主题 + 智能停靠助手，专注创作体验。</p>
-              <p>2. <span className={`font-bold ${isVisualMax ? 'text-white' : 'text-ink'}`}>视觉升级</span>：全线字体优化，细节打磨，阅读更舒适。</p>
-              <p>3. <span className={`font-bold ${isVisualMax ? 'text-white' : 'text-ink'}`}>交互优化</span>：修复已知问题，提升操作流畅度。</p>
+            <div className={`text-xs space-y-1.5 leading-relaxed text-sidebar-text/60`}>
+              <p>1. <span className="font-bold text-sidebar-text">Max 创作中心升级</span>：UI 全新改版，支持全局模型独立配置。</p>
+              <p>2. <span className="font-bold text-sidebar-text">体验优化</span>：一致性检查升级，系统稳定性提升。</p>
             </div>
           </div>
         )}
 
         {/* 收起时的公告图标提示 */}
         {showAnnouncement && isCollapsed && (
-          <div className="py-4 flex justify-center border-t border-ink/10">
+          <div className="py-4 flex justify-center border-t border-sidebar-border">
             <div className="relative group cursor-pointer" onClick={() => setIsCollapsed(false)}>
               <div className="w-2 h-2 rounded-full bg-cinnabar animate-pulse absolute top-0 right-0"></div>
-              <BookOpen className="w-5 h-5 text-gray-500 group-hover:text-daiqing" />
+              <BookOpen className="w-5 h-5 text-sidebar-text/50 group-hover:text-sidebar-text" />
             </div>
           </div>
         )}
 
         <div
-          className={`p-4 border-t border-ink/10 text-xs text-gray-400 hover:text-daiqing transition-colors ${isCollapsed ? 'text-center cursor-pointer' : ''}`}
+          className={`p-4 border-t border-sidebar-border text-xs text-sidebar-text/40 hover:text-sidebar-text transition-colors ${isCollapsed ? 'text-center cursor-pointer' : ''}`}
           onClick={() => setShowFullAnnouncement(true)}
           title="点击查看更新公告"
         >
           {isCollapsed ? (
-            'v1.3'
+            'v1.3.4'
           ) : (
             <div className="flex items-center justify-between">
-              <span className="cursor-pointer">v1.30</span>
+              <span className="cursor-pointer">v1.3.4</span>
               {userLevel && (
                 <button
                   onClick={(e) => {
@@ -419,10 +413,7 @@ export function Sidebar() {
                     e.stopPropagation();
                     handleLogout();
                   }}
-                  className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border transition-colors ${isVisualMax
-                    ? 'bg-white/5 border-white/10 text-white/70 hover:bg-white/10 hover:text-white'
-                    : 'bg-white/60 border-ink/10 text-gray-600 hover:bg-white hover:text-daiqing'
-                    }`}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-sidebar-border bg-sidebar-active/20 text-sidebar-text/70 hover:bg-sidebar-active/40 hover:text-sidebar-text transition-colors"
                   title="退出登录"
                   type="button"
                 >

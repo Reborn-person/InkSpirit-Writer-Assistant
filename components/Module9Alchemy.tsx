@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { generateAIContentStream } from '@/lib/ai';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import { PROMPTS } from '@/lib/prompts';
+import { useEditorAgent } from '@/contexts/EditorAgentContext';
 import { Loader2, Wand2, FlaskConical, Trophy, Upload, ChevronRight, ChevronDown, Copy, Settings2, Link as LinkIcon } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -31,6 +32,7 @@ const AVAILABLE_MODELS = [
 ];
 
 export default function Module9Alchemy() {
+  const { userLevel } = useEditorAgent();
   // 状态：模型选择
   const [genModel1, setGenModel1] = useState('deepseek-ai/DeepSeek-R1');
   const [genModel2, setGenModel2] = useState('deepseek-ai/DeepSeek-V3.2');
@@ -260,6 +262,7 @@ export default function Module9Alchemy() {
                 />
             </div>
             
+            {userLevel === 'PROMAX' && (
             <div className="flex flex-wrap gap-4 items-center bg-paper/50 p-3 rounded-lg border border-ink/10">
                 <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-daiqing bg-daiqing/10 px-2 py-1 rounded">生成模型 A</span>
@@ -305,8 +308,23 @@ export default function Module9Alchemy() {
                     </button>
                 </div>
             </div>
+            )}
+
+            {userLevel !== 'PROMAX' && (
+                <div className="flex justify-end bg-paper/50 p-3 rounded-lg border border-ink/10">
+                    <button 
+                        onClick={handleGenerateAndReview}
+                        disabled={loading || !userRequirement}
+                        className="bg-daiqing text-white px-6 py-2 rounded-lg hover:bg-daiqing/90 disabled:opacity-50 transition-colors flex items-center gap-2 ml-auto shadow-md"
+                    >
+                        {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                        一键生成
+                    </button>
+                </div>
+            )}
             
             {/* 评审设置折叠区 */}
+            {userLevel === 'PROMAX' && (
             <div className="border border-ink/10 rounded-lg p-3 bg-paper/30">
                 <div 
                     className="flex items-center justify-between cursor-pointer"
@@ -346,6 +364,7 @@ export default function Module9Alchemy() {
                     </div>
                 )}
             </div>
+            )}
         </div>
       </div>
 

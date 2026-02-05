@@ -10,9 +10,28 @@
   --accent: #C82506;
   
   --color-ink-black: #282828;
+  --color-ink: #282828;
   --color-rice-paper: #F8F5F0;
   --color-dai-qing: #607476;
   --color-cinnabar: #C82506;
+
+  /* Sidebar Theme Variables */
+  --sidebar-bg: #F5F2EC;
+  --sidebar-border: rgba(40, 40, 40, 0.1);
+  --sidebar-header-bg: #F8F5F0;
+  --sidebar-text: #282828;
+  --sidebar-item-active-bg: rgba(200, 37, 6, 0.05);
+  --sidebar-item-active-text: #C82506;
+
+  /* Global Max/Immersive Theme Variables */
+  --max-bg: #18181b;
+  --max-bg-alt: #0b0b0c;
+  --max-surface: #27272a;
+  --max-surface-alt: #09090b;
+  --max-border: rgba(255, 255, 255, 0.1);
+  --max-text: #f4f4f5;
+  --max-text-muted: rgba(244, 244, 245, 0.6);
+  --max-accent: #ff9966;
 }
 
 @theme inline {
@@ -22,10 +41,28 @@
   --color-secondary: var(--secondary);
   --color-accent: var(--accent);
   
-  --color-ink: var(--color-ink-black);
+  --color-ink: var(--color-ink);
   --color-paper: var(--color-rice-paper);
   --color-daiqing: var(--color-dai-qing);
   --color-cinnabar: var(--color-cinnabar);
+
+  /* Sidebar */
+  --color-sidebar: var(--sidebar-bg);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-header: var(--sidebar-header-bg);
+  --color-sidebar-text: var(--sidebar-text);
+  --color-sidebar-active: var(--sidebar-item-active-bg);
+  --color-sidebar-active-text: var(--sidebar-item-active-text);
+
+  /* Max Theme */
+  --color-max-bg: var(--max-bg);
+  --color-max-bg-alt: var(--max-bg-alt);
+  --color-max-surface: var(--max-surface);
+  --color-max-surface-alt: var(--max-surface-alt);
+  --color-max-border: var(--max-border);
+  --color-max-text: var(--max-text);
+  --color-max-text-muted: var(--max-text-muted);
+  --color-max-accent: var(--max-accent);
   
   --font-serif: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif;
   --font-sans: "Noto Serif SC", "Source Han Serif SC", "SimSun", serif; /* Override sans to serif for the whole app as requested */
@@ -50,6 +87,14 @@ body.max-mode {
   background: #0b0b0c;
   color: #f4f4f5;
   background-image: none;
+  --color-rice-paper: #0b0b0c;
+  --color-ink: #f4f4f5;
+  --sidebar-bg: #18181b;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-header-bg: #18181b;
+  --sidebar-text: #f4f4f5;
+  --sidebar-item-active-bg: rgba(255, 255, 255, 0.08);
+  --sidebar-item-active-text: #ff9966;
 }
 
 body.max-mode ::-webkit-scrollbar-thumb {
@@ -114,6 +159,15 @@ body.max-mode .max-pill-active {
 .bg-rice-texture {
   background-color: var(--color-rice-paper);
   background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.6' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+/* Utilities */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 /* Custom Scrollbar - Ink Style */
@@ -186,3 +240,2156 @@ body.max-mode .max-pill-active {
   background: rgba(96, 116, 118, 0.2); /* Dai Qing low opacity */
   color: var(--color-ink-black);
 }
+
+/* =========================================
+   UI Themes
+   ========================================= */
+
+/* --- Pixel Theme (Retro / 8-bit) --- */
+body.theme-pixel {
+  --font-serif: "Courier New", Courier, monospace;
+  --font-sans: "Courier New", Courier, monospace;
+  --background: #e0e0e0;
+  --foreground: #000000;
+  --color-rice-paper: #e0e0e0;
+  --color-ink: #000000;
+  --color-daiqing: #000080; /* Navy Blue */
+  --color-cinnabar: #ff0000; /* Pure Red */
+  --sidebar-bg: #e0e0e0;
+  --sidebar-border: #000000;
+  --sidebar-header-bg: #d0d0d0;
+  --sidebar-text: #000000;
+  --sidebar-item-active-bg: #c0c0c0;
+  --sidebar-item-active-text: #000080;
+  background-image: none;
+  image-rendering: pixelated;
+}
+
+body.theme-pixel * {
+  border-radius: 0 !important;
+}
+
+/* Pixel Theme Overrides */
+body.theme-pixel .glass-card,
+body.theme-pixel .bg-white,
+body.theme-pixel .bg-rice-paper {
+  border: 2px solid #000;
+  box-shadow: 4px 4px 0px #000;
+}
+
+body.theme-pixel button {
+  box-shadow: 2px 2px 0px #000;
+  border: 1px solid #000;
+}
+
+body.theme-pixel button:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+/* Pixel Max Mode (Terminal Style) */
+body.theme-pixel.max-mode {
+  background: #000000;
+  color: #33ff00; /* Terminal Green */
+  --foreground: #33ff00;
+  --color-ink: #33ff00;
+  --color-ink-black: #33ff00;
+  --color-rice-paper: #000000;
+  --color-daiqing: #33ff00;
+  --color-cinnabar: #ff3300;
+  --sidebar-bg: #000000;
+  --sidebar-border: #33ff00;
+  --sidebar-header-bg: #000000;
+  --sidebar-text: #33ff00;
+  --sidebar-item-active-bg: rgba(51, 255, 0, 0.1);
+  --sidebar-item-active-text: #33ff00;
+
+  /* Global MAX Variables for Pixel Mode */
+  --max-bg: #000000;
+  --max-bg-alt: #000000;
+  --max-surface: #000000;
+  --max-surface-alt: #000000;
+  --max-border: #33ff00;
+  --max-text: #33ff00;
+  --max-text-muted: rgba(51, 255, 0, 0.7);
+  --max-accent: #33ff00;
+}
+
+body.theme-pixel.max-mode .max-surface {
+  --color-ink-black: #33ff00;
+  --color-rice-paper: #000000;
+}
+
+body.theme-pixel.max-mode .max-panel,
+body.theme-pixel.max-mode .max-panel-soft,
+body.theme-pixel.max-mode .max-input,
+body.theme-pixel.max-mode .max-pill {
+  background: #000000;
+  border: 2px solid #33ff00;
+  color: #33ff00;
+  box-shadow: none;
+}
+
+body.theme-pixel.max-mode ::-webkit-scrollbar-thumb {
+  background: #33ff00;
+  border-radius: 0;
+}
+
+
+/* --- EyeCare Theme (Green/Warm) --- */
+body.theme-eyecare {
+  --background: #A7B5A4; /* 降低亮度，更深沉、护眼的暗绿 */
+  --foreground: #1D231C;
+  --color-rice-paper: #A7B5A4;
+  --color-ink: #1D231C;
+  --color-daiqing: #2E3A2D;
+  --sidebar-bg: #A7B5A4;
+  --sidebar-border: rgba(0,0,0,0.1);
+  --sidebar-header-bg: #96A393;
+  --sidebar-text: #1D231C;
+  --sidebar-item-active-bg: rgba(0,0,0,0.06);
+  --sidebar-item-active-text: #2E3A2D;
+  background-image: none;
+}
+
+body.theme-eyecare .bg-white,
+body.theme-eyecare .bg-rice-paper {
+  background-color: #A7B5A4;
+}
+
+body.theme-eyecare .glass-card {
+  background: rgba(167, 181, 164, 0.9);
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+/* EyeCare Max Mode (Warm Dark Green) */
+body.theme-eyecare.max-mode {
+  background: #0E130E !important; /* 更深的护眼底色 */
+  color: #8A9687 !important; 
+  --foreground: #8A9687;
+  --color-rice-paper: #0E130E;
+  --color-ink: #8A9687;
+  --color-ink-black: #8A9687;
+  
+  /* 侧边栏同步 */
+  --sidebar-bg: #0E130E;
+  --sidebar-border: rgba(138, 150, 135, 0.15);
+  --sidebar-header-bg: #090C09;
+  --sidebar-text: #8A9687;
+  --sidebar-item-active-bg: rgba(138, 150, 135, 0.08);
+  --sidebar-item-active-text: #A7B5A4;
+
+  /* 全局 MAX 模式变量同步 */
+  --max-bg: #141A14;
+  --max-bg-alt: #0E130E;
+  --max-surface: #141A14;
+  --max-surface-alt: #0E130E;
+  --max-border: rgba(138, 150, 135, 0.15);
+  --max-text: #8A9687;
+  --max-text-muted: rgba(138, 150, 135, 0.5);
+  --max-accent: #A7B5A4;
+}
+
+body.theme-eyecare.max-mode .max-surface {
+  --color-ink-black: #8A9687;
+  --color-rice-paper: #0E130E;
+}
+
+body.theme-eyecare.max-mode .max-panel {
+  background: rgba(138, 150, 135, 0.04);
+  border: 1px solid rgba(138, 150, 135, 0.1);
+}
+
+body.theme-eyecare.max-mode .max-panel-soft {
+  background: rgba(138, 150, 135, 0.02);
+}
+
+body.theme-eyecare.max-mode .max-input {
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(138, 150, 135, 0.12);
+  color: #8A9687;
+}
+
+body.theme-eyecare.max-mode .max-pill {
+  background: rgba(138, 150, 135, 0.05);
+  color: #8A9687;
+  border: 1px solid rgba(138, 150, 135, 0.1);
+}
+
+body.theme-eyecare.max-mode .max-pill-active {
+  background: rgba(138, 150, 135, 0.15);
+}
+
+/* --- Cyberpunk 2077 Style Theme --- */
+body.theme-cyberpunk {
+  --cyber-yellow: #f9f002;
+  --cyber-cyan: #00e6f6;
+  --cyber-pink: #ff013c;
+  --cyber-green: #8ae66e;
+  --cyber-black: #000000;
+  
+  --background: #000000;
+  --foreground: #f9f002;
+  --color-rice-paper: #000000;
+  --color-ink: #f9f002;
+  --color-daiqing: #ff013c;
+  --color-cinnabar: #00e6f6;
+  --sidebar-bg: #000000;
+  --sidebar-border: #f9f002;
+  --sidebar-header-bg: #000000;
+  --sidebar-text: #f9f002;
+  --sidebar-item-active-bg: #f9f002;
+  --sidebar-item-active-text: #000000;
+  
+  background-color: #000000;
+  color: #f9f002;
+}
+
+/* Glitch Button Effect */
+body.theme-cyberpunk button:not(.bg-daiqing):not(.bg-cinnabar) {
+  position: relative;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  background: linear-gradient(45deg, transparent 5%, #f9f002 5%);
+  border: 0;
+  color: #000;
+  box-shadow: 6px 0px 0px #00e6f6;
+  outline: transparent;
+  clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);
+  transition: all 0.2s;
+}
+
+body.theme-cyberpunk button:not(.bg-daiqing):not(.bg-cinnabar)::after {
+  --slice-0: inset(50% 50% 50% 50%);
+  --slice-1: inset(80% -6px 0 0);
+  --slice-2: inset(50% -6px 30% 0);
+  --slice-3: inset(10% -6px 85% 0);
+  --slice-4: inset(40% -6px 43% 0);
+  --slice-5: inset(80% -6px 5% 0);
+  content: attr(data-text);
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(45deg, transparent 3%, #00e6f6 3%, #00e6f6 5%, #f9f002 5%);
+  text-shadow: -3px -3px 0px #f9f002, 3px 3px 0px #00e6f6;
+  clip-path: var(--slice-0);
+  pointer-events: none;
+}
+
+body.theme-cyberpunk button:hover:not(.bg-daiqing):not(.bg-cinnabar)::after {
+  animation: 1s glitch;
+  animation-timing-function: steps(2, end);
+}
+
+@keyframes glitch {
+  0% { clip-path: var(--slice-1); transform: translate(-20px, -10px); }
+  10% { clip-path: var(--slice-3); transform: translate(10px, 10px); }
+  20% { clip-path: var(--slice-1); transform: translate(-10px, 10px); }
+  30% { clip-path: var(--slice-3); transform: translate(0px, 5px); }
+  40% { clip-path: var(--slice-2); transform: translate(-5px, 0px); }
+  50% { clip-path: var(--slice-3); transform: translate(5px, 0px); }
+  60% { clip-path: var(--slice-4); transform: translate(5px, 10px); }
+  70% { clip-path: var(--slice-2); transform: translate(-10px, 10px); }
+  80% { clip-path: var(--slice-5); transform: translate(20px, -10px); }
+  90% { clip-path: var(--slice-1); transform: translate(-10px, 0px); }
+  100% { clip-path: var(--slice-1); transform: translate(0); }
+}
+
+/* Cyberpunk Cards - Irregular Shape */
+body.theme-cyberpunk .bg-white,
+body.theme-cyberpunk .bg-rice-paper,
+body.theme-cyberpunk .glass-card {
+  background: #000000;
+  border: 2px solid #f9f002;
+  color: #f9f002;
+  clip-path: polygon(
+    0px 25px,
+    26px 0px,
+    calc(60% - 25px) 0px,
+    60% 25px,
+    100% 25px,
+    100% calc(100% - 10px),
+    calc(100% - 15px) calc(100% - 10px),
+    calc(80% - 10px) calc(100% - 10px),
+    calc(80% - 15px) 100%,
+    80px calc(100% - 0px),
+    65px calc(100% - 15px),
+    0% calc(100% - 15px)
+  );
+  position: relative;
+  padding: 20px;
+  box-shadow: 0 0 20px rgba(249, 240, 2, 0.3);
+}
+
+/* Card Corner Label */
+body.theme-cyberpunk .bg-white::before,
+body.theme-cyberpunk .bg-rice-paper::before,
+body.theme-cyberpunk .glass-card::before {
+  content: "P-14";
+  display: block;
+  position: absolute;
+  bottom: 5px;
+  right: 25px;
+  padding: 2px 4px;
+  font-size: 0.6rem;
+  line-height: 0.6rem;
+  color: #000;
+  background-color: #f9f002;
+  border-left: 2px solid #00e6f6;
+  font-family: monospace;
+}
+
+/* Neon Text Effect - Base */
+body.theme-cyberpunk h1,
+body.theme-cyberpunk h2,
+body.theme-cyberpunk h3 {
+  color: #f9f002;
+  text-shadow: 
+    0 0 5px #f9f002,
+    0 0 10px #f9f002,
+    0 0 20px #f9f002,
+    0 0 40px #f9f002;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+  position: relative;
+}
+
+/* Neon Class - Yellow Neon with ease-in-out flicker */
+body.theme-cyberpunk .neon {
+  color: #f9f002;
+  text-shadow:
+    0 0 5px #f9f002,
+    0 0 10px #f9f002,
+    0 0 20px #f9f002,
+    0 0 40px #f9f002,
+    0 0 80px #f9f002;
+  animation: neon-flicker-ease 2s ease-in-out infinite alternate;
+}
+
+/* Flux Class - Cyan Neon with linear flicker */
+body.theme-cyberpunk .flux {
+  color: #00e6f6;
+  text-shadow:
+    0 0 5px #00e6f6,
+    0 0 10px #00e6f6,
+    0 0 20px #00e6f6,
+    0 0 40px #00e6f6,
+    0 0 80px #00e6f6;
+  animation: neon-flicker-linear 1.5s linear infinite;
+}
+
+/* Pink Neon Variant */
+body.theme-cyberpunk .neon-pink {
+  color: #ff013c;
+  text-shadow:
+    0 0 5px #ff013c,
+    0 0 10px #ff013c,
+    0 0 20px #ff013c,
+    0 0 40px #ff013c,
+    0 0 80px #ff013c;
+  animation: neon-flicker-ease 3s ease-in-out infinite alternate;
+}
+
+/* Neon Flicker Animations */
+@keyframes neon-flicker-ease {
+  0%, 100% {
+    text-shadow:
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor,
+      0 0 40px currentColor,
+      0 0 80px currentColor;
+    opacity: 1;
+  }
+  50% {
+    text-shadow:
+      0 0 2px currentColor,
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor,
+      0 0 40px currentColor;
+    opacity: 0.8;
+  }
+}
+
+@keyframes neon-flicker-linear {
+  0%, 19%, 21%, 23%, 25%, 54%, 56%, 100% {
+    text-shadow:
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor,
+      0 0 40px currentColor,
+      0 0 80px currentColor;
+    opacity: 1;
+  }
+  20%, 24%, 55% {
+    text-shadow: none;
+    opacity: 0.5;
+  }
+}
+
+/* Glitched Title Animation */
+body.theme-cyberpunk h1.glitched,
+body.theme-cyberpunk h2.glitched {
+  animation: glitched-title 0.9s infinite linear;
+}
+
+@keyframes glitched-title {
+  0% { transform: skew(0deg); }
+  20% { transform: skew(-2deg); }
+  21% { transform: skew(0deg); }
+  50% { transform: skew(0deg); }
+  51% { transform: skew(2deg); }
+  60% { transform: skew(0deg); }
+  100% { transform: skew(0deg); }
+}
+
+/* Cyberpunk Inputs */
+body.theme-cyberpunk input[type="text"],
+body.theme-cyberpunk input[type="email"],
+body.theme-cyberpunk input[type="password"],
+body.theme-cyberpunk textarea {
+  background: #000;
+  border: 2px solid #f9f002;
+  color: #f9f002;
+  clip-path: polygon(
+    0px 15px,
+    15px 0px,
+    calc(100% - 15px) 0px,
+    100% 15px,
+    100% calc(100% - 10px),
+    calc(100% - 10px) 100%,
+    10px 100%,
+    0% calc(100% - 10px)
+  );
+  padding: 12px 20px;
+  font-family: monospace;
+  text-shadow: 0 0 5px rgba(249, 240, 2, 0.5);
+  box-shadow: inset 0 0 10px rgba(249, 240, 2, 0.1);
+}
+
+body.theme-cyberpunk input:focus,
+body.theme-cyberpunk textarea:focus {
+  outline: none;
+  box-shadow: 
+    inset 0 0 15px rgba(249, 240, 2, 0.2),
+    0 0 20px rgba(249, 240, 2, 0.4);
+  border-color: #00e6f6;
+}
+
+/* Scanlines Overlay */
+body.theme-cyberpunk::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.15),
+    rgba(0, 0, 0, 0.15) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.3;
+}
+
+/* Cyberpunk MAX Mode */
+body.theme-cyberpunk.max-mode {
+  background: #000000 !important;
+  --color-rice-paper: #000000;
+  --color-ink: #f9f002;
+  --max-bg: #000000;
+  --max-bg-alt: #000000;
+  --max-surface: #000000;
+  --max-surface-alt: #050505;
+  --max-border: #f9f002;
+  --max-text: #f9f002;
+  --max-text-muted: #8ae66e;
+  --max-accent: #ff013c;
+}
+
+body.theme-cyberpunk.max-mode .max-panel {
+  background: #000000;
+  border: 3px solid #f9f002;
+  clip-path: polygon(
+    0px 30px,
+    30px 0px,
+    calc(100% - 30px) 0px,
+    100% 30px,
+    100% calc(100% - 15px),
+    calc(100% - 15px) 100%,
+    15px 100%,
+    0% calc(100% - 15px)
+  );
+  box-shadow: 
+    0 0 30px rgba(249, 240, 2, 0.4),
+    inset 0 0 30px rgba(249, 240, 2, 0.05);
+}
+
+body.theme-cyberpunk.max-mode .max-input {
+  background: #000;
+  border: 2px solid #f9f002;
+  color: #f9f002;
+  clip-path: polygon(
+    0px 12px,
+    12px 0px,
+    calc(100% - 12px) 0px,
+    100% 12px,
+    100% calc(100% - 8px),
+    calc(100% - 8px) 100%,
+    8px 100%,
+    0% calc(100% - 8px)
+  );
+}
+
+body.theme-cyberpunk.max-mode .max-pill {
+  background: #000;
+  border: 2px solid #f9f002;
+  color: #f9f002;
+  clip-path: polygon(10% 0, 100% 0, 100% 70%, 90% 100%, 0 100%, 0 30%);
+}
+
+body.theme-cyberpunk.max-mode .max-pill-active {
+  background: #f9f002;
+  color: #000;
+  border-color: #f9f002;
+  box-shadow: 0 0 20px #f9f002;
+}
+
+/* Cyberpunk Sidebar */
+body.theme-cyberpunk .sidebar-item {
+  border-left: 3px solid transparent;
+  transition: all 0.3s;
+}
+
+body.theme-cyberpunk .sidebar-item:hover {
+  border-left-color: #00e6f6;
+  background: rgba(249, 240, 2, 0.1);
+}
+
+body.theme-cyberpunk .sidebar-item.active {
+  border-left-color: #f9f002;
+  background: #f9f002;
+  color: #000;
+}
+
+/* Neon Border Effects */
+body.theme-cyberpunk .neon-border {
+  border: 2px solid #f9f002;
+  box-shadow: 
+    0 0 5px #f9f002,
+    0 0 10px #f9f002,
+    inset 0 0 5px rgba(249, 240, 2, 0.1);
+  animation: neon-border-flicker 3s ease-in-out infinite alternate;
+}
+
+body.theme-cyberpunk .neon-border-cyan {
+  border: 2px solid #00e6f6;
+  box-shadow: 
+    0 0 5px #00e6f6,
+    0 0 10px #00e6f6,
+    inset 0 0 5px rgba(0, 230, 246, 0.1);
+  animation: neon-border-flicker-cyan 2.5s linear infinite;
+}
+
+body.theme-cyberpunk .neon-border-pink {
+  border: 2px solid #ff013c;
+  box-shadow: 
+    0 0 5px #ff013c,
+    0 0 10px #ff013c,
+    inset 0 0 5px rgba(255, 1, 60, 0.1);
+  animation: neon-border-flicker-pink 2s ease-in-out infinite alternate;
+}
+
+@keyframes neon-border-flicker {
+  0%, 100% {
+    box-shadow: 
+      0 0 5px #f9f002,
+      0 0 10px #f9f002,
+      0 0 20px #f9f002,
+      inset 0 0 5px rgba(249, 240, 2, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 2px #f9f002,
+      0 0 5px #f9f002,
+      0 0 10px #f9f002,
+      inset 0 0 2px rgba(249, 240, 2, 0.1);
+  }
+}
+
+@keyframes neon-border-flicker-cyan {
+  0%, 100% {
+    box-shadow: 
+      0 0 5px #00e6f6,
+      0 0 10px #00e6f6,
+      0 0 20px #00e6f6;
+  }
+  50% {
+    box-shadow: 
+      0 0 2px #00e6f6,
+      0 0 5px #00e6f6,
+      0 0 8px #00e6f6;
+  }
+}
+
+@keyframes neon-border-flicker-pink {
+  0%, 100% {
+    box-shadow: 
+      0 0 5px #ff013c,
+      0 0 10px #ff013c,
+      0 0 20px #ff013c,
+      inset 0 0 5px rgba(255, 1, 60, 0.2);
+  }
+  50% {
+    box-shadow: 
+      0 0 2px #ff013c,
+      0 0 5px #ff013c,
+      0 0 10px #ff013c,
+      inset 0 0 2px rgba(255, 1, 60, 0.1);
+  }
+}
+
+/* Grid Background */
+body.theme-cyberpunk {
+  background-image: 
+    linear-gradient(rgba(249, 240, 2, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(249, 240, 2, 0.03) 1px, transparent 1px);
+  background-size: 50px 50px;
+}
+
+/* --- iOS 26 Theme --- */
+/* Ultra-clean, futuristic skeuomorphism + glassmorphism */
+body.theme-ios26 {
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
+  
+  /* Palette */
+  --ios-blue: #007aff;
+  --ios-indigo: #5856d6;
+  --ios-purple: #af52de;
+  --ios-pink: #ff2d55;
+  --ios-red: #ff3b30;
+  --ios-orange: #ff9500;
+  --ios-yellow: #ffcc00;
+  --ios-green: #34c759;
+  --ios-teal: #5ac8fa;
+  --ios-cyan: #32ade6;
+  
+  --color-rice-paper: rgba(255, 255, 255, 0.85); /* Frosted Glass */
+  --color-ink: #1d1d1f;
+  --color-daiqing: #007aff;
+  --color-cinnabar: #ff3b30;
+  
+  background-color: #f5f5f7 !important;
+  background-image: none !important;
+  color: #1d1d1f !important;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif !important;
+  letter-spacing: -0.02em;
+}
+
+body.theme-ios26:not(.max-mode) .bg-white,
+body.theme-ios26:not(.max-mode) .bg-rice-paper,
+body.theme-ios26:not(.max-mode) .glass-card {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 
+    0 4px 6px -1px rgba(0, 0, 0, 0.02),
+    0 2px 4px -1px rgba(0, 0, 0, 0.02),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.5);
+  border-radius: 24px;
+}
+
+/* Soft Skeuomorphic Buttons */
+body.theme-ios26 button:not(.bg-daiqing):not(.bg-cinnabar) {
+  background: linear-gradient(180deg, #ffffff 0%, #f5f5f7 100%);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  box-shadow: 
+    0 2px 5px rgba(0, 0, 0, 0.05),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  color: #007aff;
+  font-weight: 600;
+  border-radius: 18px;
+  transition: all 0.2s cubic-bezier(0.25, 0.1, 0.25, 1);
+}
+
+body.theme-ios26 button:not(.bg-daiqing):not(.bg-cinnabar):active {
+  transform: scale(0.96);
+  background: #f0f0f2;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Primary Buttons */
+body.theme-ios26 .bg-daiqing {
+  background: linear-gradient(135deg, #007aff 0%, #0062cc 100%);
+  box-shadow: 
+    0 4px 12px rgba(0, 122, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  border: none;
+  border-radius: 18px;
+}
+
+/* Inputs */
+body.theme-ios26 input,
+body.theme-ios26 textarea {
+  background: rgba(239, 239, 244, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  padding: 12px 16px;
+  transition: all 0.2s ease;
+}
+
+body.theme-ios26 input:focus,
+body.theme-ios26 textarea:focus {
+  background: #fff;
+  border-color: #007aff;
+  box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.15);
+  outline: none;
+}
+
+/* iOS 26 MAX Mode - Adjusted to keep light theme */
+body.theme-ios26.max-mode {
+  background: #f5f5f7 !important;
+  color: #1d1d1f !important;
+  --color-rice-paper: rgba(255, 255, 255, 0.75);
+  --color-ink: #1d1d1f;
+  --max-bg: #f5f5f7;
+  --max-bg-alt: #ffffff;
+  --max-surface: #ffffff;
+  --max-surface-alt: #f5f5f7;
+  --max-border: rgba(0, 0, 0, 0.1);
+  --max-text: #1d1d1f;
+  --max-text-muted: #86868b;
+  --max-accent: #0a84ff;
+}
+
+body.theme-ios26.max-mode .max-surface {
+  --color-ink-black: #1d1d1f;
+  --color-rice-paper: #ffffff;
+}
+
+body.theme-ios26.max-mode .max-panel,
+body.theme-ios26.max-mode .max-panel-soft {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  border-radius: 24px;
+  color: #1d1d1f;
+}
+
+body.theme-ios26.max-mode .max-input {
+  background: rgba(239, 239, 244, 0.5);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  color: #1d1d1f;
+  border-radius: 16px;
+}
+
+body.theme-ios26.max-mode .max-pill {
+  background: rgba(0, 0, 0, 0.05);
+  color: #86868b;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 18px;
+}
+
+body.theme-ios26.max-mode .max-pill-active {
+  background: rgba(10, 132, 255, 0.1);
+  color: #0a84ff;
+  border: 1px solid rgba(10, 132, 255, 0.3);
+}
+
+/* --- Vision Pro Theme (visionOS) --- */
+/* Spatial UI, depth, glass, hover effects */
+body.theme-vision-os {
+  --background: #000000; /* Actually passthrough, but we use black */
+  --foreground: #ffffff;
+  
+  --color-rice-paper: rgba(28, 28, 30, 0.6); /* Glass Material */
+  --color-ink: #ffffff;
+  --color-daiqing: #ffffff;
+  --color-cinnabar: #ff453a;
+  
+  /* Sidebar Variables */
+  --sidebar-bg: rgba(60, 60, 60, 0.4);
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-header-bg: transparent;
+  --sidebar-text: #ffffff;
+  --sidebar-item-active-bg: rgba(255, 255, 255, 0.1);
+  --sidebar-item-active-text: #ffffff;
+  
+  background-color: #000000;
+  background-image: radial-gradient(circle at 50% 50%, #1c1c1e 0%, #000000 100%);
+  color: #ffffff;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
+}
+
+body.theme-vision-os .bg-white,
+body.theme-vision-os .bg-rice-paper,
+body.theme-vision-os .glass-card {
+  background: rgba(80, 80, 80, 0.25);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-radius: 32px;
+  color: #fff;
+}
+
+/* Hover effect for interactive elements (Gaze simulation) */
+body.theme-vision-os button,
+body.theme-vision-os .clickable,
+body.theme-vision-os a {
+  transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+body.theme-vision-os button:hover,
+body.theme-vision-os .clickable:hover,
+body.theme-vision-os a:hover {
+  transform: translateZ(20px) scale(1.05);
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Inputs */
+body.theme-vision-os input,
+body.theme-vision-os textarea {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  border-radius: 20px;
+}
+
+body.theme-vision-os input:focus,
+body.theme-vision-os textarea:focus {
+  background: rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.4);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+  outline: none;
+}
+
+/* Text Selection */
+body.theme-vision-os ::selection {
+  background: rgba(255, 255, 255, 0.3);
+  color: white;
+}
+
+/* Vision Pro MAX Mode */
+body.theme-vision-os.max-mode {
+  background: #000000 !important;
+  --color-rice-paper: #000000;
+  --color-ink: #ffffff;
+  --max-bg: #000000;
+  --max-bg-alt: #1c1c1e;
+  --max-surface: rgba(80, 80, 80, 0.3);
+  --max-surface-alt: rgba(80, 80, 80, 0.15);
+  --max-border: rgba(255, 255, 255, 0.15);
+  --max-text: #ffffff;
+  --max-text-muted: rgba(255, 255, 255, 0.6);
+  --max-accent: #0a84ff;
+}
+
+body.theme-vision-os.max-mode .max-surface {
+  --color-ink-black: #ffffff;
+  --color-rice-paper: #1c1c1e;
+}
+
+body.theme-vision-os.max-mode .max-panel,
+body.theme-vision-os.max-mode .max-panel-soft {
+  background: rgba(80, 80, 80, 0.25);
+  backdrop-filter: blur(40px) saturate(150%);
+  -webkit-backdrop-filter: blur(40px) saturate(150%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  border-radius: 32px;
+}
+
+body.theme-vision-os.max-mode .max-input {
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 20px;
+}
+
+body.theme-vision-os.max-mode .max-pill {
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+}
+
+body.theme-vision-os.max-mode .max-pill-active {
+  background: rgba(255, 255, 255, 0.25);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+/* iOS 26 Sidebar Adaptation */
+body.theme-ios26 .sidebar-shell {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(30px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+  color: #1d1d1f !important;
+}
+
+body.theme-ios26 .sidebar-shell .text-sidebar-text,
+body.theme-ios26 .sidebar-shell span,
+body.theme-ios26 .sidebar-shell li a,
+body.theme-ios26 .sidebar-shell svg {
+  color: #1d1d1f !important;
+}
+
+body.theme-ios26 .sidebar-shell .text-sidebar-text\/65,
+body.theme-ios26 .sidebar-shell .text-sidebar-text\/40 {
+  color: rgba(29, 29, 31, 0.6) !important;
+}
+
+body.theme-ios26 .sidebar-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-ios26 .sidebar-header span {
+  color: #1d1d1f !important;
+  font-weight: 700 !important;
+}
+
+body.theme-ios26 .sidebar-shell .sidebar-active {
+  background: rgba(0, 122, 255, 0.1) !important;
+  color: #007aff !important;
+}
+
+body.theme-ios26 .sidebar-shell .sidebar-active span,
+body.theme-ios26 .sidebar-shell .sidebar-active svg {
+  color: #007aff !important;
+}
+
+body.theme-ios26 .sidebar-shell button svg {
+  color: #007aff !important;
+}
+
+/* Vision Pro Sidebar Adaptation */
+body.theme-vision-os .sidebar-shell {
+  background: rgba(60, 60, 60, 0.4) !important;
+  backdrop-filter: blur(50px) saturate(150%) !important;
+  -webkit-backdrop-filter: blur(50px) saturate(150%) !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+}
+
+body.theme-vision-os .sidebar-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+body.theme-vision-os .sidebar-shell .sidebar-active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+/* Component Adaptations */
+body.theme-ios26 .token-usage-card {
+  border-radius: 28px !important;
+  background: rgba(255, 255, 255, 0.5) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+body.theme-vision-os .token-usage-card {
+  border-radius: 32px !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  backdrop-filter: blur(40px) saturate(150%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* iOS 26 Theme overrides */
+body.theme-ios26, 
+body.theme-ios26 button, 
+body.theme-ios26 input, 
+body.theme-ios26 textarea, 
+body.theme-ios26 select {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif !important;
+}
+
+/* Vision Pro Theme overrides */
+body.theme-vision-os, 
+body.theme-vision-os button, 
+body.theme-vision-os input, 
+body.theme-vision-os textarea, 
+body.theme-vision-os select {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Helvetica Neue", sans-serif !important;
+}
+
+/* Scrollbar Adaptations */
+body.theme-ios26 ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border: 4px solid transparent;
+  background-clip: padding-box;
+}
+
+/* Duplicate removed */
+
+body.theme-vision-os ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border: 4px solid transparent;
+  background-clip: padding-box;
+}
+
+/* --- Steampunk Theme --- */
+/* Victorian Industrial Revolution aesthetic with brass, gears, and steam */
+body.theme-steampunk {
+  --background: #2a1f15;
+  --foreground: #e8dcc8;
+  
+  /* Victorian Color Palette */
+  --steampunk-brass: #b87333;
+  --steampunk-copper: #cd7f32;
+  --steampunk-bronze: #8b4513;
+  --steampunk-gold: #d4af37;
+  --steampunk-rust: #8b3a3a;
+  --steampunk-steam: #a8a8a8;
+  --steampunk-leather: #4a3728;
+  --steampunk-wood: #3d2914;
+  --steampunk-ink: #1a1a1a;
+  
+  --color-rice-paper: #3d2914;
+  --color-ink: #e8dcc8;
+  --color-daiqing: #b87333;
+  --color-cinnabar: #8b3a3a;
+  
+  background-color: #2a1f15;
+  background-image: 
+    radial-gradient(circle at 20% 30%, rgba(184, 115, 51, 0.1) 0%, transparent 50%),
+    radial-gradient(circle at 80% 70%, rgba(139, 69, 19, 0.1) 0%, transparent 50%),
+    repeating-linear-gradient(45deg, rgba(74, 55, 40, 0.1) 0px, rgba(74, 55, 40, 0.1) 1px, transparent 1px, transparent 10px);
+  color: #e8dcc8;
+  font-family: "Georgia", "Times New Roman", serif;
+}
+
+/* Steampunk Cards */
+body.theme-steampunk .bg-white,
+body.theme-steampunk .bg-rice-paper,
+body.theme-steampunk .glass-card {
+  background: linear-gradient(145deg, #3d2914 0%, #2a1f15 100%);
+  border: 3px solid #b87333;
+  border-radius: 8px;
+  box-shadow: 
+    inset 0 0 20px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 0 0 1px #cd7f32;
+  position: relative;
+}
+
+/* Rivet decoration on cards */
+body.theme-steampunk .bg-white::before,
+body.theme-steampunk .bg-rice-paper::before,
+body.theme-steampunk .glass-card::before {
+  content: '';
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 8px;
+  height: 8px;
+  background: radial-gradient(circle, #d4af37 0%, #8b4513 100%);
+  border-radius: 50%;
+  box-shadow: 
+    calc(100% - 24px) 0 0 #d4af37,
+    0 calc(100% - 24px) 0 #d4af37,
+    calc(100% - 24px) calc(100% - 24px) 0 #d4af37;
+}
+
+/* Steampunk Buttons */
+body.theme-steampunk button:not(.bg-daiqing):not(.bg-cinnabar) {
+  background: linear-gradient(180deg, #cd7f32 0%, #8b4513 100%);
+  border: 2px solid #b87333;
+  border-radius: 4px;
+  color: #1a1a1a;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 4px 0 #5a3d2b,
+    0 6px 4px rgba(0, 0, 0, 0.4);
+  position: relative;
+  transition: all 0.1s ease;
+}
+
+body.theme-steampunk button:not(.bg-daiqing):not(.bg-cinnabar):active {
+  transform: translateY(4px);
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 #5a3d2b,
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Primary Action Buttons */
+body.theme-steampunk .bg-daiqing {
+  background: linear-gradient(180deg, #d4af37 0%, #b8860b 100%);
+  border: 2px solid #ffd700;
+  color: #1a1a1a;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.4),
+    0 4px 0 #8b6914,
+    0 6px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Inputs */
+body.theme-steampunk input,
+body.theme-steampunk textarea {
+  background: #1a1a1a;
+  border: 2px solid #b87333;
+  color: #e8dcc8;
+  border-radius: 4px;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+body.theme-steampunk input:focus,
+body.theme-steampunk textarea:focus {
+  border-color: #d4af37;
+  box-shadow: 
+    inset 0 2px 4px rgba(0, 0, 0, 0.5),
+    0 0 8px rgba(212, 175, 55, 0.3);
+  outline: none;
+}
+
+/* Steampunk Sidebar */
+body.theme-steampunk .sidebar-shell {
+  background: linear-gradient(180deg, #3d2914 0%, #2a1f15 100%) !important;
+  border-right: 3px solid #b87333 !important;
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+body.theme-steampunk .sidebar-shell .text-sidebar-text,
+body.theme-steampunk .sidebar-shell span,
+body.theme-steampunk .sidebar-shell li a,
+body.theme-steampunk .sidebar-shell svg {
+  color: #e8dcc8 !important;
+}
+
+body.theme-steampunk .sidebar-shell .sidebar-active {
+  background: linear-gradient(90deg, rgba(184, 115, 51, 0.3) 0%, transparent 100%) !important;
+  border-left: 3px solid #d4af37;
+}
+
+body.theme-steampunk .sidebar-shell .sidebar-active span,
+body.theme-steampunk .sidebar-shell .sidebar-active svg {
+  color: #d4af37 !important;
+}
+
+body.theme-steampunk .sidebar-header {
+  background: transparent !important;
+  border-bottom: 2px solid #b87333 !important;
+}
+
+body.theme-steampunk .sidebar-header span {
+  color: #d4af37 !important;
+  font-family: "Georgia", serif !important;
+}
+
+/* Steampunk Scrollbar */
+body.theme-steampunk ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #b87333 0%, #8b4513 100%);
+  border: 2px solid #3d2914;
+}
+
+/* Steampunk Headings */
+body.theme-steampunk h1,
+body.theme-steampunk h2,
+body.theme-steampunk h3 {
+  color: #d4af37;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  font-family: "Georgia", serif;
+  letter-spacing: 1px;
+}
+
+/* Steampunk Token Usage Card */
+body.theme-steampunk .token-usage-card {
+  background: linear-gradient(145deg, #3d2914 0%, #2a1f15 100%) !important;
+  border: 3px solid #b87333 !important;
+  border-radius: 8px !important;
+  box-shadow: 
+    inset 0 0 20px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Steampunk MAX Mode */
+body.theme-steampunk.max-mode {
+  background: #1a0f0a !important;
+  --color-rice-paper: #1a0f0a;
+  --color-ink: #e8dcc8;
+  --max-bg: #1a0f0a;
+  --max-bg-alt: #2a1a10;
+  --max-surface: #2a1a10;
+  --max-surface-alt: #3d2914;
+  --max-border: #b87333;
+  --max-text: #e8dcc8;
+  --max-text-muted: #8b4513;
+  --max-accent: #d4af37;
+}
+
+body.theme-steampunk.max-mode .max-surface {
+  --color-ink-black: #e8dcc8;
+  --color-rice-paper: #2a1a10;
+}
+
+body.theme-steampunk.max-mode .max-panel,
+body.theme-steampunk.max-mode .max-panel-soft {
+  background: #2a1a10;
+  border: 2px solid #b87333;
+  box-shadow: 
+    inset 0 0 20px rgba(0, 0, 0, 0.5),
+    0 4px 8px rgba(0, 0, 0, 0.3),
+    0 0 10px rgba(184, 115, 51, 0.2);
+  border-radius: 8px;
+}
+
+body.theme-steampunk.max-mode .max-input {
+  background: #1a1a1a;
+  border: 2px solid #b87333;
+  color: #e8dcc8;
+}
+
+body.theme-steampunk.max-mode .max-pill {
+  background: #3d2914;
+  color: #d4af37;
+  border: 1px solid #b87333;
+}
+
+body.theme-steampunk.max-mode .max-pill-active {
+  background: #8b4513;
+  color: #e8dcc8;
+  border: 1px solid #d4af37;
+}
+
+/* --- 90s Retro Gaming Theme --- */
+/* Neon colors, scanlines, pixel aesthetics inspired by 90s arcade and console games */
+body.theme-retro-gaming {
+  --background: #1a0a2e;
+  --foreground: #ffffff;
+  
+  /* Neon 90s Palette */
+  --retro-magenta: #ff00ff;
+  --retro-cyan: #00ffff;
+  --retro-yellow: #ffff00;
+  --retro-green: #00ff00;
+  --retro-purple: #9d00ff;
+  --retro-pink: #ff1493;
+  --retro-orange: #ff6600;
+  --retro-dark: #0d0221;
+  --retro-grid: #2d1b4e;
+  
+  --color-rice-paper: #1a0a2e;
+  --color-ink: #ffffff;
+  --color-daiqing: #ff00ff;
+  --color-cinnabar: #00ffff;
+  
+  background-color: #1a0a2e;
+  background-image: 
+    linear-gradient(rgba(255, 0, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 255, 255, 0.03) 1px, transparent 1px),
+    radial-gradient(circle at 50% 50%, rgba(157, 0, 255, 0.1) 0%, transparent 70%);
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+  color: #ffffff;
+  font-family: "Courier New", "Lucida Console", monospace;
+}
+
+/* Scanline overlay */
+body.theme-retro-gaming::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    rgba(0, 0, 0, 0.1),
+    rgba(0, 0, 0, 0.1) 1px,
+    transparent 1px,
+    transparent 2px
+  );
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.15;
+}
+
+/* Retro Gaming Cards */
+body.theme-retro-gaming .bg-white,
+body.theme-retro-gaming .bg-rice-paper,
+body.theme-retro-gaming .glass-card {
+  background: linear-gradient(135deg, #2d1b4e 0%, #1a0a2e 100%);
+  border: 2px solid #ff00ff;
+  border-radius: 0;
+  box-shadow: 
+    0 0 10px rgba(255, 0, 255, 0.5),
+    0 0 20px rgba(255, 0, 255, 0.3),
+    inset 0 0 20px rgba(157, 0, 255, 0.1);
+  position: relative;
+}
+
+/* Pixel corner decorations */
+body.theme-retro-gaming .bg-white::before,
+body.theme-retro-gaming .bg-rice-paper::before,
+body.theme-retro-gaming .glass-card::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: -2px;
+  width: 10px;
+  height: 10px;
+  background: #ff00ff;
+  box-shadow: 
+    calc(100% + 4px - 10px) 0 0 #00ffff,
+    0 calc(100% + 4px - 10px) 0 #ffff00,
+    calc(100% + 4px - 10px) calc(100% + 4px - 10px) 0 #00ff00;
+}
+
+/* Retro Gaming Buttons */
+body.theme-retro-gaming button:not(.bg-daiqing):not(.bg-cinnabar) {
+  background: linear-gradient(180deg, #ff00ff 0%, #9d00ff 100%);
+  border: 2px solid #ff00ff;
+  border-radius: 0;
+  color: #ffffff;
+  font-weight: bold;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  font-family: "Courier New", monospace;
+  box-shadow: 
+    0 0 10px rgba(255, 0, 255, 0.5),
+    0 4px 0 #6b0099,
+    0 6px 4px rgba(0, 0, 0, 0.4);
+  position: relative;
+  transition: all 0.1s ease;
+}
+
+body.theme-retro-gaming button:not(.bg-daiqing):not(.bg-cinnabar):active {
+  transform: translateY(4px);
+  box-shadow: 
+    0 0 10px rgba(255, 0, 255, 0.5),
+    0 0 0 #6b0099,
+    0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Primary Action Buttons */
+body.theme-retro-gaming .bg-daiqing {
+  background: linear-gradient(180deg, #00ffff 0%, #0099cc 100%);
+  border: 2px solid #00ffff;
+  color: #000000;
+  box-shadow: 
+    0 0 15px rgba(0, 255, 255, 0.6),
+    0 4px 0 #006699,
+    0 6px 4px rgba(0, 0, 0, 0.4);
+}
+
+/* Inputs */
+body.theme-retro-gaming input,
+body.theme-retro-gaming textarea {
+  background: #0d0221;
+  border: 2px solid #00ffff;
+  color: #00ff00;
+  border-radius: 0;
+  font-family: "Courier New", monospace;
+  box-shadow: 
+    inset 0 0 10px rgba(0, 0, 0, 0.5),
+    0 0 5px rgba(0, 255, 255, 0.3);
+}
+
+body.theme-retro-gaming input:focus,
+body.theme-retro-gaming textarea:focus {
+  border-color: #ff00ff;
+  box-shadow: 
+    inset 0 0 10px rgba(0, 0, 0, 0.5),
+    0 0 15px rgba(255, 0, 255, 0.5);
+  outline: none;
+}
+
+/* Retro Gaming Sidebar */
+body.theme-retro-gaming .sidebar-shell {
+  background: linear-gradient(180deg, #2d1b4e 0%, #1a0a2e 100%) !important;
+  border-right: 2px solid #ff00ff !important;
+  box-shadow: 
+    0 0 20px rgba(255, 0, 255, 0.3),
+    inset -5px 0 10px rgba(0, 0, 0, 0.3);
+}
+
+body.theme-retro-gaming .sidebar-shell .text-sidebar-text,
+body.theme-retro-gaming .sidebar-shell span,
+body.theme-retro-gaming .sidebar-shell li a,
+body.theme-retro-gaming .sidebar-shell svg {
+  color: #00ffff !important;
+  font-family: "Courier New", monospace;
+}
+
+body.theme-retro-gaming .sidebar-shell .sidebar-active {
+  background: linear-gradient(90deg, rgba(255, 0, 255, 0.3) 0%, transparent 100%) !important;
+  border-left: 3px solid #ff00ff;
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.3);
+}
+
+body.theme-retro-gaming .sidebar-shell .sidebar-active span,
+body.theme-retro-gaming .sidebar-shell .sidebar-active svg {
+  color: #ff00ff !important;
+  text-shadow: 0 0 10px rgba(255, 0, 255, 0.8);
+}
+
+body.theme-retro-gaming .sidebar-header {
+  background: transparent !important;
+  border-bottom: 2px solid #00ffff !important;
+}
+
+body.theme-retro-gaming .sidebar-header span {
+  color: #ffff00 !important;
+  font-family: "Courier New", monospace !important;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.5);
+}
+
+/* Retro Gaming Scrollbar */
+body.theme-retro-gaming ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, #ff00ff 0%, #9d00ff 100%);
+  border: 2px solid #1a0a2e;
+}
+
+/* Retro Gaming Headings */
+body.theme-retro-gaming h1,
+body.theme-retro-gaming h2,
+body.theme-retro-gaming h3 {
+  color: #ffff00;
+  text-shadow: 
+    0 0 10px rgba(255, 255, 0, 0.8),
+    2px 2px 0 #ff00ff;
+  font-family: "Courier New", monospace;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* Retro Gaming Token Usage Card */
+body.theme-retro-gaming .token-usage-card {
+  background: linear-gradient(135deg, #2d1b4e 0%, #1a0a2e 100%) !important;
+  border: 2px solid #00ffff !important;
+  border-radius: 0 !important;
+  box-shadow: 
+    0 0 15px rgba(0, 255, 255, 0.4),
+    inset 0 0 20px rgba(157, 0, 255, 0.1) !important;
+}
+
+/* Retro Gaming MAX Mode */
+body.theme-retro-gaming.max-mode {
+  background: #0d0221 !important;
+  --color-rice-paper: #0d0221;
+  --color-ink: #00ff00;
+  --max-bg: #0d0221;
+  --max-bg-alt: #1a0a2e;
+  --max-surface: #1a0a2e;
+  --max-surface-alt: #2d1b4e;
+  --max-border: #ff00ff;
+  --max-text: #00ff00;
+  --max-text-muted: #00ffff;
+  --max-accent: #ff00ff;
+}
+
+body.theme-retro-gaming.max-mode .max-surface {
+  --color-ink-black: #00ff00;
+  --color-rice-paper: #1a0a2e;
+}
+
+body.theme-retro-gaming.max-mode .max-panel,
+body.theme-retro-gaming.max-mode .max-panel-soft {
+  background: #1a0a2e;
+  border: 2px solid #00ffff;
+  box-shadow: 
+    0 0 15px rgba(0, 255, 255, 0.2),
+    inset 0 0 20px rgba(157, 0, 255, 0.1);
+}
+
+body.theme-retro-gaming.max-mode .max-input {
+  background: #000000;
+  border: 2px solid #ff00ff;
+  color: #00ff00;
+  font-family: "Courier New", monospace;
+}
+
+body.theme-retro-gaming.max-mode .max-pill {
+  background: #2d1b4e;
+  color: #00ffff;
+  border: 1px solid #00ffff;
+  border-radius: 0;
+}
+
+body.theme-retro-gaming.max-mode .max-pill-active {
+  background: #ff00ff;
+  color: #ffffff;
+  border: 1px solid #ff00ff;
+  box-shadow: 0 0 10px #ff00ff;
+}
+
+/* --- Neumorphism Theme --- */
+/* Soft 3D embossed effect, like soft plastic extruding from the interface */
+body.theme-neumorphism {
+  --background: #e0e5ec;
+  --foreground: #4a5568;
+  
+  /* Neumorphism Color Palette */
+  --neu-bg: #e0e5ec;
+  --neu-shadow-light: #ffffff;
+  --neu-shadow-dark: #b8b9be;
+  --neu-text: #4a5568;
+  --neu-text-secondary: #718096;
+  --neu-accent: #667eea;
+  --neu-accent-soft: #764ba2;
+  
+  --color-rice-paper: #e0e5ec;
+  --color-ink: #4a5568;
+  --color-daiqing: #667eea;
+  --color-cinnabar: #e53e3e;
+  
+  background-color: #e0e5ec !important;
+  background-image: none !important;
+  color: #4a5568 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+}
+
+/* Neumorphism Cards - Elevated */
+body.theme-neumorphism .bg-white,
+body.theme-neumorphism .bg-rice-paper,
+body.theme-neumorphism .glass-card {
+  background: #e0e5ec;
+  border-radius: 20px;
+  box-shadow: 
+    8px 8px 16px #b8b9be,
+    -8px -8px 16px #ffffff;
+  border: none;
+}
+
+/* Neumorphism Cards - Pressed/Concave */
+body.theme-neumorphism .bg-white.pressed,
+body.theme-neumorphism .bg-rice-paper.pressed,
+body.theme-neumorphism .glass-card.pressed,
+body.theme-neumorphism input,
+body.theme-neumorphism textarea {
+  background: #e0e5ec;
+  border-radius: 16px;
+  box-shadow: 
+    inset 4px 4px 8px #b8b9be,
+    inset -4px -4px 8px #ffffff;
+  border: none;
+}
+
+/* Neumorphism Buttons - Elevated */
+body.theme-neumorphism button:not(.bg-daiqing):not(.bg-cinnabar) {
+  background: #e0e5ec;
+  border: none;
+  border-radius: 16px;
+  color: #4a5568;
+  font-weight: 600;
+  box-shadow: 
+    6px 6px 12px #b8b9be,
+    -6px -6px 12px #ffffff;
+  transition: all 0.2s ease;
+}
+
+body.theme-neumorphism button:not(.bg-daiqing):not(.bg-cinnabar):hover {
+  box-shadow: 
+    4px 4px 8px #b8b9be,
+    -4px -4px 8px #ffffff;
+}
+
+body.theme-neumorphism button:not(.bg-daiqing):not(.bg-cinnabar):active {
+  box-shadow: 
+    inset 4px 4px 8px #b8b9be,
+    inset -4px -4px 8px #ffffff;
+  transform: scale(0.98);
+}
+
+/* Primary Action Buttons */
+body.theme-neumorphism .bg-daiqing {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
+  border-radius: 16px;
+  color: white;
+  box-shadow: 
+    6px 6px 12px rgba(102, 126, 234, 0.4),
+    -6px -6px 12px #ffffff;
+}
+
+body.theme-neumorphism .bg-daiqing:active {
+  box-shadow: 
+    inset 4px 4px 8px rgba(0, 0, 0, 0.2),
+    inset -4px -4px 8px rgba(255, 255, 255, 0.1);
+}
+
+/* Inputs */
+body.theme-neumorphism input,
+body.theme-neumorphism textarea {
+  background: #e0e5ec;
+  border: none;
+  border-radius: 12px;
+  color: #4a5568;
+  padding: 12px 16px;
+  box-shadow: 
+    inset 3px 3px 6px #b8b9be,
+    inset -3px -3px 6px #ffffff;
+  transition: all 0.2s ease;
+}
+
+body.theme-neumorphism input:focus,
+body.theme-neumorphism textarea:focus {
+  box-shadow: 
+    inset 5px 5px 10px #b8b9be,
+    inset -5px -5px 10px #ffffff;
+  outline: none;
+}
+
+/* Neumorphism Sidebar */
+body.theme-neumorphism .sidebar-shell {
+  background: #e0e5ec !important;
+  border-right: none !important;
+  box-shadow: 
+    4px 0 8px #b8b9be,
+    -4px 0 8px #ffffff;
+}
+
+body.theme-neumorphism .sidebar-shell .text-sidebar-text,
+body.theme-neumorphism .sidebar-shell span,
+body.theme-neumorphism .sidebar-shell li a,
+body.theme-neumorphism .sidebar-shell svg {
+  color: #4a5568 !important;
+}
+
+body.theme-neumorphism .sidebar-shell .sidebar-active {
+  background: #e0e5ec !important;
+  border-radius: 12px !important;
+  box-shadow: 
+    inset 3px 3px 6px #b8b9be,
+    inset -3px -3px 6px #ffffff !important;
+}
+
+body.theme-neumorphism .sidebar-shell .sidebar-active span,
+body.theme-neumorphism .sidebar-shell .sidebar-active svg {
+  color: #667eea !important;
+}
+
+body.theme-neumorphism .sidebar-header {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: 
+    0 4px 8px #b8b9be,
+    0 -4px 8px #ffffff;
+}
+
+body.theme-neumorphism .sidebar-header span {
+  color: #4a5568 !important;
+  font-weight: 700 !important;
+}
+
+/* Neumorphism Scrollbar */
+body.theme-neumorphism ::-webkit-scrollbar-thumb {
+  background: #e0e5ec;
+  border-radius: 10px;
+  box-shadow: 
+    inset 2px 2px 4px #b8b9be,
+    inset -2px -2px 4px #ffffff;
+}
+
+/* Neumorphism Headings */
+body.theme-neumorphism h1,
+body.theme-neumorphism h2,
+body.theme-neumorphism h3 {
+  color: #4a5568;
+  text-shadow: 
+    2px 2px 4px #b8b9be,
+    -2px -2px 4px #ffffff;
+  font-weight: 700;
+}
+
+/* Neumorphism Token Usage Card */
+body.theme-neumorphism .token-usage-card {
+  background: #e0e5ec !important;
+  border: none !important;
+  border-radius: 20px !important;
+  box-shadow: 
+    8px 8px 16px #b8b9be,
+    -8px -8px 16px #ffffff !important;
+}
+
+/* Neumorphism MAX Mode (Dark Neumorphism) */
+body.theme-neumorphism.max-mode {
+  background: #e0e0e0 !important;
+  color: #4a4a4a !important;
+  --color-rice-paper: #e0e0e0;
+  --color-ink: #4a4a4a;
+  --max-bg: #e0e0e0;
+  --max-bg-alt: #d1d1d1;
+  --max-surface: #e0e0e0;
+  --max-surface-alt: #d1d1d1;
+  --max-border: transparent;
+  --max-text: #4a4a4a;
+  --max-text-muted: #888888;
+  --max-accent: #667eea;
+}
+
+body.theme-neumorphism.max-mode .max-surface {
+  --color-ink-black: #4a4a4a;
+  --color-rice-paper: #e0e0e0;
+}
+
+body.theme-neumorphism.max-mode .max-panel,
+body.theme-neumorphism.max-mode .max-panel-soft {
+  background: #e0e0e0;
+  border: none;
+  border-radius: 20px;
+  box-shadow: 
+    8px 8px 16px #bebebe,
+    -8px -8px 16px #ffffff;
+  color: #4a4a4a;
+}
+
+body.theme-neumorphism.max-mode .max-input {
+  background: #d1d1d1;
+  border: none;
+  border-radius: 12px;
+  color: #4a4a4a;
+  box-shadow: 
+    inset 4px 4px 8px #bebebe,
+    inset -4px -4px 8px #ffffff;
+}
+
+body.theme-neumorphism.max-mode .max-pill {
+  background: #e0e0e0;
+  color: #666666;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 
+    4px 4px 8px #bebebe,
+    -4px -4px 8px #ffffff;
+}
+
+body.theme-neumorphism.max-mode .max-pill:hover {
+  color: #4a4a4a;
+  box-shadow: 
+    2px 2px 4px #bebebe,
+    -2px -2px 4px #ffffff;
+}
+
+body.theme-neumorphism.max-mode .max-pill-active {
+  background: #e0e0e0;
+  color: #667eea;
+  box-shadow: 
+    inset 4px 4px 8px #bebebe,
+    inset -4px -4px 8px #ffffff;
+}
+
+/* --- Bauhaus Theme --- */
+/* Geometric shapes, primary colors, functionalism */
+body.theme-bauhaus {
+  --background: #fafafa;
+  --foreground: #212121;
+  
+  /* Bauhaus Color Palette */
+  --bauhaus-red: #e53935;
+  --bauhaus-yellow: #fdd835;
+  --bauhaus-blue: #1e88e5;
+  --bauhaus-black: #212121;
+  --bauhaus-white: #fafafa;
+  
+  --color-rice-paper: #fafafa;
+  --color-ink: #212121;
+  --color-daiqing: #1e88e5;
+  --color-cinnabar: #e53935;
+  
+  background-color: #fafafa !important;
+  background-image: none !important;
+  color: #212121 !important;
+  font-family: "Helvetica Neue", Helvetica, Arial, sans-serif !important;
+}
+
+/* Bauhaus Cards - Asymmetric Border Radius */
+body.theme-bauhaus:not(.max-mode) .bg-white,
+body.theme-bauhaus:not(.max-mode) .bg-rice-paper,
+body.theme-bauhaus:not(.max-mode) .glass-card {
+  background: #fafafa;
+  border: 2px solid #212121;
+  border-radius: 0 24px 0 24px;
+  box-shadow: 8px 8px 0px #212121;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Geometric Decoration */
+body.theme-bauhaus:not(.max-mode) .bg-white::before,
+body.theme-bauhaus:not(.max-mode) .bg-rice-paper::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 30px;
+  height: 30px;
+  background: #fdd835;
+  clip-path: polygon(100% 0, 0 0, 100% 100%);
+  z-index: 0;
+}
+
+/* Bauhaus Buttons - Geometric */
+body.theme-bauhaus:not(.max-mode) button:not(.bg-daiqing):not(.bg-cinnabar) {
+  background: #fafafa;
+  border: 2px solid #212121;
+  border-radius: 24px;
+  color: #212121;
+  font-weight: 900;
+  text-transform: uppercase;
+  transition: all 0.2s ease;
+}
+
+body.theme-bauhaus:not(.max-mode) button:not(.bg-daiqing):not(.bg-cinnabar):hover {
+  background: #fdd835;
+  transform: translate(-2px, -2px);
+  box-shadow: 4px 4px 0px #212121;
+}
+
+body.theme-bauhaus .bg-daiqing {
+  background: #1e88e5;
+  border: 2px solid #212121;
+  border-radius: 0;
+  color: white;
+  font-weight: 900;
+}
+
+body.theme-bauhaus .bg-cinnabar {
+  background: #e53935;
+  border: 2px solid #212121;
+  border-radius: 50%;
+  aspect-ratio: 1/1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Bauhaus Sidebar */
+body.theme-bauhaus:not(.max-mode) .sidebar-shell {
+  background: #fafafa !important;
+  border-right: 4px solid #212121 !important;
+}
+
+body.theme-bauhaus:not(.max-mode) .sidebar-shell .sidebar-active {
+  background: #e53935 !important;
+  color: white !important;
+  border-radius: 0 24px 24px 0 !important;
+  margin-right: 10px;
+}
+
+body.theme-bauhaus:not(.max-mode) .sidebar-shell .sidebar-active span,
+body.theme-bauhaus:not(.max-mode) .sidebar-shell .sidebar-active svg {
+  color: white !important;
+}
+
+body.theme-bauhaus:not(.max-mode) .sidebar-header {
+  background: #fdd835 !important;
+  border-bottom: 4px solid #212121 !important;
+}
+
+body.theme-bauhaus:not(.max-mode) .sidebar-header span {
+  color: #212121 !important;
+  font-weight: 900 !important;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+/* Bauhaus Headings */
+body.theme-bauhaus:not(.max-mode) h1,
+body.theme-bauhaus:not(.max-mode) h2,
+body.theme-bauhaus:not(.max-mode) h3 {
+  color: #212121;
+  font-weight: 900;
+  text-transform: uppercase;
+  border-bottom: 4px solid #e53935;
+  display: inline-block;
+  margin-bottom: 1rem;
+}
+
+/* Bauhaus Token Usage Card */
+body.theme-bauhaus:not(.max-mode) .token-usage-card {
+  background: #fafafa !important;
+  border: 3px solid #212121 !important;
+  border-radius: 0 40px 0 40px !important;
+  box-shadow: 12px 12px 0px #1e88e5 !important;
+}
+
+/* Bauhaus Scrollbar */
+body.theme-bauhaus ::-webkit-scrollbar-thumb {
+  background: #212121;
+  border: 2px solid #fafafa;
+}
+
+/* Bauhaus MAX Mode (Constructivist Dark) */
+body.theme-bauhaus.max-mode {
+  background: #121212 !important;
+  color: #f0f0f0 !important;
+  --color-rice-paper: #121212;
+  --color-ink: #f0f0f0;
+  --max-bg: #121212;
+  --max-bg-alt: #1e1e1e;
+  --max-surface: #1e1e1e;
+  --max-surface-alt: #121212;
+  --max-border: #f0f0f0;
+  --max-text: #f0f0f0;
+  --max-text-muted: #aaaaaa;
+  --max-accent: #fdd835;
+}
+
+body.theme-bauhaus.max-mode .max-surface {
+  --color-ink-black: #f0f0f0;
+  --color-rice-paper: #1e1e1e;
+}
+
+body.theme-bauhaus.max-mode .max-panel,
+body.theme-bauhaus.max-mode .max-panel-soft {
+  background: #1e1e1e;
+  border: 2px solid #f0f0f0;
+  border-radius: 0 24px 0 24px;
+  box-shadow: 6px 6px 0px #e53935;
+}
+
+body.theme-bauhaus.max-mode .max-input {
+  background: #121212;
+  border: 2px solid #f0f0f0;
+  color: #f0f0f0;
+  border-radius: 0;
+}
+
+body.theme-bauhaus.max-mode .max-pill {
+  background: #1e1e1e;
+  color: #f0f0f0;
+  border: 2px solid #f0f0f0;
+  border-radius: 24px;
+}
+
+body.theme-bauhaus.max-mode .max-pill-active {
+  background: #1e88e5;
+  color: #ffffff;
+  border: 2px solid #f0f0f0;
+  box-shadow: 4px 4px 0px #f0f0f0;
+}
+
+/* --- End of Themes --- */
+
+/* =========================================
+   Universal MAX Mode Overrides (High Priority)
+   ========================================= */
+
+/* Ensure Sidebar is ALWAYS dark in MAX mode, overriding any theme specific styles */
+body.max-mode .sidebar-shell {
+  background: #18181b !important;
+  border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+  color: #f4f4f5 !important;
+}
+
+body.max-mode .sidebar-shell .text-sidebar-text,
+body.max-mode .sidebar-shell span,
+body.max-mode .sidebar-shell li a,
+body.max-mode .sidebar-shell svg {
+  color: #f4f4f5 !important;
+}
+
+/* Active item state in MAX mode */
+body.max-mode .sidebar-shell .sidebar-active {
+  background: rgba(255, 255, 255, 0.1) !important;
+  border: none !important;
+  border-radius: 0.5rem !important;
+  box-shadow: none !important;
+  margin-right: 0 !important; /* Reset any theme margins like bauhaus */
+}
+
+body.max-mode .sidebar-shell .sidebar-active span,
+body.max-mode .sidebar-shell .sidebar-active svg {
+  color: #ff9966 !important; /* max-accent */
+}
+
+/* Sidebar Header in MAX mode */
+body.max-mode .sidebar-header {
+  background: #18181b !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+  box-shadow: none !important;
+}
+
+body.max-mode .sidebar-header span {
+  color: #f4f4f5 !important;
+  font-family: ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif !important;
+  font-weight: 700 !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+}
+
+/* Mobile toggle button override */
+body.max-mode button.md\:hidden {
+  background-color: rgba(24, 24, 27, 0.8) !important;
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  color: rgba(244, 244, 245, 0.7) !important;
+}
+
+
+
+/* =========================================
+   Theme-Specific MAX Mode Adaptations
+   (Overrides the Universal MAX Mode defaults)
+   ========================================= */
+
+/* Neumorphism (Light Mode) in MAX Mode */
+body.theme-neumorphism.max-mode .sidebar-shell {
+  background: #e0e0e0 !important;
+  border-right: none !important;
+  box-shadow: 
+    4px 0 8px #bebebe, 
+    -4px 0 8px #ffffff !important; /* Light Neumorphic Shadow */
+  color: #4a4a4a !important;
+}
+
+body.theme-neumorphism.max-mode .sidebar-shell .sidebar-active {
+  background: #e0e0e0 !important;
+  box-shadow: 
+    inset 3px 3px 6px #bebebe, 
+    inset -3px -3px 6px #ffffff !important; /* Pressed Effect */
+  border-radius: 12px !important;
+  color: #667eea !important; /* max-accent */
+}
+
+body.theme-neumorphism.max-mode .sidebar-header {
+  background: transparent !important;
+  border-bottom: none !important;
+  box-shadow: 
+    0 4px 8px #bebebe, 
+    0 -4px 8px #ffffff !important;
+}
+
+body.theme-neumorphism.max-mode .sidebar-shell .text-sidebar-text,
+body.theme-neumorphism.max-mode .sidebar-shell span,
+body.theme-neumorphism.max-mode .sidebar-shell li a,
+body.theme-neumorphism.max-mode .sidebar-shell svg {
+  color: #4a4a4a !important;
+}
+
+/* Steampunk (Victorian Industrial) in MAX Mode */
+body.theme-steampunk.max-mode .sidebar-shell {
+  background: linear-gradient(180deg, #3d2914 0%, #2a1f15 100%) !important;
+  border-right: 3px solid #b87333 !important;
+  box-shadow: inset -5px 0 10px rgba(0, 0, 0, 0.3) !important;
+  color: #e8dcc8 !important;
+}
+
+body.theme-steampunk.max-mode .sidebar-shell .sidebar-active {
+  background: linear-gradient(90deg, rgba(184, 115, 51, 0.3) 0%, transparent 100%) !important;
+  border-left: 3px solid #d4af37 !important;
+  color: #d4af37 !important;
+}
+
+body.theme-steampunk.max-mode .sidebar-header {
+  background: transparent !important;
+  border-bottom: 2px solid #b87333 !important;
+}
+
+body.theme-steampunk.max-mode .sidebar-header span {
+  color: #d4af37 !important;
+  font-family: "Georgia", serif !important;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5) !important;
+}
+
+body.theme-steampunk.max-mode .sidebar-shell .text-sidebar-text,
+body.theme-steampunk.max-mode .sidebar-shell span,
+body.theme-steampunk.max-mode .sidebar-shell li a,
+body.theme-steampunk.max-mode .sidebar-shell svg {
+  color: #e8dcc8 !important;
+}
+
+body.theme-steampunk.max-mode .sidebar-shell .sidebar-active span,
+body.theme-steampunk.max-mode .sidebar-shell .sidebar-active svg {
+  color: #d4af37 !important;
+}
+
+/* Retro Gaming (Neon/Pixel) in MAX Mode */
+body.theme-retro-gaming.max-mode .sidebar-shell {
+  background: linear-gradient(180deg, #2d1b4e 0%, #1a0a2e 100%) !important;
+  border-right: 2px solid #ff00ff !important;
+  box-shadow: 
+    0 0 20px rgba(255, 0, 255, 0.3),
+    inset -5px 0 10px rgba(0, 0, 0, 0.3) !important;
+  color: #00ffff !important;
+}
+
+body.theme-retro-gaming.max-mode .sidebar-shell .sidebar-active {
+  background: linear-gradient(90deg, rgba(255, 0, 255, 0.3) 0%, transparent 100%) !important;
+  border-left: 3px solid #ff00ff !important;
+  box-shadow: 0 0 10px rgba(255, 0, 255, 0.3) !important;
+  color: #ff00ff !important;
+}
+
+body.theme-retro-gaming.max-mode .sidebar-header {
+  background: transparent !important;
+  border-bottom: 2px solid #00ffff !important;
+}
+
+body.theme-retro-gaming.max-mode .sidebar-header span {
+  color: #ffff00 !important;
+  font-family: "Courier New", monospace !important;
+  text-shadow: 0 0 10px rgba(255, 255, 0, 0.5) !important;
+}
+
+body.theme-retro-gaming.max-mode .sidebar-shell .text-sidebar-text,
+body.theme-retro-gaming.max-mode .sidebar-shell span,
+body.theme-retro-gaming.max-mode .sidebar-shell li a,
+body.theme-retro-gaming.max-mode .sidebar-shell svg {
+  color: #00ffff !important;
+  font-family: "Courier New", monospace !important;
+}
+
+body.theme-retro-gaming.max-mode .sidebar-shell .sidebar-active span,
+body.theme-retro-gaming.max-mode .sidebar-shell .sidebar-active svg {
+  color: #ff00ff !important;
+  text-shadow: 0 0 10px rgba(255, 0, 255, 0.8) !important;
+}
+
+/* iOS 26 (Light Glass) in MAX Mode */
+body.theme-ios26.max-mode .sidebar-shell {
+  background: rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(30px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(30px) saturate(180%) !important;
+  border-right: 1px solid rgba(0, 0, 0, 0.05) !important;
+  color: #1d1d1f !important;
+}
+
+body.theme-ios26.max-mode .sidebar-shell .sidebar-active {
+  background: rgba(0, 122, 255, 0.1) !important;
+  color: #007aff !important; /* iOS Blue */
+  box-shadow: none !important;
+}
+
+body.theme-ios26.max-mode .sidebar-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05) !important;
+}
+
+body.theme-ios26.max-mode .sidebar-shell .text-sidebar-text,
+body.theme-ios26.max-mode .sidebar-shell span,
+body.theme-ios26.max-mode .sidebar-shell li a,
+body.theme-ios26.max-mode .sidebar-shell svg {
+  color: #1d1d1f !important;
+}
+
+body.theme-ios26.max-mode .sidebar-shell .sidebar-active span,
+body.theme-ios26.max-mode .sidebar-shell .sidebar-active svg {
+  color: #007aff !important;
+}
+

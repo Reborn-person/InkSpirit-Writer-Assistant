@@ -35,7 +35,7 @@ interface MaxJobContextType {
 
   // Card Extraction
   cardExtractionState: CardExtractionState;
-  startCardExtraction: (sourceText: string, vectorReady: boolean) => Promise<void>;
+  startCardExtraction: (sourceText: string, vectorReady: boolean, modelConfig?: { apiKey: string; baseUrl: string; model: string }) => Promise<void>;
   
   // Outline Generation
   outlineGenState: OutlineGenState;
@@ -95,13 +95,11 @@ export function MaxJobProvider({ children }: { children: React.ReactNode }) {
 
   const splitTextIntoChunks = (text: string, chunkSize: number, overlap: number) => {
     const cleaned = text.replace(/\r\n/g, '\n').replace(/\u0000/g, '');
-    const safeChunkSize = Math.max(300, chunkSize);
-    const safeOverlap = Math.max(0, Math.min(overlap, safeChunkSize - 100));
     const chunks: { text: string; start: number; end: number }[] = [];
     let start = 0;
 
     while (start < cleaned.length) {
-      let end = Math.min(start + safeChunkSize, cleaned.length);
+      let end = Math.min(start + chunkSize, cleaned.length);
       if (end < cleaned.length) {
         const lastBreak = cleaned.lastIndexOf('\n', end);
         if (lastBreak > start + 100) end = lastBreak;
@@ -111,8 +109,7 @@ export function MaxJobProvider({ children }: { children: React.ReactNode }) {
         chunks.push({ text: slice, start, end });
       }
       if (end >= cleaned.length) break;
-      start = Math.max(0, end - safeOverlap);
-      if (start >= cleaned.length) break;
+      start = Math.max(0, end - overlap);
     }
 
     return chunks;
@@ -160,6 +157,7 @@ export function MaxJobProvider({ children }: { children: React.ReactNode }) {
 
     try {
       const index: any[] = [];
+      
       for (let i = 0; i < chunks.length; i += config.batchSize) {
         const batch = chunks.slice(i, i + config.batchSize);
         const embeddings = await generateEmbeddings(
@@ -168,6 +166,7 @@ export function MaxJobProvider({ children }: { children: React.ReactNode }) {
           baseUrl,
           model
         );
+        
         batch.forEach((item, idx) => {
           index.push({
             id: `${i + idx}`,
@@ -210,7 +209,7 @@ export function MaxJobProvider({ children }: { children: React.ReactNode }) {
       setVectorBuildState(prev => ({ ...prev, status }));
   }, []);
 
-  const startCardExtraction = useCallback(async (sourceText: string, vectorReady: boolean) => {
+  const startCardExtraction = useCallback(async (sourceText: string, vectorReady: boolean, modelConfig?: { apiKey: string; baseUrl: string; model: string }) => {
     setCardExtractionState({ isExtracting: true, statusText: '正在初始化...', error: '' });
     
     if (!sourceText.trim() || sourceText.length < 10) {
@@ -218,7 +217,21 @@ export function MaxJobProvider({ children }: { children: React.ReactNode }) {
         return;
     }
 
-    const { apiKey, baseUrl, model, validation } = getBigModelConfig();
+    let apiKey: string, baseUrl: string, model: string, validation: any;
+
+    if (modelConfig) {
+        apiKey = modelConfig.apiKey;
+        baseUrl = modelConfig.baseUrl;
+        model = modelConfig.model;
+        validation = APIConfigValidator.validateConfig(apiKey, baseUrl, model);
+    } else {
+        const config = getBigModelConfig();
+        apiKey = config.apiKey;
+        baseUrl = config.baseUrl;
+        model = config.model;
+        validation = config.validation;
+    }
+
     if (!validation.valid) {
         setCardExtractionState({ isExtracting: false, statusText: '', error: `模型配置错误：${validation.errors.join('，')}` });
         return;
@@ -444,9 +457,9 @@ ${params.cardContext}
 ${promptRule ? `\n${promptRule}\n` : ''}
 
 输出要求：
-1. 章节按顺序输出，每章以“第X章 章节标题”开头，其后是该章细纲正文。
+1. 章节按顺序输出，每章以"第X章 章节标题"开头，其后是该章细纲正文。
 2. 章节数量目标：${params.chapterCount}章（若生成范式已明确数量，以范式为准）。
-3. **深度融合**：将资料中的细节、逻辑或角色元素自然融入剧情，严禁提及“卡牌”、“资料来源”、“根据设定”等字眼。
+3. **深度融合**：将资料中的细节、逻辑或角色元素自然融入剧情，严禁提及"卡牌"、"资料来源"、"根据设定"等字眼。
 4. 除非生成范式另有要求，不要附加额外说明或附录。
       `.trim();
 
@@ -474,7 +487,7 @@ ${promptRule ? `\n${promptRule}\n` : ''}
           // 增加上下文回溯长度，提取更多前文信息
           const tail = accumulated ? accumulated.slice(-1500) : '';
           
-          // 简单的“读一次大纲”实现：提取已生成章节的标题和少量开头，作为脉络
+          // 简单的"读一次大纲"实现：提取已生成章节的标题和少量开头，作为脉络
           // 如果内容太长，只取标题列表
           let previousSummary = '';
           if (accumulated) {

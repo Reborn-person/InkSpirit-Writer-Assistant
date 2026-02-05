@@ -11,17 +11,26 @@ export async function generateAIContent(
 ) {
   // 移除 baseUrl 末尾的斜杠，防止拼接出双斜杠
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-  const requestUrl = `${cleanBaseUrl}/chat/completions`;
+  let requestUrl = `${cleanBaseUrl}/chat/completions`;
+  let isProxy = false;
+
+  if (!apiKey) {
+    requestUrl = '/api/proxy/chat';
+    isProxy = true;
+    console.log(`[AI] No API Key provided, switching to Proxy: ${requestUrl}`);
+  }
   
   console.log(`[AI] Requesting completion from: ${requestUrl} (Model: ${model})`);
 
   try {
-    if (!apiKey) {
-      throw new Error('API Key is missing. Please set it in Settings.');
-    }
-  
-    if (!baseUrl) {
-      throw new Error('Base URL is missing. Please check your API configuration.');
+    if (!isProxy) {
+        if (!apiKey) {
+        throw new Error('API Key is missing. Please set it in Settings.');
+        }
+    
+        if (!baseUrl) {
+        throw new Error('Base URL is missing. Please check your API configuration.');
+        }
     }
   
     if (!model) {
@@ -46,7 +55,7 @@ export async function generateAIContent(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': isProxy ? '' : `Bearer ${apiKey}`
       },
       body: JSON.stringify(body),
       signal
@@ -211,7 +220,14 @@ export async function generateAIContentStream(
   signal?: AbortSignal
 ): Promise<string> {
   const cleanBaseUrl = baseUrl.replace(/\/$/, '');
-  const requestUrl = `${cleanBaseUrl}/chat/completions`;
+  let requestUrl = `${cleanBaseUrl}/chat/completions`;
+  let isProxy = false;
+
+  if (!apiKey) {
+    requestUrl = '/api/proxy/chat';
+    isProxy = true;
+    console.log(`[AI Stream] No API Key provided, switching to Proxy: ${requestUrl}`);
+  }
   
   console.log(`[AI Stream] Requesting completion from: ${requestUrl} (Model: ${model})`);
 
@@ -220,7 +236,7 @@ export async function generateAIContentStream(
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
+        'Authorization': isProxy ? '' : `Bearer ${apiKey}`
       },
       body: JSON.stringify({
         model: model,
@@ -237,7 +253,24 @@ export async function generateAIContentStream(
     if (!response.ok) {
         // Handle error similarly to non-stream version
         const text = await response.text();
-        throw new Error(`API Request Failed: ${response.status} - ${text}`);
+        let errorMsg = text;
+        try {
+            const json = JSON.parse(text);
+            errorMsg = json.error?.message || json.message || text;
+        } catch (e) {
+            // ignore
+        }
+
+        if (response.status === 503) {
+             throw new Error(`服务暂时不可用 (503): 服务器可能正忙或维护中，请稍后重试。`);
+        }
+        
+        // Handle SiliconFlow specific overload error code 50508
+        if (response.status === 50508 || (response.status === 400 && text.includes('50508')) || errorMsg.includes('50508')) {
+             throw new Error(`服务繁忙 (50508): API 服务商系统正忙，请稍后重试或检查余额。`);
+        }
+
+        throw new Error(`API Request Failed: ${response.status} - ${errorMsg}`);
     }
 
     if (!response.body) throw new Error('Response body is null');

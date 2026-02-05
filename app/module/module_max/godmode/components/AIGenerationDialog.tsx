@@ -5,7 +5,9 @@ import { X, Sparkles, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useGodMode } from '../store/GodModeContext';
 import { Node } from 'reactflow';
 import { GodNodeData, LAYER_CONFIG } from '../types';
-import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
+import { StorageManager } from '@/lib/storage';
+import { ModelConfig } from '@/app/components/ModelConfigPanel';
+import { useEditorAgent } from '@/contexts/EditorAgentContext';
 
 interface AIGenerationDialogProps {
     isOpen: boolean;
@@ -13,10 +15,12 @@ interface AIGenerationDialogProps {
     mode: 'expand' | 'infer';
     targetNode?: Node<GodNodeData>;
     selectedNodes?: Node<GodNodeData>[];
+    modelConfig?: ModelConfig;
 }
 
-export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selectedNodes }: AIGenerationDialogProps) {
+export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selectedNodes, modelConfig }: AIGenerationDialogProps) {
     const { state, dispatch } = useGodMode();
+    const { userLevel } = useEditorAgent();
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [result, setResult] = useState<any>(null);
@@ -30,29 +34,12 @@ export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selected
         setErrorMsg('');
 
         try {
-            // Validate and get config
-            const provider = StorageManager.get(STORAGE_KEYS.CHAT_PROVIDER) || 'siliconflow';
-            const storedKeys = StorageManager.getJSON('novel_writer_chat_provider_keys') || {};
-            let apiKey = storedKeys[provider] || StorageManager.get(STORAGE_KEYS.CHAT_API_KEY) || '';
-
-            // Fallback for API Key
-            if (!apiKey) {
-                const savedKeys = StorageManager.getJSON(STORAGE_KEYS.SAVED_KEYS);
-                if (Array.isArray(savedKeys)) {
-                    const fallbackKey = savedKeys.find((k: any) => k.provider === provider);
-                    if (fallbackKey) apiKey = fallbackKey.key;
-                }
-            }
-            if (!apiKey && provider === 'siliconflow') {
-                apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
+            // Use provided Model Config
+            if (!modelConfig || !modelConfig.model) {
+                throw new Error(userLevel === 'PROMAX' ? '请先在顶部导航栏配置模型' : '系统未配置可用模型，请联系管理员');
             }
 
-            if (!apiKey) {
-                throw new Error(`请先在设置中配置 ${provider} 的 API Key`);
-            }
-
-            const baseUrl = StorageManager.get(STORAGE_KEYS.CHAT_BASE_URL) || StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
-            const model = StorageManager.get(STORAGE_KEYS.CHAT_MODEL) || 'deepseek-ai/DeepSeek-V3';
+            const { apiKey, baseUrl, model } = modelConfig;
 
             const body: any = {
                 type: mode === 'expand' ? 'expand_region' : 'infer_plot',
@@ -92,7 +79,7 @@ export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selected
             // 记录Token使用
             if (usage) {
                 await StorageManager.addTokenUsage(
-                    provider,
+                    modelConfig.provider,
                     model,
                     usage.prompt_tokens,
                     usage.completion_tokens
@@ -183,7 +170,7 @@ export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selected
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-[#18181b] border border-white/10 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="bg-max-bg border border-max-border rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
 
                 {/* Header */}
                 <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
@@ -253,13 +240,13 @@ export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selected
 
                             {mode === 'expand' && (
                                 <>
-                                    <div className="bg-[#27272a] border border-white/5 rounded-lg p-4">
+                                    <div className="bg-max-surface border border-max-border rounded-lg p-4">
                                         <h3 className="text-sm font-bold text-gray-300 mb-2">详细描述</h3>
                                         <p className="text-xs text-gray-400 leading-relaxed">{result.description}</p>
                                     </div>
 
                                     {result.childNodes && result.childNodes.length > 0 && (
-                                        <div className="bg-[#27272a] border border-white/5 rounded-lg p-4">
+                                        <div className="bg-max-surface border border-max-border rounded-lg p-4">
                                             <h3 className="text-sm font-bold text-gray-300 mb-3">子节点 ({result.childNodes.length})</h3>
                                             <div className="space-y-2">
                                                 {result.childNodes.map((child: any, i: number) => (
@@ -284,7 +271,7 @@ export function AIGenerationDialog({ isOpen, onClose, mode, targetNode, selected
                             )}
 
                             {mode === 'infer' && result.events && (
-                                <div className="bg-[#27272a] border border-white/5 rounded-lg p-4">
+                                <div className="bg-max-surface border border-max-border rounded-lg p-4">
                                     <h3 className="text-sm font-bold text-gray-300 mb-3">剧情事件 ({result.events.length})</h3>
                                     <div className="space-y-3">
                                         {result.events.map((event: any, i: number) => (

@@ -8,6 +8,7 @@ import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import { useEditorAgent } from '@/contexts/EditorAgentContext';
 import { generateAIContentStream } from '@/lib/ai';
 import { APIConfigValidator } from '@/lib/api-validator';
+import { ModelConfigPanel, ModelConfig } from '@/app/components/ModelConfigPanel';
 
 interface IdeaItem {
     id: string;
@@ -40,6 +41,9 @@ export default function MaxIdeaPage() {
     const isMaxPolish = pathname === '/module/module_max/polish';
     const isMaxOutline = pathname === '/module/module_max/outline';
     const isMaxIdea = pathname === '/module/module_max/idea';
+    const isMaxConsistency = pathname === '/module/module_max/consistency';
+    const isMaxHumanizer = pathname === '/module/module_max/humanizer';
+    const isMaxGodMode = pathname === '/module/module_max/godmode';
 
     // State
     const [keywords, setKeywords] = useState('');
@@ -49,6 +53,14 @@ export default function MaxIdeaPage() {
     const [isGenerating, setIsGenerating] = useState(false);
     const [error, setError] = useState('');
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    // Model Config
+    const [modelConfig, setModelConfig] = useState<ModelConfig>({
+        provider: 'siliconflow',
+        model: 'deepseek-ai/DeepSeek-V3',
+        apiKey: '',
+        baseUrl: 'https://api.siliconflow.cn/v1'
+    });
 
     // Card State
     const [cardLibrary, setCardLibrary] = useState<Card[]>([]);
@@ -61,6 +73,14 @@ export default function MaxIdeaPage() {
     const [marketIdeas, setMarketIdeas] = useState<any[]>([]);
     const [likedIdeaIds, setLikedIdeaIds] = useState<string[]>([]);
     const [isLoadingMarket, setIsLoadingMarket] = useState(false);
+
+    // useEffect(() => {
+    //     // Force enable Max Mode styles globally
+    //     document.body.classList.add('max-mode');
+    //     return () => {
+    //         document.body.classList.remove('max-mode');
+    //     };
+    // }, []);
 
     const fetchMarketIdeas = useCallback(async () => {
         setIsLoadingMarket(true);
@@ -221,10 +241,11 @@ export default function MaxIdeaPage() {
             return;
         }
 
-        const { apiKey, baseUrl, model, validation } = getBigModelConfig();
-        if (!validation.valid) {
-            setError(`模型配置错误：${validation.errors.join('，')}`);
-            return;
+        const { apiKey, baseUrl, model } = modelConfig;
+        // Basic validation
+        if (!model) {
+             setError('请先配置模型');
+             return;
         }
 
         setIsGenerating(true);
@@ -353,35 +374,41 @@ ${cardContext}
     }, [registerPageSkill, unregisterPageSkill, handleGenerateIdeas]);
 
     return (
-        <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-[#18181b] text-gray-300 font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
+        <div className={`transition-all duration-500 ease-in-out h-screen flex flex-col bg-max-bg-alt text-max-text font-serif overflow-hidden ${isAiOpen ? 'pr-[360px]' : ''}`}>
             
             {/* Top Bar */}
-            <header className="h-14 border-b border-white/10 flex items-center justify-between px-4 bg-[#18181b] shrink-0 z-20">
+            <header className="h-14 border-b border-max-border flex items-center justify-between px-4 bg-max-bg shrink-0 z-20">
                 <div className="flex items-center gap-4">
-                    <div className="flex bg-[#27272a] rounded-lg p-1">
-                        <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxHome ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>MAX 主页</Link>
-                        <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxIdea ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>脑洞风暴</Link>
-                        <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxDismantle ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>拆书</Link>
-                        <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxOutline ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>大纲生成</Link>
-                        <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxCreation ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>万字冲刺</Link>
-                        <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors ${isMaxPolish ? 'bg-[#3f3f46] text-white' : 'hover:text-white'}`}>自循环</Link>
+                    <div className="flex bg-max-surface rounded-lg p-1 border border-max-border overflow-x-auto no-scrollbar max-w-[60vw]">
+                        <Link href="/module/module_max" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHome ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>MAX 主页</Link>
+                        <Link href="/module/module_max/idea" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxIdea ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>脑洞风暴</Link>
+                        <Link href="/module/module_max/dismantle" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxDismantle ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>拆书</Link>
+                        <Link href="/module/module_max/outline" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxOutline ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>大纲生成</Link>
+                        <Link href="/module/module_max/creation" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxCreation ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>万字冲刺</Link>
+                        <Link href="/module/module_max/polish" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxPolish ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>自循环</Link>
+                        <Link href="/module/module_max/consistency" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxConsistency ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>一致性</Link>
+                        <Link href="/module/module_max/humanizer" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxHumanizer ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>AI去味</Link>
+                        <Link href="/module/module_max/godmode" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxGodMode ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>上帝模式</Link>
                     </div>
-                    <div className="h-4 w-[1px] bg-white/10"></div>
-                    <h1 className="text-sm font-bold text-white flex items-center gap-2">
+                    <div className="h-4 w-[1px] bg-max-border"></div>
+                    <h1 className="text-sm font-bold text-max-text flex items-center gap-2">
                         <Lightbulb className="w-4 h-4 text-yellow-500" />
                         脑洞风暴
                     </h1>
+                    <div className="ml-4">
+                        <ModelConfigPanel moduleKey="idea" onConfigChange={setModelConfig} />
+                    </div>
                 </div>
             </header>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-hidden bg-[#09090b] flex">
+            <div className="flex-1 overflow-hidden bg-max-surface-alt flex">
                 
                 {/* Left: Inputs */}
-                <div className="w-80 border-r border-white/10 p-6 flex flex-col gap-6 bg-[#18181b]">
+                <div className="w-80 border-r border-max-border p-6 flex flex-col gap-6 bg-max-bg">
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 mb-2">题材类型</label>
+                            <label className="block text-xs font-bold text-max-text-muted mb-2">题材类型</label>
                             <div className="grid grid-cols-3 gap-2">
                                 {['玄幻', '都市', '科幻', '悬疑', '仙侠', '历史', '游戏', '轻小说', '女频'].map(t => (
                                     <button
@@ -389,8 +416,8 @@ ${cardContext}
                                         onClick={() => setGenre(t)}
                                         className={`px-2 py-1.5 text-xs rounded-md border transition-all ${
                                             genre === t 
-                                            ? 'bg-purple-600/20 border-purple-500 text-purple-300' 
-                                            : 'bg-[#27272a] border-white/5 text-gray-400 hover:text-white'
+                                            ? 'bg-max-accent/20 border-max-accent text-max-accent' 
+                                            : 'bg-max-surface border-max-border text-max-text-muted hover:text-max-text'
                                         }`}
                                     >
                                         {t}
@@ -401,14 +428,14 @@ ${cardContext}
                                 type="text"
                                 value={genre}
                                 onChange={(e) => setGenre(e.target.value)}
-                                className="mt-2 w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50"
+                                className="mt-2 w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent"
                                 placeholder="或手动输入..."
                             />
                         </div>
 
                         <div>
                             <div className="flex items-center justify-between mb-2">
-                                <label className="block text-xs font-bold text-gray-400">关联卡牌 ({selectedCards.length})</label>
+                                <label className="block text-xs font-bold text-max-text-muted">关联卡牌 ({selectedCards.length})</label>
                                 <button 
                                     onClick={() => setShowCardSelector(true)}
                                     className="text-[10px] text-purple-400 hover:text-purple-300 flex items-center gap-1"
@@ -419,12 +446,12 @@ ${cardContext}
                             {selectedCards.length > 0 && (
                                 <div className="flex flex-wrap gap-2 mb-2">
                                     {selectedCards.map(c => (
-                                        <span key={c.id} className="text-[10px] px-2 py-1 bg-[#27272a] border border-white/10 rounded text-gray-300 flex items-center gap-1 group relative cursor-pointer" onClick={() => setSelectedCards(prev => prev.filter(x => x.id !== c.id))}>
+                                        <span key={c.id} className="text-[10px] px-2 py-1 bg-max-surface border border-max-border rounded text-max-text flex items-center gap-1 group relative cursor-pointer" onClick={() => setSelectedCards(prev => prev.filter(x => x.id !== c.id))}>
                                             <span className={`w-1.5 h-1.5 rounded-full ${
                                                 c.type === '角色' ? 'bg-blue-400' : 'bg-green-400'
                                             }`}></span>
                                             {c.title}
-                                            <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400" />
+                                            <X className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 text-max-text-muted hover:text-red-400" />
                                         </span>
                                     ))}
                                 </div>
@@ -432,7 +459,7 @@ ${cardContext}
                             {(selectedCards.length === 0) && (
                                 <div 
                                     onClick={() => setShowCardSelector(true)}
-                                    className="w-full py-2 border border-dashed border-white/10 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:bg-white/5 hover:text-gray-400 hover:border-white/20 transition-all cursor-pointer gap-1 mb-4"
+                                    className="w-full py-2 border border-dashed border-max-border rounded-lg flex flex-col items-center justify-center text-max-text-muted hover:bg-max-surface hover:text-max-text hover:border-max-border/50 transition-all cursor-pointer gap-1 mb-4"
                                 >
                                     <Layers className="w-4 h-4 opacity-50" />
                                     <span className="text-[10px]">点击选择角色卡 / 设定卡</span>
@@ -441,18 +468,18 @@ ${cardContext}
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 mb-2">关键词 / 元素 / 灵感</label>
+                            <label className="block text-xs font-bold text-max-text-muted mb-2">关键词 / 元素 / 灵感</label>
                             <textarea
                                 value={keywords}
                                 onChange={(e) => setKeywords(e.target.value)}
                                 rows={5}
-                                className="w-full px-3 py-2 bg-[#09090b] border border-white/10 rounded-lg outline-none text-xs text-gray-300 focus:border-purple-500/50 resize-none placeholder:text-gray-600"
+                                className="w-full px-3 py-2 bg-max-surface-alt border border-max-border rounded-lg outline-none text-xs text-max-text focus:border-max-accent resize-none placeholder:text-max-text-muted"
                                 placeholder="例如：赛博朋克、修仙、系统、复仇、废土..."
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-bold text-gray-400 mb-2">生成数量: {ideaCount}</label>
+                            <label className="block text-xs font-bold text-max-text-muted mb-2">生成数量: {ideaCount}</label>
                             <input 
                                 type="range" 
                                 min="1" 
@@ -460,7 +487,7 @@ ${cardContext}
                                 step="1"
                                 value={ideaCount}
                                 onChange={(e) => setIdeaCount(Number(e.target.value))}
-                                className="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer accent-purple-600"
+                                className="w-full h-2 bg-max-surface-alt rounded-lg appearance-none cursor-pointer accent-max-accent"
                             />
                         </div>
 
@@ -494,13 +521,13 @@ ${cardContext}
                 <div className="flex-1 overflow-y-auto custom-scrollbar p-6 space-y-4 flex flex-col">
                     {/* Tab Header */}
                     <div className="flex items-center justify-between mb-4 shrink-0">
-                        <div className="flex bg-[#27272a] rounded-lg p-1 border border-white/5">
+                        <div className="flex bg-max-surface rounded-lg p-1 border border-max-border">
                             <button
                                 onClick={() => setActiveTab('mine')}
                                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${
                                     activeTab === 'mine' 
-                                        ? 'bg-[#3f3f46] text-white shadow-sm' 
-                                        : 'text-gray-400 hover:text-white'
+                                        ? 'bg-max-accent text-white shadow-sm' 
+                                        : 'text-max-text-muted hover:text-max-text'
                                 }`}
                             >
                                 <Sparkles className="w-3.5 h-3.5" />
@@ -510,15 +537,15 @@ ${cardContext}
                                 onClick={() => setActiveTab('market')}
                                 className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all flex items-center gap-2 ${
                                     activeTab === 'market' 
-                                        ? 'bg-[#3f3f46] text-white shadow-sm' 
-                                        : 'text-gray-400 hover:text-white'
+                                        ? 'bg-max-accent text-white shadow-sm' 
+                                        : 'text-max-text-muted hover:text-max-text'
                                 }`}
                             >
                                 <Globe className="w-3.5 h-3.5" />
                                 灵感市场
                             </button>
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-max-text-muted">
                             {activeTab === 'mine' ? `共 ${generatedIdeas.length} 个创意` : '全网实时同步'}
                         </span>
                     </div>
@@ -526,60 +553,60 @@ ${cardContext}
                     {/* Content */}
                     {activeTab === 'mine' ? (
                         generatedIdeas.length === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-4 border-2 border-dashed border-white/5 rounded-xl min-h-[300px]">
+                            <div className="flex-1 flex flex-col items-center justify-center text-max-text-muted gap-4 border-2 border-dashed border-max-border rounded-xl min-h-[300px]">
                                 <Lightbulb className="w-12 h-12 opacity-20" />
                                 <p>左侧输入关键词，点击生成，让 AI 为你打开脑洞</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 pb-10">
                                 {generatedIdeas.map((idea) => (
-                                    <div key={idea.id} className="bg-[#18181b] border border-white/10 rounded-xl p-5 hover:border-purple-500/50 transition-all group relative flex flex-col h-full shadow-lg shadow-black/20 animate-in fade-in zoom-in-95 duration-300">
+                                    <div key={idea.id} className="bg-max-bg border border-max-border rounded-xl p-5 hover:border-max-accent/50 transition-all group relative flex flex-col h-full shadow-lg shadow-black/20 animate-in fade-in zoom-in-95 duration-300">
                                         <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                             <button 
                                                 onClick={() => handleShareIdea(idea)}
-                                                className="p-1.5 bg-[#27272a] text-gray-400 hover:text-blue-400 rounded-md border border-white/10 transition-colors"
+                                                className="p-1.5 bg-max-surface text-max-text-muted hover:text-max-accent rounded-md border border-max-border transition-colors"
                                                 title="分享到市场"
                                             >
                                                 <Share2 className="w-3.5 h-3.5" />
                                             </button>
                                             <button 
                                                 onClick={() => handleCopyIdea(idea)}
-                                                className="p-1.5 bg-[#27272a] text-gray-400 hover:text-white rounded-md border border-white/10 transition-colors"
+                                                className="p-1.5 bg-max-surface text-max-text-muted hover:text-max-text rounded-md border border-max-border transition-colors"
                                                 title="复制"
                                             >
                                                 <Copy className="w-3.5 h-3.5" />
                                             </button>
                                             <button 
                                                 onClick={() => handleDeleteIdea(idea.id)}
-                                                className="p-1.5 bg-[#27272a] text-gray-400 hover:text-red-400 rounded-md border border-white/10 transition-colors"
+                                                className="p-1.5 bg-max-surface text-max-text-muted hover:text-red-400 rounded-md border border-max-border transition-colors"
                                                 title="删除"
                                             >
                                                 <X className="w-3.5 h-3.5" />
                                             </button>
                                         </div>
                                         
-                                        <h3 className="text-base font-bold text-white mb-2 pr-20 truncate">{idea.title}</h3>
+                                        <h3 className="text-base font-bold text-max-text mb-2 pr-20 truncate">{idea.title}</h3>
                                         
                                         <div className="mb-3">
                                             <span className="text-[10px] px-2 py-0.5 bg-yellow-500/10 text-yellow-500 border border-yellow-500/20 rounded font-medium">核心梗</span>
-                                            <p className="mt-1 text-sm text-gray-300 leading-relaxed font-bold line-clamp-2" title={idea.hook}>{idea.hook}</p>
+                                            <p className="mt-1 text-sm text-max-text-muted leading-relaxed font-bold line-clamp-2" title={idea.hook}>{idea.hook}</p>
                                         </div>
                                         
                                         <div className="flex-1 space-y-3">
                                             <div>
                                                 <span className="text-[10px] px-2 py-0.5 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded font-medium">大纲/卖点</span>
-                                                <p className="mt-1 text-xs text-gray-400 leading-relaxed whitespace-pre-wrap line-clamp-4">{idea.summary}</p>
+                                                <p className="mt-1 text-xs text-max-text-muted leading-relaxed whitespace-pre-wrap line-clamp-4">{idea.summary}</p>
                                             </div>
 
                                             {idea.anchor && (
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
                                                         <span className="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-medium">核心锚点</span>
-                                                        <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{idea.anchor}</p>
+                                                        <p className="mt-1 text-[11px] text-max-text-muted line-clamp-2">{idea.anchor}</p>
                                                     </div>
                                                     <div>
                                                         <span className="text-[10px] px-2 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded font-medium">基础基底</span>
-                                                        <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{idea.base}</p>
+                                                        <p className="mt-1 text-[11px] text-max-text-muted line-clamp-2">{idea.base}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -588,11 +615,11 @@ ${cardContext}
                                                 <div className="grid grid-cols-2 gap-3">
                                                     <div>
                                                         <span className="text-[10px] px-2 py-0.5 bg-pink-500/10 text-pink-400 border border-pink-500/20 rounded font-medium">核心人物雏形</span>
-                                                        <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{idea.prototype}</p>
+                                                        <p className="mt-1 text-[11px] text-max-text-muted line-clamp-2">{idea.prototype}</p>
                                                     </div>
                                                     <div>
                                                         <span className="text-[10px] px-2 py-0.5 bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 rounded font-medium">开篇切入点</span>
-                                                        <p className="mt-1 text-[11px] text-gray-400 line-clamp-2">{idea.entryPoint}</p>
+                                                        <p className="mt-1 text-[11px] text-max-text-muted line-clamp-2">{idea.entryPoint}</p>
                                                     </div>
                                                 </div>
                                             )}
@@ -603,12 +630,12 @@ ${cardContext}
                         )
                     ) : (
                         isLoadingMarket ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-500 gap-4">
+                            <div className="flex-1 flex flex-col items-center justify-center text-max-text-muted gap-4">
                                 <RefreshCw className="w-8 h-8 animate-spin opacity-50" />
                                 <p>正在加载灵感市场...</p>
                             </div>
                         ) : marketIdeas.length === 0 ? (
-                            <div className="flex-1 flex flex-col items-center justify-center text-gray-600 gap-4 border-2 border-dashed border-white/5 rounded-xl min-h-[300px]">
+                            <div className="flex-1 flex flex-col items-center justify-center text-max-text-muted gap-4 border-2 border-dashed border-max-border rounded-xl min-h-[300px]">
                                 <Globe className="w-12 h-12 opacity-20" />
                                 <p>灵感市场空空如也，快来分享你的创意吧！</p>
                             </div>
@@ -617,7 +644,7 @@ ${cardContext}
                                 {marketIdeas.map((idea) => {
                                     const tags = typeof idea.tags === 'string' ? JSON.parse(idea.tags) : (Array.isArray(idea.tags) ? idea.tags : []);
                                     return (
-                                        <div key={idea.id} className="bg-[#18181b] border border-white/10 rounded-xl p-5 hover:border-blue-500/50 transition-all group relative flex flex-col h-full shadow-lg shadow-black/20 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                                        <div key={idea.id} className="bg-max-bg border border-max-border rounded-xl p-5 hover:border-blue-500/50 transition-all group relative flex flex-col h-full shadow-lg shadow-black/20 animate-in fade-in slide-in-from-bottom-4 duration-500">
                                             <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                                 <button 
                                                     onClick={() => handleImportIdea(idea)}
@@ -630,10 +657,10 @@ ${cardContext}
                                             </div>
                                             
                                             <div className="flex items-center justify-between mb-2 pr-16">
-                                                <h3 className="text-base font-bold text-white truncate">{idea.title}</h3>
+                                                <h3 className="text-base font-bold text-max-text truncate">{idea.title}</h3>
                                             </div>
 
-                                            <div className="flex items-center gap-4 mb-3 text-xs text-gray-500">
+                                            <div className="flex items-center gap-4 mb-3 text-xs text-max-text-muted">
                                                 <span className="flex items-center gap-1.5">
                                                     <User className="w-3 h-3" />
                                                     {idea.uploaderName || '匿名'}
@@ -641,7 +668,7 @@ ${cardContext}
                                                 <button 
                                                     onClick={() => handleLikeIdea(idea.id)}
                                                     disabled={likedIdeaIds.includes(idea.id)}
-                                                    className={`flex items-center gap-1.5 transition-colors ${likedIdeaIds.includes(idea.id) ? 'text-red-500' : 'text-gray-500 hover:text-red-400'}`}
+                                                    className={`flex items-center gap-1.5 transition-colors ${likedIdeaIds.includes(idea.id) ? 'text-red-500' : 'text-max-text-muted hover:text-red-400'}`}
                                                 >
                                                     <Heart className={`w-3 h-3 ${likedIdeaIds.includes(idea.id) ? 'fill-current' : ''}`} />
                                                     {idea.likeCount || 0}
@@ -650,17 +677,17 @@ ${cardContext}
                                             
                                             <div className="mb-3">
                                                 <span className="text-[10px] px-2 py-0.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded font-medium">核心梗</span>
-                                                <p className="mt-1 text-sm text-gray-300 leading-relaxed font-bold line-clamp-2">{idea.hook}</p>
+                                                <p className="mt-1 text-sm text-max-text-muted leading-relaxed font-bold line-clamp-2">{idea.hook}</p>
                                             </div>
                                             
                                             <div className="flex-1 mb-3">
-                                                <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap line-clamp-3">{idea.summary}</p>
+                                                <p className="text-xs text-max-text-muted leading-relaxed whitespace-pre-wrap line-clamp-3">{idea.summary}</p>
                                             </div>
 
                                             {tags.length > 0 && (
-                                                <div className="flex flex-wrap gap-1 mt-auto pt-3 border-t border-white/5">
+                                                <div className="flex flex-wrap gap-1 mt-auto pt-3 border-t border-max-border">
                                                     {tags.map((tag: string) => (
-                                                        <span key={tag} className="text-[10px] text-gray-500 bg-white/5 px-1.5 py-0.5 rounded">#{tag}</span>
+                                                        <span key={tag} className="text-[10px] text-max-text-muted bg-max-surface px-1.5 py-0.5 rounded">#{tag}</span>
                                                     ))}
                                                 </div>
                                             )}
@@ -675,29 +702,29 @@ ${cardContext}
 
             {/* Card Selector Modal */}
             {showCardSelector && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                    <div className="bg-[#18181b] border border-white/10 rounded-xl w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
-                        <div className="h-14 border-b border-white/10 flex items-center justify-between px-6 bg-[#27272a]/50 rounded-t-xl">
-                            <h3 className="font-bold text-white flex items-center gap-2">
-                                <Layers className="w-5 h-5 text-purple-500" />
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-max-backdrop backdrop-blur-sm p-4">
+                    <div className="bg-max-bg border border-max-border rounded-xl w-full max-w-2xl h-[80vh] flex flex-col shadow-2xl">
+                        <div className="h-14 border-b border-max-border flex items-center justify-between px-6 bg-max-surface/50 rounded-t-xl">
+                            <h3 className="font-bold text-max-text flex items-center gap-2">
+                                <Layers className="w-5 h-5 text-max-accent" />
                                 选择关联卡牌
                             </h3>
                             <button 
                                 onClick={() => setShowCardSelector(false)}
-                                className="p-2 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-colors"
+                                className="p-2 hover:bg-max-surface-alt rounded-lg text-max-text-muted hover:text-max-text transition-colors"
                             >
                                 <X className="w-5 h-5" />
                             </button>
                         </div>
                         
-                        <div className="p-4 border-b border-white/10 bg-[#27272a]/20">
+                        <div className="p-4 border-b border-max-border bg-max-surface/20">
                             <div className="relative">
-                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
+                                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-max-text-muted" />
                                 <input 
                                     type="text" 
                                     value={cardSearch}
                                     onChange={(e) => setCardSearch(e.target.value)}
-                                    className="w-full bg-[#09090b] border border-white/10 rounded-lg pl-9 pr-4 py-2 text-sm text-gray-300 focus:border-purple-500/50 outline-none"
+                                    className="w-full bg-max-surface-alt border border-max-border rounded-lg pl-9 pr-4 py-2 text-sm text-max-text focus:border-max-accent outline-none"
                                     placeholder="搜索卡牌名称、标签..."
                                 />
                             </div>
@@ -705,7 +732,7 @@ ${cardContext}
 
                         <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
                             {cardLibrary.length === 0 ? (
-                                <div className="h-full flex flex-col items-center justify-center text-gray-500 gap-2">
+                                <div className="h-full flex flex-col items-center justify-center text-max-text-muted gap-2">
                                     <Layers className="w-10 h-10 opacity-20" />
                                     <p className="text-sm">暂无卡牌数据</p>
                                     <p className="text-xs">请先在【卡牌库】或【创作】页面添加卡牌</p>
@@ -733,8 +760,8 @@ ${cardContext}
                                                     className={`
                                                         group relative p-3 rounded-lg border cursor-pointer transition-all
                                                         ${isSelected 
-                                                            ? 'bg-purple-500/10 border-purple-500/50' 
-                                                            : 'bg-[#27272a]/50 border-white/5 hover:border-white/20 hover:bg-[#27272a]'
+                                                            ? 'bg-max-accent/10 border-max-accent/50' 
+                                                            : 'bg-max-surface/50 border-max-border hover:border-max-text/20 hover:bg-max-surface'
                                                         }
                                                     `}
                                                 >
@@ -746,12 +773,12 @@ ${cardContext}
                                                         }`}>
                                                             {card.type}
                                                         </span>
-                                                        {isSelected && <Check className="w-4 h-4 text-purple-400" />}
+                                                        {isSelected && <Check className="w-4 h-4 text-max-accent" />}
                                                     </div>
-                                                    <h4 className="font-bold text-gray-200 text-sm mb-1 truncate">{card.title}</h4>
+                                                    <h4 className="font-bold text-max-text text-sm mb-1 truncate">{card.title}</h4>
                                                     <div className="flex flex-wrap gap-1">
                                                         {card.tags.slice(0, 3).map((tag, i) => (
-                                                            <span key={i} className="text-[10px] text-gray-500 bg-black/20 px-1 rounded">
+                                                            <span key={i} className="text-[10px] text-max-text-muted bg-max-surface px-1 rounded">
                                                                 {tag}
                                                             </span>
                                                         ))}
@@ -763,13 +790,13 @@ ${cardContext}
                             )}
                         </div>
 
-                        <div className="p-4 border-t border-white/10 bg-[#27272a]/50 flex justify-between items-center">
-                            <span className="text-xs text-gray-500">
+                        <div className="p-4 border-t border-max-border bg-max-surface/50 flex justify-between items-center rounded-b-xl">
+                            <span className="text-xs text-max-text-muted">
                                 已选 {selectedCards.length} 张卡牌
                             </span>
                             <button 
                                 onClick={() => setShowCardSelector(false)}
-                                className="px-6 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-lg transition-colors"
+                                className="px-6 py-2 bg-max-accent hover:opacity-90 text-white text-sm font-bold rounded-lg transition-colors"
                             >
                                 确认选择
                             </button>

@@ -23,13 +23,15 @@ export async function POST(req: NextRequest) {
 
         // 解析请求参数
         const body = await req.json();
-        const { scope, characterIds, chapterRange, skipCache } = body;
+        const { scope, characterIds, chapterRange, targetChapter, includeCards, skipCache } = body;
 
         // 执行一致性检查
         const report = await consistencyService.runCheck({
             scope,
             characterIds,
             chapterRange,
+            targetChapter,
+            includeCards,
             skipCache
         });
 

@@ -14,6 +14,9 @@ RUN apt-get update -y && apt-get install -y openssl ca-certificates && rm -rf /v
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npx prisma generate
+# 8. 构建 Next.js 项目
+# 设置 Node 内存限制以防止 OOM (2GB 服务器建议设置为 1536)
+ENV NODE_OPTIONS="--max-old-space-size=1536"
 RUN npm run build
 
 FROM node:20-bookworm-slim AS runner

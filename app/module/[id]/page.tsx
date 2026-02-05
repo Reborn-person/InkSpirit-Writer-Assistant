@@ -9,11 +9,13 @@ import { Loader2, Copy, Save, Wand2, Trash2, Download, FileJson, Upload, Plus, E
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import { APIConfigValidator } from '@/lib/api-validator';
 import { moduleGenerationManager } from '@/lib/module-generation-manager';
+import { PROVIDER_MODELS } from '@/lib/models';
 
 import Module7Editor from '@/components/Module7Editor';
 import Module9Alchemy from '@/components/Module9Alchemy';
 import Module10Manager from '@/components/Module10Manager';
 import Module11Memo from '@/components/Module11Memo';
+import Module12ChatWriting from '@/components/Module12ChatWriting';
 
 interface PromptTemplate {
   id: string;
@@ -47,9 +49,10 @@ export default function ModulePage() {
   const isModule9 = id === 'module9';
   const isModule10 = id === 'module10';
   const isModule11 = id === 'module11';
+  const isModule12 = id === 'module12';
 
   // PageSkill for AI Agent Control
-  const { registerPageSkill, unregisterPageSkill, isAiOpen } = useEditorAgent();
+  const { registerPageSkill, unregisterPageSkill, isAiOpen, userLevel } = useEditorAgent();
 
   const [formData, setFormData] = useState<Record<string, any>>({});
   const [result, setResult] = useState('');
@@ -66,6 +69,9 @@ export default function ModulePage() {
   const [generatingIds, setGeneratingIds] = useState<string[]>([]);
   const [lockedOutputs, setLockedOutputs] = useState<string[]>([]);
   const [hiddenOutputs, setHiddenOutputs] = useState<string[]>([]);
+
+  const [mainModel, setMainModel] = useState('');
+  const [mainModelOptions, setMainModelOptions] = useState<string[]>([]);
 
   // Prompt Library State
   const [showPromptModal, setShowPromptModal] = useState(false);
@@ -368,11 +374,11 @@ export default function ModulePage() {
   // Register PageSkill on mount, unregister on unmount
   useEffect(() => {
     // Skip for special modules that have their own implementations
-    if (isModule7 || isModule9 || isModule10 || isModule11) return;
+    if (isModule7 || isModule9 || isModule10 || isModule11 || isModule12) return;
 
     registerPageSkill('page_control', handlePageSkill);
     return () => unregisterPageSkill('page_control');
-  }, [registerPageSkill, unregisterPageSkill, handlePageSkill, isModule7, isModule9, isModule10, isModule11]);
+  }, [registerPageSkill, unregisterPageSkill, handlePageSkill, isModule7, isModule9, isModule10, isModule11, isModule12]);
 
   // Listen for AI trigger generate event
   useEffect(() => {
@@ -410,12 +416,14 @@ export default function ModulePage() {
   if (isModule9) return <Module9Alchemy />;
   if (isModule10) return <Module10Manager />;
   if (isModule11) return <Module11Memo />;
+  if (isModule12) return <Module12ChatWriting />;
 
   if (!moduleConfig) {
     return <div>未找到该模块</div>;
   }
 
   const handleToggleMultiMode = () => {
+    if (userLevel !== 'PROMAX') return;
     const effectiveId = id;
     const newValue = !isMultiModelMode;
     setIsMultiModelMode(newValue);
@@ -911,18 +919,35 @@ export default function ModulePage() {
     let baseUrl = '';
     let model = '';
 
+    let providerKey = 'siliconflow';
     if (isBigModelModule) {
-      apiKey = StorageManager.get(STORAGE_KEYS.BIG_MODEL_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-      baseUrl = StorageManager.get(STORAGE_KEYS.BIG_MODEL_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+      providerKey = StorageManager.get(STORAGE_KEYS.BIG_MODEL_PROVIDER) || 'siliconflow';
       model = StorageManager.get(STORAGE_KEYS.BIG_MODEL_MODEL) || 'deepseek-ai/DeepSeek-V3';
     } else if (isPlanningModule) {
-      apiKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-      baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+      providerKey = StorageManager.get(STORAGE_KEYS.RAG_PROVIDER) || 'siliconflow';
       model = StorageManager.get(STORAGE_KEYS.RAG_MODEL) || 'deepseek-ai/DeepSeek-R1';
     } else {
-      apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-      baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+      providerKey = StorageManager.get(STORAGE_KEYS.WRITING_PROVIDER) || 'siliconflow';
       model = StorageManager.get(STORAGE_KEYS.WRITING_MODEL) || 'deepseek-ai/DeepSeek-R1';
+    }
+
+    const providerKeys = StorageManager.getJSON('novel_writer_chat_provider_keys') || {};
+    apiKey =
+      providerKeys[providerKey] ||
+      (isBigModelModule
+        ? StorageManager.get(STORAGE_KEYS.BIG_MODEL_API_KEY)
+        : isPlanningModule
+        ? StorageManager.get(STORAGE_KEYS.RAG_API_KEY)
+        : StorageManager.get(STORAGE_KEYS.WRITING_API_KEY)) ||
+      StorageManager.get('novel_writer_api_key') ||
+      '';
+
+    if (isBigModelModule) {
+      baseUrl = StorageManager.get(STORAGE_KEYS.BIG_MODEL_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+    } else if (isPlanningModule) {
+      baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+    } else {
+      baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
     }
 
     const validation = APIConfigValidator.validateConfig(apiKey, baseUrl, model);
@@ -941,6 +966,29 @@ export default function ModulePage() {
 
   const apiConfigStatus = getAPIConfigStatus();
 
+  useEffect(() => {
+    const loadMainModelOptions = async () => {
+      if (!mounted) return;
+
+      const customMap = (await StorageManager.getJSONAsync(STORAGE_KEYS.CUSTOM_MODELS)) || {};
+      const currentModel = apiConfigStatus.model || '';
+
+      const allOptions: string[] = [];
+      Object.keys(PROVIDER_MODELS).forEach(key => {
+        const predefined = PROVIDER_MODELS[key] || [];
+        const customForProvider = customMap[key] || [];
+        allOptions.push(...predefined, ...customForProvider);
+      });
+
+      const options = Array.from(new Set([currentModel, ...allOptions].filter(Boolean)));
+
+      setMainModel(currentModel);
+      setMainModelOptions(options);
+    };
+
+    loadMainModelOptions();
+  }, [id, mounted, apiConfigStatus.model]);
+
   const regenerateModelWithStream = async (modelId: string) => {
     setGeneratingIds(prev => [...prev, modelId]);
 
@@ -958,19 +1006,36 @@ export default function ModulePage() {
         let apiKey = '';
         let baseUrl = '';
         let model = '';
+        let providerKey = 'siliconflow';
 
         if (isBigModelModule) {
-          apiKey = StorageManager.get(STORAGE_KEYS.BIG_MODEL_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-          baseUrl = StorageManager.get(STORAGE_KEYS.BIG_MODEL_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+          providerKey = StorageManager.get(STORAGE_KEYS.BIG_MODEL_PROVIDER) || 'siliconflow';
           model = StorageManager.get(STORAGE_KEYS.BIG_MODEL_MODEL) || 'deepseek-ai/DeepSeek-V3';
         } else if (isPlanningModule) {
-          apiKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-          baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+          providerKey = StorageManager.get(STORAGE_KEYS.RAG_PROVIDER) || 'siliconflow';
           model = StorageManager.get(STORAGE_KEYS.RAG_MODEL) || 'deepseek-ai/DeepSeek-R1';
         } else {
-          apiKey = StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) || StorageManager.get('novel_writer_api_key') || '';
-          baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+          providerKey = StorageManager.get(STORAGE_KEYS.WRITING_PROVIDER) || 'siliconflow';
           model = StorageManager.get(STORAGE_KEYS.WRITING_MODEL) || 'deepseek-ai/DeepSeek-R1';
+        }
+
+        const providerKeys = StorageManager.getJSON('novel_writer_chat_provider_keys') || {};
+        apiKey =
+          providerKeys[providerKey] ||
+          (isBigModelModule
+            ? StorageManager.get(STORAGE_KEYS.BIG_MODEL_API_KEY)
+            : isPlanningModule
+            ? StorageManager.get(STORAGE_KEYS.RAG_API_KEY)
+            : StorageManager.get(STORAGE_KEYS.WRITING_API_KEY)) ||
+          StorageManager.get('novel_writer_api_key') ||
+          '';
+
+        if (isBigModelModule) {
+          baseUrl = StorageManager.get(STORAGE_KEYS.BIG_MODEL_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+        } else if (isPlanningModule) {
+          baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
+        } else {
+          baseUrl = StorageManager.get(STORAGE_KEYS.WRITING_BASE_URL) || StorageManager.get('novel_writer_base_url') || 'https://api.siliconflow.cn/v1';
         }
 
         if (model === 'deepseek-ai/DeepSeek-V3') {
@@ -1065,6 +1130,48 @@ export default function ModulePage() {
       setLockedOutputs(prev => prev.filter(id => id !== modelId));
     } else {
       setLockedOutputs(prev => [...prev, modelId]);
+    }
+  };
+
+  const handleMainModelChange = (newModel: string) => {
+    setMainModel(newModel);
+
+    const effectiveId = id;
+    const isPlanningModule = ['module1', 'module2', 'module2_5'].includes(effectiveId);
+    const isBigModelModule = effectiveId === 'module0_5';
+
+    const customMap = StorageManager.getJSON(STORAGE_KEYS.CUSTOM_MODELS) || {};
+    let providerKey = StorageManager.get(STORAGE_KEYS.WRITING_PROVIDER) || 'siliconflow';
+
+    Object.keys(PROVIDER_MODELS).some(key => {
+      const list = PROVIDER_MODELS[key] || [];
+      if (list.includes(newModel)) {
+        providerKey = key;
+        return true;
+      }
+      return false;
+    });
+
+    if (providerKey === 'siliconflow') {
+      Object.keys(customMap).some(key => {
+        const list = customMap[key] || [];
+        if (Array.isArray(list) && list.includes(newModel)) {
+          providerKey = key;
+          return true;
+        }
+        return false;
+      });
+    }
+
+    if (isBigModelModule) {
+      StorageManager.set(STORAGE_KEYS.BIG_MODEL_PROVIDER, providerKey);
+      StorageManager.set(STORAGE_KEYS.BIG_MODEL_MODEL, newModel);
+    } else if (isPlanningModule) {
+      StorageManager.set(STORAGE_KEYS.RAG_PROVIDER, providerKey);
+      StorageManager.set(STORAGE_KEYS.RAG_MODEL, newModel);
+    } else {
+      StorageManager.set(STORAGE_KEYS.WRITING_PROVIDER, providerKey);
+      StorageManager.set(STORAGE_KEYS.WRITING_MODEL, newModel);
     }
   };
 
@@ -1655,6 +1762,8 @@ export default function ModulePage() {
               <div className="mt-6 border-t border-ink/5 pt-4">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
+                    {/* Only show "Add Model" if user is PROMAX */}
+                    {userLevel === 'PROMAX' && (
                     <button
                       onClick={handleToggleMultiMode}
                       className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${isMultiModelMode ? 'bg-daiqing/10 text-daiqing' : 'bg-paper text-ink/60 hover:bg-paper/80'
@@ -1663,6 +1772,7 @@ export default function ModulePage() {
                       {isMultiModelMode ? <ToggleRight className="w-5 h-5" /> : <ToggleLeft className="w-5 h-5" />}
                       多开模式
                     </button>
+                    )}
                   </div>
                   {isMultiModelMode && (
                     <button
@@ -1832,9 +1942,23 @@ export default function ModulePage() {
                               主
                             </span>
                             <span className="font-semibold text-ink font-serif">主模型输出</span>
-                            <span className="text-xs text-ink/50 bg-white/50 px-2 py-0.5 rounded border border-ink/10">
-                              {apiConfigStatus.model || '未选择模型'}
-                            </span>
+                            {mainModelOptions.length > 0 ? (
+                              <select
+                                value={mainModel || apiConfigStatus.model || ''}
+                                onChange={(e) => handleMainModelChange(e.target.value)}
+                                className="text-xs text-ink/70 bg-white/70 px-2 py-0.5 rounded border border-ink/10 outline-none"
+                              >
+                                {mainModelOptions.map(modelName => (
+                                  <option key={modelName} value={modelName}>
+                                    {modelName}
+                                  </option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-xs text-ink/50 bg-white/50 px-2 py-0.5 rounded border border-ink/10">
+                                {apiConfigStatus.model || '未选择模型'}
+                              </span>
+                            )}
                           </div>
                           <div className="flex items-center gap-2">
                             <button

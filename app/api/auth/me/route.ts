@@ -21,7 +21,20 @@ export async function GET() {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; tokenVersion?: number };
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
-      select: { id: true, username: true, level: true, membershipExpiresAt: true, tokenVersion: true }
+      select: { 
+        id: true, 
+        username: true, 
+        level: true, 
+        membershipExpiresAt: true, 
+        tokenVersion: true,
+        quota: {
+            select: {
+                dailyTokensUsed: true,
+                dailyTokenLimit: true,
+                totalTokensUsed: true
+            }
+        }
+      }
     });
 
     if (!user || typeof decoded.tokenVersion !== 'number' || user.tokenVersion !== decoded.tokenVersion) {
@@ -59,7 +72,8 @@ export async function GET() {
           id: updated.id,
           username: updated.username,
           level: updated.level,
-          membershipExpiresAt: updated.membershipExpiresAt
+          membershipExpiresAt: updated.membershipExpiresAt,
+          quota: user.quota
         }
       });
     }

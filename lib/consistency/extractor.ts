@@ -18,11 +18,12 @@ export class ConsistencyExtractor {
      * 提取完整的一致性数据库
      */
     async extractDatabase(): Promise<ConsistencyDatabase> {
-        const [characters, worldSettings, timeline, chapters] = await Promise.all([
+        const [characters, worldSettings, timeline, chapters, characterTracking] = await Promise.all([
             this.extractCharacters(),
             this.extractWorldSettings(),
             this.extractTimeline(),
-            this.extractChapters()
+            this.extractChapters(),
+            this.extractCharacterTracking()
         ]);
 
         return {
@@ -30,8 +31,30 @@ export class ConsistencyExtractor {
             worldSettings,
             timeline,
             chapters,
+            characterTracking,
             lastUpdated: Date.now()
         };
+    }
+
+    /**
+     * 提取实时角色追踪数据
+     */
+    private async extractCharacterTracking(): Promise<any> {
+        const activeWorkId = StorageManager.get('novel_writer_max_active_work');
+        if (!activeWorkId) return null;
+
+        try {
+            const context = await StorageManager.getJSONAsync(`novel_writer_max_context_${activeWorkId}`);
+            if (context && context.characterTracking) {
+                if (typeof context.characterTracking === 'string') {
+                    return JSON.parse(context.characterTracking);
+                }
+                return context.characterTracking;
+            }
+        } catch (e) {
+            console.warn('Failed to extract character tracking', e);
+        }
+        return null;
     }
 
     /**
@@ -167,42 +190,47 @@ export class ConsistencyExtractor {
      */
     private async extractChapters(): Promise<ChapterData[]> {
         const chapters: ChapterData[] = [];
+        let loadedFromMax = false;
 
-        // 1. Try Module 7 / Standard Chapters (novel_writer_chapters)
-        const allChapters = await StorageManager.getJSONAsync('novel_writer_chapters') || {};
-
-        for (const [key, value] of Object.entries(allChapters)) {
-            const chapterData = value as any;
-            if (chapterData.content) {
-                chapters.push({
-                    number: chapterData.number || parseInt(key),
-                    title: chapterData.title || `第 ${chapterData.number} 章`,
-                    content: chapterData.content,
-                    wordCount: chapterData.content.length,
-                    createdAt: chapterData.createdAt || Date.now(),
-                    updatedAt: chapterData.updatedAt || Date.now()
-                });
+        // 1. 优先尝试 MAX Works (novel_writer_max_context_*)
+        // 这支持从"万字冲刺"等模块选择的作品
+        const activeWorkId = StorageManager.get('novel_writer_max_active_work');
+        if (activeWorkId) {
+            try {
+                const context = await StorageManager.getJSONAsync(`novel_writer_max_context_${activeWorkId}`);
+                if (context && Array.isArray(context.chapters) && context.chapters.length > 0) {
+                    context.chapters.forEach((ch: any, idx: number) => {
+                        if (ch.content) {
+                            chapters.push({
+                                number: idx + 1,
+                                title: ch.title || `第 ${idx + 1} 章`,
+                                content: ch.content,
+                                wordCount: ch.content.length,
+                                createdAt: Date.now(),
+                                updatedAt: Date.now()
+                            });
+                        }
+                    });
+                    loadedFromMax = true;
+                }
+            } catch (e) {
+                console.warn('Failed to load MAX work chapters', e);
             }
         }
-        
-        // 2. Try MAX Works (novel_writer_max_context_*) if no standard chapters found
-        // This supports the "Creation" module workflow directly
-        if (chapters.length === 0) {
-            const activeWorkId = StorageManager.get('novel_writer_max_active_work');
-            if (activeWorkId) {
-                const context = await StorageManager.getJSONAsync(`novel_writer_max_context_${activeWorkId}`);
-                if (context && Array.isArray(context.chapters)) {
-                    context.chapters.forEach((ch: any, idx: number) => {
-                         if (ch.content) {
-                             chapters.push({
-                                 number: idx + 1,
-                                 title: ch.title,
-                                 content: ch.content,
-                                 wordCount: ch.content.length,
-                                 createdAt: Date.now(),
-                                 updatedAt: Date.now()
-                             });
-                         }
+
+        // 2. 如果未从 MAX 加载 (或没有选中的 MAX 作品)，尝试标准章节 (Module 7)
+        if (!loadedFromMax) {
+            const allChapters = await StorageManager.getJSONAsync('novel_writer_chapters') || {};
+            for (const [key, value] of Object.entries(allChapters)) {
+                const chapterData = value as any;
+                if (chapterData.content) {
+                    chapters.push({
+                        number: chapterData.number || parseInt(key),
+                        title: chapterData.title || `第 ${chapterData.number} 章`,
+                        content: chapterData.content,
+                        wordCount: chapterData.content.length,
+                        createdAt: chapterData.createdAt || Date.now(),
+                        updatedAt: chapterData.updatedAt || Date.now()
                     });
                 }
             }

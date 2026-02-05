@@ -54,6 +54,7 @@ export interface ConsistencyDatabase {
     worldSettings: WorldSetting[];
     timeline: TimelineEvent[];
     chapters: ChapterData[];
+    characterTracking?: any;   // 实时角色状态追踪数据
     lastUpdated: number;       // 最后更新时间戳
 }
 
@@ -113,5 +114,7 @@ export interface CheckOptions {
     scope?: 'all' | 'character' | 'world' | 'timeline';
     characterIds?: string[];   // 指定检查的人物
     chapterRange?: [number, number]; // 章节范围
+    targetChapter?: number;    // 指定检查的特定章节 (以此章节为目标，此前章节为参考)
+    includeCards?: boolean;    // 是否包含卡片库内容作为参考
     skipCache?: boolean;       // 跳过缓存，强制重新检查
 }

@@ -10,6 +10,7 @@ import {
 } from './types';
 import { consistencyVectorStore } from './vector-store';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
+import { PROMPTS } from '@/lib/prompts';
 
 /**
  * AI 一致性检测引擎
@@ -30,7 +31,7 @@ export class ConsistencyChecker {
 
         // 0. 构建向量索引 (如果需要)
         // 这一步将 database 中的 facts 和 fragments 存入向量库
-        await this.buildVectorIndex(database);
+        await this.buildVectorIndex(database, options);
 
         if (scope === 'all' || scope === 'character') {
             const characterChecks = await this.checkCharacterConsistency(
@@ -52,7 +53,7 @@ export class ConsistencyChecker {
 
         // 新增：基于向量的剧情深度一致性检查
         // 针对最新章节进行深度扫描
-        const vectorChecks = await this.checkPlotConsistencyWithVectors(database);
+        const vectorChecks = await this.checkPlotConsistencyWithVectors(database, options);
         checks.push(...vectorChecks);
 
         // 生成报告
@@ -75,29 +76,60 @@ export class ConsistencyChecker {
         };
     }
 
-    private async buildVectorIndex(database: ConsistencyDatabase) {
+    private async buildVectorIndex(database: ConsistencyDatabase, options: CheckOptions) {
         // 将 Card Library (Characters, World Settings) 存入向量库
         const docs = [];
         
-        for (const char of database.characters) {
-            docs.push({
-                id: `char-${char.id}`,
-                text: `[人物档案] ${char.name}\n外貌：${char.appearance.join(',')}\n性格：${char.personality.join(',')}\n能力：${char.abilities.join(',')}`,
-                type: 'character' as const
-            });
+        // 1. 如果启用了卡片库引用，则索引卡片
+        if (options.includeCards) {
+            for (const char of database.characters) {
+                docs.push({
+                    id: `char-${char.id}`,
+                    text: `[人物档案] ${char.name}\n外貌：${char.appearance.join(',')}\n性格：${char.personality.join(',')}\n能力：${char.abilities.join(',')}`,
+                    type: 'character' as const
+                });
+            }
+
+            for (const setting of database.worldSettings) {
+                 docs.push({
+                    id: `world-${setting.id}`,
+                    text: `[世界设定] ${setting.name} (${setting.type})\n描述：${setting.description}\n规则：${setting.rules.join(',')}`,
+                    type: 'world' as const
+                });
+            }
         }
 
-        for (const setting of database.worldSettings) {
-             docs.push({
-                id: `world-${setting.id}`,
-                text: `[世界设定] ${setting.name} (${setting.type})\n描述：${setting.description}\n规则：${setting.rules.join(',')}`,
-                type: 'world' as const
-            });
+        // 2. 索引实时角色状态 (Character Tracking)
+        // 这是比静态卡片更重要的参考
+        if (database.characterTracking) {
+             const tracking = database.characterTracking;
+             if (tracking.characters && Array.isArray(tracking.characters)) {
+                 for (const char of tracking.characters) {
+                     docs.push({
+                         id: `track-${char.id}`,
+                         text: `[角色实时状态] ${char.name} (章节:${tracking.chapter_index})\n状态：${char.status} (${char.status_detail})\n属性：${(char.traits || []).join(',')}\n当前位置/动向：${char.status_detail}`,
+                         type: 'character_status' as const
+                     });
+                 }
+             }
         }
         
-        // 仅索引前文剧情片段 (Recent Context)
-        // 为了节省 Token，只索引最近 10 章的摘要或关键情节
-        const recentChapters = database.chapters.slice(-10); 
+        // 3. 索引前文剧情片段 (Recent Context)
+        // 逻辑更新：只索引目标章节 *之前* 的章节
+        // 默认为全部章节
+        let referenceChapters = database.chapters;
+        
+        // 如果指定了目标章节，则只取目标之前的
+        if (options.targetChapter) {
+            referenceChapters = database.chapters.filter(c => c.number < options.targetChapter!);
+        } else {
+            // 如果没指定，默认检查最后一章，所以参考除最后一章外的所有
+            referenceChapters = database.chapters.slice(0, -1);
+        }
+
+        // 为了节省 Token，只索引最近 10 章 (相对于目标章节)
+        const recentChapters = referenceChapters.slice(-10); 
+        
         for (const ch of recentChapters) {
              docs.push({
                  id: `ch-${ch.number}`,
@@ -109,14 +141,22 @@ export class ConsistencyChecker {
         await consistencyVectorStore.addDocuments(docs);
     }
 
-    private async checkPlotConsistencyWithVectors(database: ConsistencyDatabase): Promise<ConsistencyCheck[]> {
+    private async checkPlotConsistencyWithVectors(database: ConsistencyDatabase, options: CheckOptions): Promise<ConsistencyCheck[]> {
         const checks: ConsistencyCheck[] = [];
-        const latestChapter = database.chapters[database.chapters.length - 1];
-        if (!latestChapter) return checks;
+        
+        // 确定要检查的目标章节
+        let targetChapter: any = null;
+        if (options.targetChapter) {
+            targetChapter = database.chapters.find(c => c.number === options.targetChapter);
+        } else {
+            targetChapter = database.chapters[database.chapters.length - 1];
+        }
+
+        if (!targetChapter) return checks;
 
         // 将最新章节切分为"断言"或"事件片段"
         // 简化：按段落切分，每 500 字一查
-        const chunks = this.splitText(latestChapter.content, 500);
+        const chunks = this.splitText(targetChapter.content, 500);
 
         for (const chunk of chunks) {
             // 1. 检索相关背景
@@ -136,14 +176,14 @@ export class ConsistencyChecker {
                     description: conflict.description,
                     evidence: [
                         {
-                            chapterNumber: latestChapter.number,
+                            chapterNumber: targetChapter.number,
                             excerpt: chunk.slice(0, 100) + '...',
-                            location: '最新章节正文'
+                            location: '待检查章节正文'
                         },
                         ...relatedDocs.map(d => ({
                             chapterNumber: 0, // System/Fact
                             excerpt: d.text.slice(0, 100) + '...',
-                            location: '背景设定库/前文'
+                            location: '参考资料 (前文/设定)'
                         }))
                     ],
                     suggestion: conflict.suggestion,
@@ -163,11 +203,23 @@ export class ConsistencyChecker {
         return chunks;
     }
 
+    private async getCustomSystemPrompt(moduleId: string, fallback: string): Promise<string> {
+        const savedPrompt = await StorageManager.getAsync(`custom_prompt_${moduleId}`);
+        if (savedPrompt !== null && savedPrompt !== undefined) {
+            return savedPrompt;
+        }
+        return fallback;
+    }
+
     private async detectConflictWithContext(text: string, context: string): Promise<{description: string, suggestion: string} | null> {
          try {
             const apiKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY) || '';
             const baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || 'https://api.siliconflow.cn/v1';
             const model = StorageManager.get(STORAGE_KEYS.RAG_MODEL) || 'deepseek-ai/DeepSeek-R1';
+            const systemPrompt = await this.getCustomSystemPrompt(
+                'module_max_consistency_vector',
+                PROMPTS.module_max_consistency_vector?.system || '你是一致性检查助手。请判断[当前文本]是否与[已知背景]存在逻辑冲突。如果不冲突，返回NULL。如果冲突，请简要说明。'
+            );
 
             if (!apiKey) return null;
 
@@ -180,7 +232,7 @@ export class ConsistencyChecker {
                 body: JSON.stringify({
                     model,
                     messages: [
-                        { role: 'system', content: '你是一致性检查助手。请判断[当前文本]是否与[已知背景]存在逻辑冲突。如果不冲突，返回NULL。如果冲突，请简要说明。' },
+                        { role: 'system', content: systemPrompt },
                         { role: 'user', content: `[已知背景]:\n${context}\n\n[当前文本]:\n${text}\n\n请判断是否存在矛盾？若有，请以JSON返回 {"conflict": "是", "reason": "...", "suggestion": "..."}` }
                     ],
                     temperature: 0.1
@@ -452,11 +504,13 @@ export class ConsistencyChecker {
         if (mentions.length < 2) return [];
 
         try {
-            // 获取 AI 配置
-            const { StorageManager, STORAGE_KEYS } = await import('@/lib/storage');
             const apiKey = StorageManager.get(STORAGE_KEYS.RAG_API_KEY) || '';
             const baseUrl = StorageManager.get(STORAGE_KEYS.RAG_BASE_URL) || 'https://api.siliconflow.cn/v1';
             const model = StorageManager.get(STORAGE_KEYS.RAG_MODEL) || 'deepseek-ai/DeepSeek-R1';
+            const systemPrompt = await this.getCustomSystemPrompt(
+                'module_max_consistency_appearance',
+                PROMPTS.module_max_consistency_appearance?.system || '你是专业的小说编辑，擅长发现文本中的逻辑矛盾。'
+            );
 
             if (!apiKey) {
                 console.warn('未配置 AI API，跳过冲突检测');
@@ -496,7 +550,7 @@ ${mentionsList}
                 body: JSON.stringify({
                     model,
                     messages: [
-                        { role: 'system', content: '你是专业的小说编辑，擅长发现文本中的逻辑矛盾。' },
+                        { role: 'system', content: systemPrompt },
                         { role: 'user', content: prompt }
                     ],
                     temperature: 0.3

@@ -17,7 +17,18 @@ async function getAdminUser() {
   if (!token) return null;
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: string; username: string; tokenVersion?: number };
-    if (!ADMIN_USERNAMES.includes(decoded.username)) return null;
+    if (!ADMIN_USERNAMES.includes(decoded.username)) {
+      // Allow fallback if decoded.username is not in list but user in DB is
+      const adminUser = await prisma.user.findUnique({
+        where: { id: decoded.userId },
+        select: { username: true }
+      });
+      if (!adminUser || !ADMIN_USERNAMES.includes(adminUser.username)) {
+          return null;
+      }
+      return decoded;
+    }
+    
     if (typeof decoded.tokenVersion !== 'number') return null;
     const adminUser = await prisma.user.findUnique({
       where: { id: decoded.userId },
