@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Sparkles, Megaphone, Zap, Layout, Play, PanelTopClose, Settings2, Trash2, Bot, User, Type, MessageSquare } from 'lucide-react';
+import { X, Sparkles, Megaphone, Zap, Layout, Play, PanelTopClose, Settings2, Trash2, Bot, User, Type, MessageSquare, BookOpen, Globe, Trophy } from 'lucide-react';
 
-const CURRENT_VERSION = '1.3.4';
+const CURRENT_VERSION = '1.3.5';
 const ANNOUNCEMENT_KEY = `announcement_read_${CURRENT_VERSION}`;
 
 export default function AnnouncementModal({ forceOpen = false, onClose }: { forceOpen?: boolean, onClose?: () => void }) {
@@ -47,7 +47,7 @@ export default function AnnouncementModal({ forceOpen = false, onClose }: { forc
             </div>
             <div>
                 <h2 className="text-2xl font-bold text-ink">AI Novel Writer 更新公告</h2>
-                <p className="text-ink/60 mt-1">Version {CURRENT_VERSION} - UI 优化与体验升级</p>
+              <p className="text-ink/60 mt-1">Version {CURRENT_VERSION} - 模块13 AI拆书功能上线</p>
             </div>
           </div>
           <button 
@@ -60,7 +60,32 @@ export default function AnnouncementModal({ forceOpen = false, onClose }: { forc
 
         {/* Content */}
         <div className="p-8 overflow-y-auto custom-scrollbar space-y-6 bg-white/50">
-            
+
+            <div className="space-y-4">
+                <div className="flex items-center gap-2 text-amber-600 font-bold text-lg">
+                    <Trophy className="w-5 h-5" />
+                    <span>全新模块13：排行榜拆书 + AI自动收集</span>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-ink/80 space-y-3 text-sm leading-relaxed">
+                    <p>
+                        <strong className="text-ink">1. 排行榜拆书模块：</strong><br/>
+                        新增专业拆书分析工具，支持标准模板和专业模板两种模式，帮助您深度分析热门小说的核心梗、人设、爽点节奏等要素。
+                    </p>
+                    <p>
+                        <strong className="text-ink">2. AI自动收集功能：</strong><br/>
+                        <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-xs font-medium">
+                            <Globe className="w-3 h-3" />
+                            联网搜索
+                        </span>
+                        输入书名，AI自动上网搜索书籍信息并生成完整拆书分析，支持双模板智能填充！
+                    </p>
+                    <p>
+                        <strong className="text-ink">3. 专业拆书模板：</strong><br/>
+                        包含核心梗、人设拆解、爽点节奏、悬念钩子、火的原因分析、仿写脑洞等深度分析维度。
+                    </p>
+                </div>
+            </div>
+
             <div className="space-y-4">
                 <div className="flex items-center gap-2 text-pink-500 font-bold text-lg">
                     <MessageSquare className="w-5 h-5" />

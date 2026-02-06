@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BookOpen, FileText, List, PenTool, Edit3, Wand2, Home, Settings, Coffee, Database, BookMarked, X, ChevronLeft, ChevronRight, Menu, FlaskConical, ClipboardCheck, Maximize2, Minimize2, Sparkles, Layout, Layers, Target, Feather, User, LogOut, Map, MessageSquare } from 'lucide-react';
+import { BookOpen, FileText, List, PenTool, Edit3, Wand2, Home, Settings, Coffee, Database, BookMarked, X, ChevronLeft, ChevronRight, Menu, FlaskConical, ClipboardCheck, Maximize2, Minimize2, Sparkles, Layout, Layers, Target, Feather, User, LogOut, Map, MessageSquare, Trophy } from 'lucide-react';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import AnnouncementModal from './AnnouncementModal';
 import { useEditorAgent } from '@/contexts/EditorAgentContext';
@@ -26,7 +26,8 @@ const menuItems = [
   { name: '10. 提示词管理', href: '/module/module10', icon: Database },
   { name: '11. 创作备忘录', href: '/module/module11', icon: BookOpen },
   { name: '12. 对话写作', href: '/module/module12', icon: MessageSquare },
-  { name: '请开发者喝杯咖啡', href: '/coffee', icon: Coffee },
+  { name: '13. 排行榜拆书', href: '/module/module13', icon: Trophy },
+  { name: '会员购买', href: '/coffee', icon: Coffee },
   { name: '储存管理', href: '/storage', icon: Database },
   { name: '设置', href: '/settings', icon: Settings },
 ];
