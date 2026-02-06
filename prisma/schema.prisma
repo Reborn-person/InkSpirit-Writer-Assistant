@@ -35,6 +35,7 @@ model User {
   settings       UserSettings?
   novels         Novel[]
   quota          UserQuota?
+  module12Books  Module12Book[]
 }
 
 model UserQuota {
@@ -146,4 +147,49 @@ model Chapter {
   status    String   @default("draft") 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// Module12 Book/Work Models
+model Module12Book {
+  id          String   @id
+  title       String
+  summary     String?
+  category    String   @default("小说")
+  visibility  String   @default("私密")
+  status      String   @default("连载中")
+  cover       String?
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents   Module12Document[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+}
+
+model Module12Document {
+  id        String   @id
+  name      String
+  content   String   @default("")
+  bookId    String
+  book      Module12Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([bookId])
+}
+
+// Module12 Sync History
+model Module12SyncHistory {
+  id        String   @id @default(uuid())
+  bookId    String
+  userId    String
+  syncType  String   // 'auto' | 'manual'
+  status    String   // 'success' | 'failed'
+  errorMsg  String?
+  createdAt DateTime @default(now())
+  
+  @@index([userId])
+  @@index([bookId])
 }

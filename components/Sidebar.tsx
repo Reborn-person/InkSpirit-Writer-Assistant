@@ -378,7 +378,7 @@ export function Sidebar() {
             </button>
             <div className="flex items-center gap-2 mb-2 text-daiqing font-bold text-xs uppercase tracking-wider">
               <span className="w-2 h-2 rounded-full bg-cinnabar animate-pulse"></span>
-              更新公告 (v1.3.3)
+              更新公告 (v1.3.5)
             </div>
             <div className={`text-xs space-y-1.5 leading-relaxed text-sidebar-text/60`}>
               <p>1. <span className="font-bold text-sidebar-text">Max 创作中心升级</span>：UI 全新改版，支持全局模型独立配置。</p>
@@ -403,10 +403,10 @@ export function Sidebar() {
           title="点击查看更新公告"
         >
           {isCollapsed ? (
-            'v1.3.4'
+            'v1.3.5'
           ) : (
             <div className="flex items-center justify-between">
-              <span className="cursor-pointer">v1.3.4</span>
+              <span className="cursor-pointer">v1.3.5</span>
               {userLevel && (
                 <button
                   onClick={(e) => {

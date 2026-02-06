@@ -749,12 +749,22 @@ export default function MaxCreationPage() {
     };
 
     // Backend Sync Helpers
+    // 获取标准化的novel ID（与导入到编辑器时使用的ID一致）
+    const getStandardizedNovelId = (workId: string): string => {
+        // 统一使用 book-max- 前缀，确保万字冲刺和编辑器使用相同的novel ID
+        if (workId.startsWith('book-max-')) {
+            return workId;
+        }
+        return `book-max-${workId}`;
+    };
+
     const syncNovelToBackend = async (workId: string, title: string) => {
         try {
+            const standardizedId = getStandardizedNovelId(workId);
             await fetch('/api/novel', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: workId, title })
+                body: JSON.stringify({ id: standardizedId, title })
             });
         } catch (e) {
             console.error('Failed to sync novel:', e);
@@ -763,6 +773,7 @@ export default function MaxCreationPage() {
 
     const syncChapterToBackend = async (chapter: Chapter, workId: string, index: number) => {
         try {
+            const standardizedNovelId = getStandardizedNovelId(workId);
             await fetch('/api/chapter', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -771,7 +782,7 @@ export default function MaxCreationPage() {
                     title: chapter.title,
                     content: chapter.content || '',
                     summary: chapter.summary || '',
-                    novelId: workId,
+                    novelId: standardizedNovelId,
                     status: chapter.status,
                     order: index
                 })
@@ -1960,7 +1971,20 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
 
     const handleImportToModule7 = async () => {
         if (chapters.length === 0) return alert('没有章节可导入，请先生成或编写内容');
-        if (!confirm('确定将当前作品导入到墨灵编辑器（模块七）吗？\n\n导入后将创建一个新书架项目，包含当前所有章节。')) return;
+        
+        const currentWorkTitle = works.find(w => w.id === activeWorkId)?.title || '万字冲刺作品';
+        const importBookId = `book-max-${activeWorkId}`; // 使用作品ID生成固定的书籍ID
+        
+        // 检查是否已存在该作品的导入
+        const savedProjects = await StorageManager.getJSONAsync(STORAGE_KEYS.NOVEL_PROJECTS) || [];
+        const existingBookIndex = savedProjects.findIndex((p: any) => p.id === importBookId);
+        const isUpdate = existingBookIndex !== -1;
+        
+        const confirmMessage = isUpdate 
+            ? `该作品已导入过，是否更新到墨灵编辑器？\n\n将更新已有目录中的章节内容，保留原有结构和编辑记录。`
+            : `确定将当前作品导入到墨灵编辑器（模块七）吗？\n\n导入后将创建一个新书架项目，包含当前所有章节。`;
+            
+        if (!confirm(confirmMessage)) return;
 
         try {
             // Hydrate all chapters content from storage if missing in state
@@ -1976,37 +2000,110 @@ ${nextChapter ? `${nextChapter.title}\n${nextChapter.summary}` : '无（这是�
                 return c;
             }));
 
-            const savedProjects = await StorageManager.getJSONAsync(STORAGE_KEYS.NOVEL_PROJECTS) || [];
-            const currentWorkTitle = works.find(w => w.id === activeWorkId)?.title || '万字冲刺作品';
+            // 生成章节ID映射，确保同一章节始终使用相同ID
+            const generateChapterId = (chapterIndex: number, chapterTitle: string) => {
+                // 使用章节索引和标题生成稳定的ID
+                const titleHash = chapterTitle.slice(0, 20).replace(/[^\w\u4e00-\u9fa5]/g, '');
+                return `ch-max-${activeWorkId}-${chapterIndex}-${titleHash}`;
+            };
 
-            const newBook = {
-                id: `book-${Date.now()}`,
-                title: `${currentWorkTitle} (冲刺导入)`,
-                type: 'book',
-                isOpen: true,
-                children: [
-                    {
-                        id: `vol-${Date.now()}`,
+            const newChapters = fullChapters.map((ch, idx) => ({
+                id: generateChapterId(idx, ch.title),
+                title: ch.title,
+                type: 'chapter',
+                content: ch.content || '',
+                summary: ch.summary || '',
+                children: []
+            }));
+
+            let updatedProjects;
+            
+            if (isUpdate) {
+                // 更新已有书籍：保留原有结构，更新章节内容
+                const existingBook = savedProjects[existingBookIndex];
+                
+                // 递归更新或添加章节
+                const updateVolumeChildren = (existingChildren: any[] = []): any[] => {
+                    const updatedChildren = [...existingChildren];
+                    
+                    newChapters.forEach((newCh, idx) => {
+                        const existingIndex = updatedChildren.findIndex((c: any) => 
+                            c.type === 'chapter' && (c.id === newCh.id || c.title === newCh.title)
+                        );
+                        
+                        if (existingIndex !== -1) {
+                            // 更新已有章节（保留用户编辑的内容，如果新内容为空）
+                            const existing = updatedChildren[existingIndex];
+                            updatedChildren[existingIndex] = {
+                                ...existing,
+                                title: newCh.title,
+                                summary: newCh.summary || existing.summary,
+                                // 如果新内容不为空则更新，否则保留原有内容
+                                content: newCh.content || existing.content
+                            };
+                        } else {
+                            // 添加新章节
+                            updatedChildren.push(newCh);
+                        }
+                    });
+                    
+                    return updatedChildren;
+                };
+
+                // 更新书籍结构
+                const updatedBook = {
+                    ...existingBook,
+                    title: `${currentWorkTitle} (冲刺导入)`,
+                    updatedAt: Date.now(),
+                    children: existingBook.children?.map((child: any) => {
+                        if (child.type === 'volume') {
+                            return {
+                                ...child,
+                                children: updateVolumeChildren(child.children)
+                            };
+                        }
+                        return child;
+                    }) || [{
+                        id: `vol-max-${activeWorkId}`,
                         title: '正文卷',
                         type: 'volume',
                         isOpen: true,
-                        children: fullChapters.map((ch, idx) => ({
-                            id: `ch-${Date.now()}-${idx}`,
-                            title: ch.title,
-                            type: 'chapter',
-                            content: ch.content || '',
-                            summary: ch.summary || '',
-                            children: []
-                        }))
-                    }
-                ]
-            };
+                        children: newChapters
+                    }]
+                };
 
-            const updatedProjects = [...savedProjects, newBook];
+                updatedProjects = [...savedProjects];
+                updatedProjects[existingBookIndex] = updatedBook;
+            } else {
+                // 创建新书籍
+                const newBook = {
+                    id: importBookId,
+                    title: `${currentWorkTitle} (冲刺导入)`,
+                    type: 'book',
+                    isOpen: true,
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    children: [
+                        {
+                            id: `vol-max-${activeWorkId}`,
+                            title: '正文卷',
+                            type: 'volume',
+                            isOpen: true,
+                            children: newChapters
+                        }
+                    ]
+                };
+
+                updatedProjects = [...savedProjects, newBook];
+            }
+
             StorageManager.setJSON(STORAGE_KEYS.NOVEL_PROJECTS, updatedProjects);
             
-            if(confirm('导入成功！是否立即前往墨灵编辑器查看？')) {
-                // Navigate to Module 7
+            const successMessage = isUpdate 
+                ? '更新成功！章节内容已同步到墨灵编辑器。'
+                : '导入成功！作品已添加到墨灵编辑器。';
+                
+            if(confirm(`${successMessage}是否立即前往查看？`)) {
                 window.location.href = '/module/module7';
             }
         } catch (e: any) {

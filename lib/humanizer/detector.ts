@@ -1,381 +1,683 @@
+/**
+ * AI特征检测器 - 全面升级版本
+ * 基于规则文件的模块化检测系统
+ */
+
 import {
-    HumanizeScore,
-    Issue,
-    IssueType,
-    DetectionConfig,
-    DEFAULT_CONFIG,
-    REDUNDANT_WORDS,
-    ABSTRACT_METAPHOR_KEYWORDS,
-    EMOTION_WORDS
+  HumanizeScore,
+  Issue,
+  IssueType,
+  IssueSeverity,
+  DetectionConfig,
+  DEFAULT_DETECTION_CONFIG,
+  STRICT_DETECTION_CONFIG,
+  LENIENT_DETECTION_CONFIG,
 } from './types';
+import { SlopScorer } from './scorer';
+import {
+  PHRASE_CATEGORIES,
+  BANNED_OPENERS,
+  BANNED_EMPHASIS,
+  BANNED_JARGON,
+  BANNED_TRANSITIONS,
+  AI_CLICHES,
+  EXAGGERATION_WORDS,
+  TEMPORAL_ADVERBS,
+  SURPRISE_WORDS,
+  REDUNDANT_MODIFIERS,
+} from './rules/phrases';
+import {
+  ALL_STRUCTURAL_PATTERNS,
+  StructuralPattern,
+} from './rules/structures';
+import {
+  ALL_PATTERNS,
+  AIPattern,
+} from './rules/patterns';
+import {
+  BANNED_BEIJING_ACCENTS,
+  BANNED_TRANSLATIONESE,
+  BANNED_FALSE_INTIMACY,
+  AI_CLICHES_CHINESE,
+  TOUR_GUIDE_OPENERS,
+  TOUR_GUIDE_ENDINGS,
+  MECHANICAL_TRANSITIONS,
+  FALSE_OBJECTIVITY,
+  WEIRD_SINGLE_CHAR_ADJECTIVES,
+} from './rules/writer-style';
 
 /**
- * AI特征检测器
+ * AI 检测器 - 全面升级版本
  */
 export class AIDetector {
-    private config: DetectionConfig;
+  private config: DetectionConfig;
+  private scorer: SlopScorer;
 
-    constructor(config: Partial<DetectionConfig> = {}) {
-        this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(config: Partial<DetectionConfig> = {}) {
+    this.config = { ...DEFAULT_DETECTION_CONFIG, ...config };
+    this.scorer = new SlopScorer(this.config);
+  }
+
+  /**
+   * 设置检测模式
+   */
+  setMode(mode: 'strict' | 'balanced' | 'lenient'): void {
+    switch (mode) {
+      case 'strict':
+        this.config = { ...STRICT_DETECTION_CONFIG };
+        break;
+      case 'lenient':
+        this.config = { ...LENIENT_DETECTION_CONFIG };
+        break;
+      default:
+        this.config = { ...DEFAULT_DETECTION_CONFIG };
+    }
+    this.scorer = new SlopScorer(this.config);
+  }
+
+  /**
+   * 分析文本并返回完整评分
+   */
+  analyze(text: string): HumanizeScore {
+    const issues: Issue[] = [];
+
+    // 1. 短语检测
+    if (this.shouldCheckPhrases()) {
+      issues.push(...this.detectPhrases(text));
     }
 
-    /**
-     * 分析文本并返回AI率评分
-     */
-    analyze(text: string): HumanizeScore {
-        const issues: Issue[] = [];
-
-        // 运行各项检测
-        issues.push(...this.detectParallelism(text));
-        issues.push(...this.detectRepetition(text));
-        issues.push(...this.detectExclamation(text));
-        issues.push(...this.detectExaggeration(text));
-
-        // 新增检测
-        issues.push(...this.detectRedundantWords(text));
-        issues.push(...this.detectAbstractMetaphor(text));
-        issues.push(...this.detectLongSentence(text));
-        issues.push(...this.detectEmotionFloating(text));
-
-        // 计算各维度分数
-        const breakdown = this.calculateBreakdown(text, issues);
-
-        // 计算总分
-        const overall = this.calculateOverall(breakdown, issues);
-
-        return { overall, breakdown, issues };
+    // 2. 结构检测
+    if (this.config.checkStructures) {
+      issues.push(...this.detectStructures(text));
     }
 
-    /**
-     * 检测排比句过多
-     */
-    private detectParallelism(text: string): Issue[] {
-        const issues: Issue[] = [];
-        const sentences = text.split(/[。！？]/);
+    // 3. 模式检测
+    if (this.config.checkPatterns) {
+      issues.push(...this.detectPatterns(text));
+    }
 
-        let parallelCount = 0;
-        let parallelStart = 0;
+    // 4. 中文风格检测（新增）
+    if (this.config.checkChineseStyle) {
+      issues.push(...this.detectChineseStyle(text));
+    }
 
-        for (let i = 1; i < sentences.length; i++) {
-            const prev = sentences[i - 1].trim();
-            const curr = sentences[i].trim();
+    // 5. 传统检测（向后兼容）
+    issues.push(...this.detectLegacyIssues(text));
 
-            if (this.isSimilarStructure(prev, curr)) {
-                if (parallelCount === 0) parallelStart = i - 1;
-                parallelCount++;
-            } else {
-                if (parallelCount >= this.config.parallelismThreshold) {
-                    const excerpt = sentences.slice(parallelStart, i).join('。') + '。';
-                    issues.push({
-                        id: `para-${parallelStart}`,
-                        type: 'parallelism',
-                        severity: parallelCount >= 4 ? 'high' : 'medium',
-                        title: `连续 ${parallelCount + 1} 个排比句`,
-                        description: '过多排比句是AI生成的典型特征，建议拆解为不同句式',
-                        position: { start: 0, end: 0 },
-                        excerpt: excerpt.slice(0, 100) + '...',
-                        suggestion: '拆解为不同句式，添加过渡词和细节描写'
-                    });
-                }
-                parallelCount = 0;
-            }
+    // 5. 计算评分
+    const slopScore = this.scorer.calculateScore(text, issues);
+    const breakdown = this.scorer.calculateLegacyBreakdown(text, issues);
+    const overall = this.scorer.calculateOverallScore(slopScore, breakdown);
+
+    // 6. 统计信息
+    const stats = this.calculateStats(text, issues);
+
+    return {
+      overall,
+      slopScore,
+      breakdown,
+      issues,
+      stats,
+    };
+  }
+
+  /**
+   * 快速检测 - 只返回是否需要重写
+   */
+  quickCheck(text: string): { needsRevision: boolean; score: number } {
+    const score = this.analyze(text);
+    return {
+      needsRevision: score.slopScore.needsRevision,
+      score: score.overall,
+    };
+  }
+
+  // ============ 短语检测 ============
+
+  private shouldCheckPhrases(): boolean {
+    return this.config.checkOpeners || 
+           this.config.checkEmphasis || 
+           this.config.checkJargon || 
+           this.config.checkTransitions || 
+           this.config.checkCliches;
+  }
+
+  private detectPhrases(text: string): Issue[] {
+    const issues: Issue[] = [];
+
+    // 开场白检测
+    if (this.config.checkOpeners) {
+      issues.push(...this.detectPhraseCategory(
+        text, 
+        'banned_opener', 
+        BANNED_OPENERS, 
+        '开场白',
+        '删除 throat-clearing 开场白，直接切入场景'
+      ));
+    }
+
+    // 强调词检测
+    if (this.config.checkEmphasis) {
+      issues.push(...this.detectPhraseCategory(
+        text, 
+        'banned_emphasis', 
+        BANNED_EMPHASIS, 
+        '强调词',
+        '删除强调词，让事实自己说话'
+      ));
+    }
+
+    // 术语检测
+    if (this.config.checkJargon) {
+      issues.push(...this.detectPhraseCategory(
+        text, 
+        'banned_jargon', 
+        BANNED_JARGON, 
+        '术语',
+        '用通俗表达替代商业/学术术语'
+      ));
+    }
+
+    // 过渡词检测
+    if (this.config.checkTransitions) {
+      issues.push(...this.detectPhraseCategory(
+        text, 
+        'banned_transition', 
+        BANNED_TRANSITIONS, 
+        '过渡词',
+        '用自然叙述衔接替代生硬过渡'
+      ));
+    }
+
+    // AI陈词检测
+    if (this.config.checkCliches) {
+      issues.push(...this.detectPhraseCategory(
+        text, 
+        'ai_cliche', 
+        AI_CLICHES, 
+        'AI陈词',
+        '删除AI高频陈词，用原创表达'
+      ));
+    }
+
+    // 其他类别（始终检测）
+    issues.push(...this.detectPhraseCategory(
+      text, 
+      'exaggeration', 
+      EXAGGERATION_WORDS, 
+      '浮夸词',
+      '用平实表达替代浮夸词汇'
+    ));
+
+    issues.push(...this.detectPhraseCategory(
+      text, 
+      'temporal_adverb', 
+      TEMPORAL_ADVERBS, 
+      '时间副词',
+      '减少时间副词使用，让节奏自然'
+    ));
+
+    issues.push(...this.detectPhraseCategory(
+      text, 
+      'surprise_word', 
+      SURPRISE_WORDS, 
+      '惊讶词',
+      '用细节展示惊讶，而非直接说出'
+    ));
+
+    issues.push(...this.detectPhraseCategory(
+      text, 
+      'redundant_modifier', 
+      REDUNDANT_MODIFIERS, 
+      '冗余修饰',
+      '删除冗余结构，保留核心信息'
+    ));
+
+    return issues;
+  }
+
+  private detectPhraseCategory(
+    text: string,
+    type: IssueType,
+    phrases: string[],
+    category: string,
+    suggestion: string,
+    defaultSeverity?: IssueSeverity
+  ): Issue[] {
+    const issues: Issue[] = [];
+    const detected = new Set<string>();
+
+    for (const phrase of phrases) {
+      // 处理包含...的模式
+      const pattern = phrase.includes('……') 
+        ? phrase.replace('……', '.+?')
+        : phrase;
+      
+      const regex = new RegExp(pattern, 'g');
+      let match;
+
+      while ((match = regex.exec(text)) !== null) {
+        // 避免重复报告同一短语
+        if (detected.has(phrase)) continue;
+        detected.add(phrase);
+
+        const severity = defaultSeverity || this.calculatePhraseSeverity(phrase, type);
+        
+        if (this.shouldReportIssue(severity)) {
+          issues.push({
+            id: `${type}-${phrase}-${match.index}`,
+            type,
+            severity,
+            title: `禁用${category}: "${phrase}"`,
+            description: `检测到${category}类短语`,
+            position: { start: match.index, end: match.index + match[0].length },
+            excerpt: match[0],
+            suggestion,
+            category,
+          });
         }
-
-        return issues;
+      }
     }
 
-    /**
-     * 检测词汇重复
-     */
-    private detectRepetition(text: string): Issue[] {
-        const issues: Issue[] = [];
-        const words = this.extractWords(text);
-        const windowSize = this.config.repetitionWindow;
+    return issues;
+  }
 
-        // 滑动窗口检测
-        const wordCount: Map<string, number[]> = new Map();
+  // ============ 结构检测 ============
 
-        for (let i = 0; i < words.length; i++) {
-            const word = words[i];
-            if (word.length < 2) continue; // 跳过单字
+  private detectStructures(text: string): Issue[] {
+    const issues: Issue[] = [];
 
-            if (!wordCount.has(word)) {
-                wordCount.set(word, []);
-            }
-            wordCount.get(word)!.push(i);
+    for (const pattern of ALL_STRUCTURAL_PATTERNS) {
+      const matches = this.matchStructuralPattern(text, pattern);
+      
+      for (const match of matches) {
+        if (this.shouldReportIssue(pattern.severity)) {
+          issues.push({
+            id: `${pattern.id}-${match.index}`,
+            type: pattern.id as IssueType,
+            severity: pattern.severity,
+            title: `${pattern.nameZh}: ${pattern.description}`,
+            description: pattern.description,
+            position: { start: match.index, end: match.index + match.length },
+            excerpt: match.text,
+            suggestion: pattern.suggestion,
+            category: '结构问题',
+          });
         }
+      }
+    }
 
-        // 检查重复词
-        wordCount.forEach((positions, word) => {
-            if (positions.length >= this.config.repetitionThreshold) {
-                // 检查是否在短距离内重复
-                for (let i = 0; i < positions.length - 1; i++) {
-                    const distance = positions[i + 1] - positions[i];
-                    if (distance < 20) { // 20个词内重复
-                        issues.push({
-                            id: `rep-${word}-${i}`,
-                            type: 'repetition',
-                            severity: 'medium',
-                            title: `"${word}"重复出现`,
-                            description: `该词在短距离内出现了${positions.length}次`,
-                            position: { start: 0, end: 0 },
-                            excerpt: word,
-                            suggestion: `使用同义词替换或省略，如：${this.getSynonyms(word)}`
-                        });
-                        break;
-                    }
-                }
-            }
+    return issues;
+  }
+
+  private matchStructuralPattern(
+    text: string, 
+    pattern: StructuralPattern
+  ): Array<{ index: number; length: number; text: string }> {
+    const matches: Array<{ index: number; length: number; text: string }> = [];
+
+    if (typeof pattern.pattern === 'function') {
+      // 函数模式：返回布尔值，需要额外处理获取位置
+      // 简化处理：如果匹配，报告整个文本
+      if (pattern.pattern(text)) {
+        matches.push({ index: 0, length: Math.min(100, text.length), text: text.slice(0, 100) });
+      }
+    } else {
+      // 正则模式
+      let match;
+      const regex = new RegExp(pattern.pattern.source, 'g');
+      while ((match = regex.exec(text)) !== null) {
+        matches.push({
+          index: match.index,
+          length: match[0].length,
+          text: match[0],
         });
-
-        return issues;
+      }
     }
 
-    /**
-     * 检测感叹号滥用
-     */
-    private detectExclamation(text: string): Issue[] {
-        const issues: Issue[] = [];
+    return matches;
+  }
 
-        const exclamations = (text.match(/！/g) || []).length;
-        const allPunctuation = (text.match(/[。！？，、；：]/g) || []).length;
+  // ============ 模式检测 ============
 
-        if (allPunctuation === 0) return issues;
+  private detectPatterns(text: string): Issue[] {
+    const issues: Issue[] = [];
 
-        const ratio = exclamations / allPunctuation;
+    for (const pattern of ALL_PATTERNS) {
+      const matches = [...text.matchAll(pattern.regex)];
+      
+      if (matches.length > 0) {
+        // 对于累积型模式，根据匹配次数计算严重程度
+        const severity = pattern.cumulative && matches.length > 3 
+          ? 'high' 
+          : pattern.cumulative && matches.length > 1 
+            ? 'medium' 
+            : 'low';
 
-        if (ratio > this.config.exclamationRatio) {
+        if (this.shouldReportIssue(severity)) {
+          // 只报告前3个匹配，避免过多重复
+          matches.slice(0, 3).forEach((match, idx) => {
             issues.push({
-                id: 'excl-overall',
-                type: 'exclamation',
-                severity: ratio > 0.5 ? 'high' : 'medium',
-                title: '感叹号使用过多',
-                description: `感叹号占标点${(ratio * 100).toFixed(1)}%，正常人写作约为10-20%`,
-                position: { start: 0, end: 0 },
-                excerpt: '',
-                suggestion: '将部分感叹号改为句号或逗号，保持语气平和'
+              id: `${pattern.id}-${idx}`,
+              type: pattern.id as IssueType,
+              severity,
+              title: `${pattern.name}${matches.length > 1 ? ` (${matches.length}次)` : ''}`,
+              description: pattern.description,
+              position: { start: match.index || 0, end: (match.index || 0) + match[0].length },
+              excerpt: match[0],
+              suggestion: `减少${pattern.name}，让表达更自然`,
+              category: '模式问题',
             });
+          });
         }
-
-        return issues;
+      }
     }
 
-    /**
-     * 检测浮夸表达
-     */
-    private detectExaggeration(text: string): Issue[] {
-        const issues: Issue[] = [];
+    return issues;
+  }
 
-        for (const word of this.config.exaggerationWords) {
-            const regex = new RegExp(word, 'g');
-            const matches = text.match(regex);
+  // ============ 传统检测（向后兼容） ============
 
-            if (matches && matches.length >= 2) {
-                issues.push({
-                    id: `exag-${word}`,
-                    type: 'exaggeration',
-                    severity: matches.length >= 4 ? 'high' : 'low',
-                    title: `浮夸词"${word}"出现${matches.length}次`,
-                    description: '过多使用强调词会显得不自然',
-                    position: { start: 0, end: 0 },
-                    excerpt: word,
-                    suggestion: `替换为更平实的表达，或直接删除`
-                });
-            }
+  private detectLegacyIssues(text: string): Issue[] {
+    const issues: Issue[] = [];
+
+    // 词汇重复检测
+    issues.push(...this.detectRepetition(text));
+
+    // 感叹号检测
+    issues.push(...this.detectExclamation(text));
+
+    return issues;
+  }
+
+  private detectRepetition(text: string): Issue[] {
+    const issues: Issue[] = [];
+    const words = this.extractWords(text);
+    const windowSize = 100; // 检测窗口
+
+    // 滑动窗口检测
+    const wordPositions: Map<string, number[]> = new Map();
+
+    for (let i = 0; i < words.length; i++) {
+      const word = words[i];
+      if (word.length < 2) continue;
+
+      if (!wordPositions.has(word)) {
+        wordPositions.set(word, []);
+      }
+      wordPositions.get(word)!.push(i);
+    }
+
+    // 检查重复词
+    wordPositions.forEach((positions, word) => {
+      if (positions.length >= 3) {
+        // 检查是否在短距离内重复
+        for (let i = 0; i < positions.length - 1; i++) {
+          const distance = positions[i + 1] - positions[i];
+          if (distance < 20) { // 20个词内重复
+            issues.push({
+              id: `repetition-${word}-${i}`,
+              type: 'repetition',
+              severity: 'medium',
+              title: `词汇重复: "${word}"`,
+              description: `该词在短距离内出现了${positions.length}次`,
+              position: { start: 0, end: 0 },
+              excerpt: word,
+              suggestion: `使用同义词替换或省略`,
+              category: '重复问题',
+            });
+            break;
+          }
         }
+      }
+    });
 
-        return issues;
+    return issues;
+  }
+
+  private detectExclamation(text: string): Issue[] {
+    const issues: Issue[] = [];
+
+    const exclamations = (text.match(/！/g) || []).length;
+    const allPunctuation = (text.match(/[。！？，、；：]/g) || []).length;
+
+    if (allPunctuation === 0) return issues;
+
+    const ratio = exclamations / allPunctuation;
+
+    if (ratio > 0.3) {
+      issues.push({
+        id: 'exclamation-overall',
+        type: 'exclamation',
+        severity: ratio > 0.5 ? 'high' : 'medium',
+        title: '感叹号使用过多',
+        description: `感叹号占标点${(ratio * 100).toFixed(1)}%，正常人写作约为10-20%`,
+        position: { start: 0, end: 0 },
+        excerpt: '',
+        suggestion: '将部分感叹号改为句号或逗号，保持语气平和',
+        category: '标点问题',
+      });
     }
 
-    // ============ 新增检测方法 ============
+    return issues;
+  }
 
-    /**
-     * 检测冗余词汇
-     */
-    private detectRedundantWords(text: string): Issue[] {
-        const issues: Issue[] = [];
+  // ============ 中文风格检测（新增） ============
 
-        for (const word of REDUNDANT_WORDS) {
-            // 处理包含...的模式
-            const pattern = word.replace('……', '.+?');
-            const regex = new RegExp(pattern, 'g');
-            const matches = text.match(regex);
+  private detectChineseStyle(text: string): Issue[] {
+    const issues: Issue[] = [];
+    const config = this.config.chineseStyleConfig;
 
-            if (matches && matches.length >= 2) {
-                issues.push({
-                    id: `redundant-${word}`,
-                    type: 'redundant_words',
-                    severity: 'low',
-                    title: `冗余词"${word}"出现${matches.length}次`,
-                    description: '删除空泛修饰词，保留核心信息',
-                    position: { start: 0, end: 0 },
-                    excerpt: word,
-                    suggestion: '直接删除或替换为具体描写'
-                });
-            }
-        }
-
-        return issues;
+    // 1. 儿化音检测
+    if (config.checkBeijingAccent) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'beijing_accent',
+        BANNED_BEIJING_ACCENTS,
+        '儿化音',
+        '删除儿化音，使用标准表达（如"那儿"→"那里"）',
+        'high'
+      ));
     }
 
-    /**
-     * 检测抽象比喻
-     */
-    private detectAbstractMetaphor(text: string): Issue[] {
-        const issues: Issue[] = [];
-
-        // 检测"像"字比喻
-        const metaphorPattern = /([^，。！？]{2,10})(像|如同|仿佛|好似)([^，。！？]{2,20})/g;
-        const matches = [...text.matchAll(metaphorPattern)];
-
-        for (const match of matches) {
-            const metaphorPart = match[3];
-
-            // 检查是否包含抽象关键词
-            const hasAbstract = ABSTRACT_METAPHOR_KEYWORDS.some(kw => metaphorPart.includes(kw));
-
-            if (hasAbstract) {
-                issues.push({
-                    id: `abstract-metaphor-${match.index}`,
-                    type: 'abstract_metaphor',
-                    severity: 'medium',
-                    title: '抽象比喻缺乏场景感',
-                    description: '比喻应绑定具体场景和感官体验',
-                    position: { start: match.index || 0, end: (match.index || 0) + match[0].length },
-                    excerpt: match[0],
-                    suggestion: '用具体事物+感官细节+场景反馈替换（如：目光像浸了冰的铁）'
-                });
-            }
-        }
-
-        return issues;
+    // 2. 翻译腔检测
+    if (config.checkTranslationese) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'translationese_cn',
+        BANNED_TRANSLATIONESE,
+        '翻译腔',
+        '改为地道中文表达，删除"当……时"、"被……所"等结构',
+        'high'
+      ));
     }
 
-    /**
-     * 检测长句堆砌
-     */
-    private detectLongSentence(text: string): Issue[] {
-        const issues: Issue[] = [];
-        const sentences = text.split(/[。！？]/);
-
-        for (let i = 0; i < sentences.length; i++) {
-            const sentence = sentences[i].trim();
-
-            // 检测"的地得"密度
-            const deCount = (sentence.match(/[的地得]/g) || []).length;
-            const deRatio = deCount / Math.max(sentence.length, 1);
-
-            // 长度超过50字且"的地得"占比超过15%
-            if (sentence.length > 50 && deRatio > 0.15) {
-                issues.push({
-                    id: `long-sentence-${i}`,
-                    type: 'long_sentence',
-                    severity: sentence.length > 80 ? 'high' : 'medium',
-                    title: `长句堆砌（${sentence.length}字，${deCount}个"的地得"）`,
-                    description: '信息堆砌，节奏拖沓',
-                    position: { start: 0, end: 0 },
-                    excerpt: sentence.slice(0, 50) + '...',
-                    suggestion: '拆成3-4个短句，每句聚焦一个核心（环境/动作/心理）'
-                });
-            }
-        }
-
-        return issues;
+    // 3. 虚假亲昵检测
+    if (config.checkFalseIntimacy) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'false_intimacy',
+        BANNED_FALSE_INTIMACY,
+        '虚假亲昵',
+        '删除"咱们"、"咱"等虚假亲昵词，保持观察者距离',
+        'medium'
+      ));
     }
 
-    /**
-     * 检测情绪悬浮
-     */
-    private detectEmotionFloating(text: string): Issue[] {
-        const issues: Issue[] = [];
-
-        for (const emotionWord of EMOTION_WORDS) {
-            const regex = new RegExp(`(很|非常|十分|极其|特别)?(${emotionWord})`, 'g');
-            const matches = [...text.matchAll(regex)];
-
-            if (matches.length >= 2) {
-                issues.push({
-                    id: `emotion-${emotionWord}`,
-                    type: 'emotion_floating',
-                    severity: 'medium',
-                    title: `直接喊情绪词"${emotionWord}"（${matches.length}次）`,
-                    description: '情绪不直接说，而是通过细节让读者感知',
-                    position: { start: 0, end: 0 },
-                    excerpt: emotionWord,
-                    suggestion: '用"动作+感官+场景互动"表达（如：肩膀一抽一抽的，眼泪砸在地上）'
-                });
-            }
-        }
-
-        return issues;
+    // 4. AI陈词检测（中文特供版）
+    if (config.checkAICliches) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'ai_cliche_cn',
+        AI_CLICHES_CHINESE,
+        'AI陈词',
+        '删除AI高频陈词，使用原创表达',
+        'medium'
+      ));
     }
 
-    // ============ 辅助方法 ============
-
-    private isSimilarStructure(s1: string, s2: string): boolean {
-        if (!s1 || !s2 || s1.length < 5 || s2.length < 5) return false;
-
-        // 简单判断：句尾相似或长度相近
-        const ending1 = s1.slice(-3);
-        const ending2 = s2.slice(-3);
-        const lenDiff = Math.abs(s1.length - s2.length);
-
-        return ending1 === ending2 || lenDiff < 5;
+    // 5. 导游式开场检测
+    if (config.checkTourGuideStructure) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'tour_guide_opener',
+        TOUR_GUIDE_OPENERS,
+        '导游式开场',
+        '拒绝背景综述，使用"切片式"切入，从具体事件开始',
+        'medium'
+      ));
     }
 
-    private extractWords(text: string): string[] {
-        // 简单分词（中文按字分割，后续可用分词库）
-        return text.split(/[\s，。！？、；：""''【】（）《》\n]+/)
-            .filter(w => w.length >= 2);
+    // 6. 导游式结尾检测
+    if (config.checkTourGuideStructure) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'tour_guide_ending',
+        TOUR_GUIDE_ENDINGS,
+        '导游式结尾',
+        '删除升华和呼吁，使用戛然而止的冷峻判断或反问',
+        'medium'
+      ));
     }
 
-    private getSynonyms(word: string): string {
-        // 简单同义词表
-        const synonyms: Record<string, string[]> = {
-            '震撼': ['触动', '感染', '打动'],
-            '惊天': ['巨大', '重大', '显著'],
-            '无敌': ['强大', '厉害', '出众'],
-            '瞬间': ['片刻', '须臾', '一会'],
-            '顿时': ['随即', '继而', '紧接着'],
-        };
-
-        return synonyms[word]?.slice(0, 2).join('、') || '(无建议)';
+    // 7. 生硬过渡检测
+    if (config.checkMechanicalTransitions) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'mechanical_transition_cn',
+        MECHANICAL_TRANSITIONS,
+        '生硬过渡',
+        '删除"此外"、"另外"等连接词，让逻辑自然流动',
+        'low'
+      ));
     }
 
-    private calculateBreakdown(text: string, issues: Issue[]) {
-        const parallelIssues = issues.filter(i => i.type === 'parallelism').length;
-        const repetitionIssues = issues.filter(i => i.type === 'repetition').length;
-        const exclamationIssues = issues.filter(i => i.type === 'exclamation').length;
-        const exaggerationIssues = issues.filter(i => i.type === 'exaggeration').length;
-
-        // 新增维度影响
-        const structureIssues = parallelIssues + issues.filter(i => i.type === 'long_sentence' || i.type === 'redundant_words').length;
-        const emotionIssues = exaggerationIssues + exclamationIssues + issues.filter(i => i.type === 'emotion_floating').length;
-        const detailIssues = issues.filter(i => i.type === 'abstract_metaphor' || i.type === 'lack_detail').length;
-
-        return {
-            repetition: Math.max(0, 100 - repetitionIssues * 15),
-            structure: Math.max(0, 100 - structureIssues * 15),
-            vocabulary: Math.max(0, 100 - (repetitionIssues + exaggerationIssues) * 10),
-            emotion: Math.max(0, 100 - emotionIssues * 15),
-            detail: Math.max(0, 100 - detailIssues * 20)
-        };
+    // 8. 虚假客观检测
+    if (config.checkFalseObjectivity) {
+      issues.push(...this.detectPhraseCategory(
+        text,
+        'false_objectivity',
+        FALSE_OBJECTIVITY,
+        '虚假客观',
+        '删除"有人认为"、"专家表示"，直接使用"我"的观点',
+        'low'
+      ));
     }
 
-    private calculateOverall(breakdown: any, issues: Issue[]): number {
-        const weights = { repetition: 0.2, structure: 0.25, vocabulary: 0.2, emotion: 0.2, detail: 0.15 };
-        let score = 0;
-
-        for (const [key, weight] of Object.entries(weights)) {
-            score += breakdown[key] * weight;
-        }
-
-        // 根据问题数量扣分
-        const penalty = issues.filter(i => i.severity === 'high').length * 5 +
-            issues.filter(i => i.severity === 'medium').length * 2;
-
-        return Math.max(0, Math.round(score - penalty));
+    // 9. 诡异单字形容词检测
+    if (config.checkSingleCharAdjectives) {
+      issues.push(...this.detectWeirdSingleCharAdjectives(text));
     }
+
+    return issues;
+  }
+
+  private detectWeirdSingleCharAdjectives(text: string): Issue[] {
+    const issues: Issue[] = [];
+
+    for (const item of WEIRD_SINGLE_CHAR_ADJECTIVES) {
+      const matches = [...text.matchAll(item.pattern)];
+      matches.forEach((match, idx) => {
+        issues.push({
+          id: `weird_single_char-${idx}`,
+          type: 'weird_single_char',
+          severity: 'medium',
+          title: '诡异单字形容词',
+          description: '单字形容词用法不符合中文习惯',
+          position: { start: match.index || 0, end: (match.index || 0) + match[0].length },
+          excerpt: match[0],
+          suggestion: `改为: ${item.suggestion}`,
+          category: '用词问题',
+        });
+      });
+    }
+
+    return issues;
+  }
+
+  // ============ 辅助方法 ============
+
+  private calculatePhraseSeverity(phrase: string, type: IssueType): IssueSeverity {
+    // 开场白和AI陈词通常更严重
+    if (type === 'banned_opener' || type === 'ai_cliche') {
+      return 'high';
+    }
+    // 强调词和过渡词中等
+    if (type === 'banned_emphasis' || type === 'banned_transition') {
+      return 'medium';
+    }
+    return 'low';
+  }
+
+  private shouldReportIssue(severity: IssueSeverity): boolean {
+    const levels = { low: 1, medium: 2, high: 3 };
+    const minLevel = levels[this.config.minIssueSeverity];
+    const issueLevel = levels[severity];
+    return issueLevel >= minLevel;
+  }
+
+  private calculateStats(text: string, issues: Issue[]): HumanizeScore['stats'] {
+    const bannedPhrases = issues.filter(i => 
+      i.type.startsWith('banned_') || 
+      i.type === 'ai_cliche' ||
+      i.type === 'exaggeration' ||
+      i.type === 'temporal_adverb' ||
+      i.type === 'surprise_word' ||
+      i.type === 'redundant_modifier'
+    ).length;
+
+    const structuralIssues = issues.filter(i => 
+      i.category === '结构问题'
+    ).length;
+
+    const patternMatches = issues.filter(i => 
+      i.category === '模式问题'
+    ).length;
+
+    const highSeverityIssues = issues.filter(i => 
+      i.severity === 'high'
+    ).length;
+
+    return {
+      totalPhrases: this.extractWords(text).length,
+      bannedPhrases,
+      structuralIssues,
+      patternMatches,
+      highSeverityIssues,
+    };
+  }
+
+  private extractWords(text: string): string[] {
+    return text.split(/[\s，。！？、；：""''【】（）《》\n]+/)
+      .filter(w => w.length >= 2);
+  }
+}
+
+// ============ 便捷函数 ============
+
+/**
+ * 快速分析文本
+ */
+export function analyzeText(text: string, mode?: 'strict' | 'balanced' | 'lenient'): HumanizeScore {
+  const detector = new AIDetector();
+  if (mode) detector.setMode(mode);
+  return detector.analyze(text);
+}
+
+/**
+ * 批量分析多个文本
+ */
+export function analyzeBatch(texts: string[]): HumanizeScore[] {
+  const detector = new AIDetector();
+  return texts.map(text => detector.analyze(text));
+}
+
+/**
+ * 快速检测 - 只返回是否需要重写
+ */
+export function quickCheck(text: string): { needsRevision: boolean; score: number } {
+  const detector = new AIDetector();
+  return detector.quickCheck(text);
 }
 
 // 导出单例

@@ -47,7 +47,7 @@ export default function AnnouncementModal({ forceOpen = false, onClose }: { forc
             </div>
             <div>
                 <h2 className="text-2xl font-bold text-ink">AI Novel Writer 更新公告</h2>
-              <p className="text-ink/60 mt-1">Version {CURRENT_VERSION} - 模块13 AI拆书功能上线</p>
+              <p className="text-ink/60 mt-1">Version {CURRENT_VERSION} - Humanizer 去AI味功能全面升级</p>
             </div>
           </div>
           <button 
@@ -62,43 +62,35 @@ export default function AnnouncementModal({ forceOpen = false, onClose }: { forc
         <div className="p-8 overflow-y-auto custom-scrollbar space-y-6 bg-white/50">
 
             <div className="space-y-4">
-                <div className="flex items-center gap-2 text-amber-600 font-bold text-lg">
-                    <Trophy className="w-5 h-5" />
-                    <span>全新模块13：排行榜拆书 + AI自动收集</span>
+                <div className="flex items-center gap-2 text-emerald-600 font-bold text-lg">
+                    <Sparkles className="w-5 h-5" />
+                    <span>Humanizer 去AI味功能全面升级</span>
                 </div>
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-ink/80 space-y-3 text-sm leading-relaxed">
+                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100 text-ink/80 space-y-3 text-sm leading-relaxed">
                     <p>
-                        <strong className="text-ink">1. 排行榜拆书模块：</strong><br/>
-                        新增专业拆书分析工具，支持标准模板和专业模板两种模式，帮助您深度分析热门小说的核心梗、人设、爽点节奏等要素。
+                        <strong className="text-ink">1. Stop-Slop 5维评分系统：</strong><br/>
+                        引入专业的 AI 文本检测体系，从直接性、节奏多样性、读者信任度、真实感、信息密度五个维度全面评估文本质量。
                     </p>
                     <p>
-                        <strong className="text-ink">2. AI自动收集功能：</strong><br/>
-                        <span className="inline-flex items-center gap-1 text-amber-700 bg-amber-100 px-2 py-0.5 rounded text-xs font-medium">
-                            <Globe className="w-3 h-3" />
-                            联网搜索
-                        </span>
-                        输入书名，AI自动上网搜索书籍信息并生成完整拆书分析，支持双模板智能填充！
+                        <strong className="text-ink">2. 中文写作风格检测：</strong><br/>
+                        新增针对中文 AI 写作特征的专项检测，包括儿化音、翻译腔、虚假亲昵、AI陈词、导游式结构等 9 大类问题识别。
                     </p>
                     <p>
-                        <strong className="text-ink">3. 专业拆书模板：</strong><br/>
-                        包含核心梗、人设拆解、爽点节奏、悬念钩子、火的原因分析、仿写脑洞等深度分析维度。
+                        <strong className="text-ink">3. 专栏作家风格改写：</strong><br/>
+                        改写提示词全面升级，参考专业写作指南，让 AI 生成内容更像人类专栏作家作品，具有"毛边感"和独特见解。
                     </p>
                 </div>
             </div>
 
             <div className="space-y-4">
-                <div className="flex items-center gap-2 text-pink-500 font-bold text-lg">
-                    <MessageSquare className="w-5 h-5" />
-                    <span>模块12：对话写作升级</span>
+                <div className="flex items-center gap-2 text-amber-600 font-bold text-lg">
+                    <Zap className="w-5 h-5" />
+                    <span>Max 万字冲刺优化</span>
                 </div>
-                <div className="bg-pink-50 p-4 rounded-xl border border-pink-100 text-ink/80 space-y-3 text-sm leading-relaxed">
+                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100 text-ink/80 space-y-3 text-sm leading-relaxed">
                     <p>
-                        <strong className="text-ink">1. 沉浸式单智能体体验：</strong><br/>
-                        优化了对话写作界面，现在采用更专注的单智能体模式，左侧文件管理支持折叠，为您提供更开阔的创作空间。
-                    </p>
-                    <p>
-                        <strong className="text-ink">2. 智能开场白：</strong><br/>
-                        新建对话时，智能体将自动根据您的作品生成一句贴切的开场白，帮助您快速进入创作状态。
+                        <strong className="text-ink">1. 导入编辑器问题修复：</strong><br/>
+                        修复了万字冲刺导入到编辑器后，继续写作会创建重复目录的问题。现在导入和写作使用统一的项目ID，数据同步更稳定。
                     </p>
                 </div>
             </div>
@@ -106,16 +98,16 @@ export default function AnnouncementModal({ forceOpen = false, onClose }: { forc
             <div className="space-y-4">
                 <div className="flex items-center gap-2 text-blue-600 font-bold text-lg">
                     <Settings2 className="w-5 h-5" />
-                    <span>Bug 修复与优化</span>
+                    <span>历史更新</span>
                 </div>
                 <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 text-ink/80 space-y-3 text-sm leading-relaxed">
                     <p>
-                        <strong className="text-ink">1. Max 模式优化：</strong><br/>
-                        修复了 Max 模式下部分功能模型配置的问题，现在所有模块均支持独立配置 AI 模型。
+                        <strong className="text-ink">v1.3.4 - 模块13 AI拆书：</strong><br/>
+                        排行榜拆书 + AI自动收集功能上线，支持联网搜索书籍信息并生成拆书分析。
                     </p>
                     <p>
-                        <strong className="text-ink">2. 一致性检查：</strong><br/>
-                        移除了冗余的配置选项，优化了检查流程。
+                        <strong className="text-ink">v1.3.3 - 模块12对话写作：</strong><br/>
+                        沉浸式单智能体体验，左侧文件管理支持折叠，智能开场白功能。
                     </p>
                 </div>
             </div>

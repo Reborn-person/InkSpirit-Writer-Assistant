@@ -3,7 +3,10 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { StorageManager, STORAGE_KEYS } from '@/lib/storage';
 import { generateAIContentStream } from '@/lib/ai';
-import { Plus, FileText, Trash2, Pencil, MoreHorizontal, X, BookOpen, ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Search } from 'lucide-react';
+import { MemoryAwareAgent, ProgressiveContextManager } from '@/lib/memory';
+import ChapterProgressBar, { CompactProgressBar } from './ChapterProgressBar';
+import { Plus, FileText, Trash2, Pencil, MoreHorizontal, X, BookOpen, ArrowLeft, Bot, ChevronLeft, ChevronRight, Globe, Search, Brain, Info, Cloud, CloudOff, RefreshCw, Download, Upload } from 'lucide-react';
+import { syncBookToCloud, fetchCloudBooks, fetchCloudBook, deleteCloudBook, needsSync, autoSyncAll, restoreBookToLocal, CloudBook } from '@/lib/module12-cloud-sync';
 
 type Module12File = {
     id: string;
@@ -59,8 +62,24 @@ export default function Module12ChatWriting() {
     const [chatInput, setChatInput] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
     const [isSearchEnabled, setIsSearchEnabled] = useState(false);
+    const [memoryAgent, setMemoryAgent] = useState<MemoryAwareAgent | null>(null);
+    const [progressiveContext, setProgressiveContext] = useState<ProgressiveContextManager | null>(null);
+    const [contextProgress, setContextProgress] = useState(0);
+    const [contextDimensions, setContextDimensions] = useState<any[]>([]);
+    const [showProgressBar, setShowProgressBar] = useState(true);
+    const [agentProgress, setAgentProgress] = useState<any>(null);
+    const [showMemoryInfo, setShowMemoryInfo] = useState(false);
+    const [useMemoryAgent, setUseMemoryAgent] = useState(true);
     const chatEndRef = useRef<HTMLDivElement>(null);
     const abortControllerRef = useRef<AbortController | null>(null);
+
+    // 云端同步状态
+    const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle');
+    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+    const [showCloudPanel, setShowCloudPanel] = useState(false);
+    const [cloudBooks, setCloudBooks] = useState<CloudBook[]>([]);
+    const [isLoadingCloud, setIsLoadingCloud] = useState(false);
+    const autoSyncTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     const activeBook = useMemo(
         () => books.find(b => b.id === activeBookId) || null,
@@ -81,11 +100,118 @@ export default function Module12ChatWriting() {
                 setActiveBookId(savedActiveBookId);
             }
         }
+
+        // 加载同步状态
+        const syncData = localStorage.getItem('module12_global_sync');
+        if (syncData) {
+            try {
+                const { lastSync } = JSON.parse(syncData);
+                setLastSyncedAt(lastSync);
+            } catch {}
+        }
     }, []);
 
     useEffect(() => {
-        if (books.length > 0) StorageManager.setJSON(MODULE12_BOOKS_KEY, books);
+        if (books.length > 0) {
+            StorageManager.setJSON(MODULE12_BOOKS_KEY, books);
+            // 触发自动同步
+            scheduleAutoSync();
+        }
     }, [books]);
+
+    // 自动同步定时器
+    const scheduleAutoSync = useCallback(() => {
+        if (autoSyncTimerRef.current) {
+            clearTimeout(autoSyncTimerRef.current);
+        }
+        autoSyncTimerRef.current = setTimeout(() => {
+            handleAutoSync();
+        }, 30000); // 30秒后自动同步
+    }, []);
+
+    // 自动同步当前作品
+    const handleAutoSync = useCallback(async () => {
+        if (!activeBookId || syncStatus === 'syncing') return;
+
+        const book = books.find(b => b.id === activeBookId);
+        if (!book) return;
+
+        // 检查是否需要同步
+        const bookSyncData = localStorage.getItem(`module12_sync_${book.id}`);
+        if (bookSyncData) {
+            try {
+                const { syncedAt } = JSON.parse(bookSyncData);
+                if (book.updatedAt <= new Date(syncedAt).getTime()) {
+                    return; // 不需要同步
+                }
+            } catch {}
+        }
+
+        setSyncStatus('syncing');
+        const result = await syncBookToCloud(book, book.documents);
+
+        if (result.success) {
+            setSyncStatus('synced');
+            setLastSyncedAt(result.syncedAt || new Date().toISOString());
+            localStorage.setItem('module12_global_sync', JSON.stringify({ lastSync: result.syncedAt }));
+        } else {
+            setSyncStatus('error');
+        }
+    }, [activeBookId, books, syncStatus]);
+
+    // 手动同步
+    const handleManualSync = useCallback(async () => {
+        if (!activeBookId || syncStatus === 'syncing') return;
+
+        const book = books.find(b => b.id === activeBookId);
+        if (!book) return;
+
+        setSyncStatus('syncing');
+        const result = await syncBookToCloud(book, book.documents);
+
+        if (result.success) {
+            setSyncStatus('synced');
+            setLastSyncedAt(result.syncedAt || new Date().toISOString());
+            localStorage.setItem('module12_global_sync', JSON.stringify({ lastSync: result.syncedAt }));
+        } else {
+            setSyncStatus('error');
+        }
+    }, [activeBookId, books, syncStatus]);
+
+    // 加载云端作品列表
+    const loadCloudBooks = useCallback(async () => {
+        setIsLoadingCloud(true);
+        const books = await fetchCloudBooks();
+        setCloudBooks(books);
+        setIsLoadingCloud(false);
+    }, []);
+
+    // 从云端恢复作品
+    const handleRestoreFromCloud = useCallback(async (cloudBook: CloudBook) => {
+        const { book, documents } = restoreBookToLocal(cloudBook);
+
+        // 检查本地是否已有该作品
+        const existingIndex = books.findIndex(b => b.id === book.id);
+        if (existingIndex >= 0) {
+            // 更新本地作品
+            setBooks(prev => prev.map(b => b.id === book.id ? { ...book, documents } : b));
+        } else {
+            // 添加新作品
+            setBooks(prev => [book, ...prev]);
+        }
+
+        setShowCloudPanel(false);
+    }, [books]);
+
+    // 删除云端作品
+    const handleDeleteCloudBook = useCallback(async (bookId: string) => {
+        if (!confirm('确定要删除云端作品吗？此操作不可恢复。')) return;
+
+        const success = await deleteCloudBook(bookId);
+        if (success) {
+            setCloudBooks(prev => prev.filter(b => b.id !== bookId));
+        }
+    }, []);
 
     useEffect(() => {
         if (activeBookId) StorageManager.set(MODULE12_ACTIVE_BOOK_KEY, activeBookId);
@@ -120,21 +246,75 @@ export default function Module12ChatWriting() {
     useEffect(() => {
         if (!activeBookId) {
             setChatMessages([]);
+            setMemoryAgent(null);
+            setProgressiveContext(null);
+            setContextProgress(0);
+            setContextDimensions([]);
+            setAgentProgress(null);
             return;
         }
+
+        // 创建记忆Agent
+        const book = books.find(b => b.id === activeBookId);
+        if (book) {
+            const agent = new MemoryAwareAgent(activeBookId, book.title);
+            setMemoryAgent(agent);
+
+            // 初始化当前章节
+            if (activeFileId) {
+                const file = book.documents.find(f => f.id === activeFileId);
+                if (file) {
+                    agent.setCurrentChapter(activeFileId, file.name);
+                    
+                    // 初始化渐进式上下文管理器
+                    const bookMemory = agent.getMemoryManager().exportMemory();
+                    const contextManager = new ProgressiveContextManager(bookMemory, activeFileId);
+                    setProgressiveContext(contextManager);
+                    
+                    // 更新进度状态
+                    updateContextProgress(contextManager);
+                }
+            }
+        }
+
         const saved = StorageManager.getJSON(`module12_chat_${activeBookId}`);
         const history = Array.isArray(saved) ? saved : [];
         if (history.length === 0) {
+            // 获取当前章节名称
+            const currentFile = activeFileId ? book?.documents.find(f => f.id === activeFileId) : null;
+            const chapterName = currentFile?.name || '本章';
+
             setChatMessages([{
                 id: `${Date.now()}_${Math.random().toString(16).slice(2)}`,
                 role: 'assistant',
-                content: '请用一句话描述你的作品，开头和结局。',
+                content: useMemoryAgent
+                    ? `你好！我是你的AI写作助手。让我们开始写**${chapterName}**。
+
+请告诉我，这一章你想写什么内容？（你可以详细描述，当你觉得说得差不多了，可以告诉我"确认完成"或"开始写"，我就会开始写作）`
+                    : '请用一句话描述你的作品，开头和结局。',
                 createdAt: Date.now()
             }]);
             return;
         }
         setChatMessages(history);
-    }, [activeBookId]);
+    }, [activeBookId, books, activeFileId, useMemoryAgent]);
+
+    // 更新上下文进度
+    const updateContextProgress = useCallback((contextManager: ProgressiveContextManager) => {
+        const progress = contextManager.getProgressPercentage();
+        setContextProgress(progress);
+        
+        // 获取各维度状态
+        const dimensions = [
+            { dimension: 'plot', name: '剧情', level: 'summary', loaded: true, priority: 10 },
+            { dimension: 'character', name: '角色', level: 'summary', loaded: true, priority: 9 },
+            { dimension: 'scene', name: '场景', level: 'summary', loaded: false, priority: 8 },
+            { dimension: 'emotion', name: '情感', level: 'summary', loaded: false, priority: 7 },
+            { dimension: 'world', name: '世界观', level: 'summary', loaded: false, priority: 6 },
+            { dimension: 'style', name: '风格', level: 'summary', loaded: false, priority: 5 },
+        ];
+        setContextDimensions(dimensions);
+    }, []);
 
     useEffect(() => {
         if (!activeBookId) return;
@@ -355,36 +535,61 @@ export default function Module12ChatWriting() {
             content: '',
             createdAt: Date.now()
         };
-        const history = [...chatMessages, userMessage];
         setChatMessages(prev => [...prev, userMessage, assistantMessage]);
         setChatInput('');
         setIsGenerating(true);
-        abortControllerRef.current?.abort();
-        abortControllerRef.current = new AbortController();
-        const { apiKey, baseUrl, model } = getWritingConfig();
-        const systemPrompt = buildSystemPrompt();
-        const historyText = history.slice(-6).map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content}`).join('\n\n');
-        const userPrompt = `${historyText}\n\n用户: ${trimmed}\n助手:`;
-        try {
-            await generateAIContentStream(
-                apiKey,
-                systemPrompt,
-                userPrompt,
-                baseUrl,
-                model,
-                (chunk) => {
-                    setChatMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: chunk } : m));
-                },
-                abortControllerRef.current?.signal
-            );
-        } catch (e: any) {
-            if (e?.name !== 'AbortError') {
+        
+        if (useMemoryAgent && memoryAgent) {
+            // 使用记忆Agent
+            try {
+                const response = await memoryAgent.process(trimmed);
+                
+                // 更新进度
+                const progress = memoryAgent.getProgress();
+                setAgentProgress(progress);
+                
+                // 更新对话
+                setChatMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: response.content } : m));
+                
+                // 如果是写作结果，更新编辑器内容
+                if (response.type === 'writing') {
+                    setEditorContent(response.content);
+                }
+            } catch (e: any) {
                 setChatMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: e?.message || '生成失败' } : m));
+            } finally {
+                setIsGenerating(false);
             }
-        } finally {
-            setIsGenerating(false);
+        } else {
+            // 传统方式
+            abortControllerRef.current?.abort();
+            abortControllerRef.current = new AbortController();
+            const { apiKey, baseUrl, model } = getWritingConfig();
+            const systemPrompt = buildSystemPrompt();
+            const history = [...chatMessages, userMessage];
+            const historyText = history.slice(-6).map(m => `${m.role === 'user' ? '用户' : '助手'}: ${m.content}`).join('\n\n');
+            const userPrompt = `${historyText}\n\n用户: ${trimmed}\n助手:`;
+            try {
+                await generateAIContentStream(
+                    apiKey,
+                    systemPrompt,
+                    userPrompt,
+                    baseUrl,
+                    model,
+                    (chunk) => {
+                        setChatMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: chunk } : m));
+                    },
+                    abortControllerRef.current?.signal
+                );
+            } catch (e: any) {
+                if (e?.name !== 'AbortError') {
+                    setChatMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: e?.message || '生成失败' } : m));
+                }
+            } finally {
+                setIsGenerating(false);
+            }
         }
-    }, [chatInput, isGenerating, chatMessages, getWritingConfig, buildSystemPrompt]);
+    }, [chatInput, isGenerating, chatMessages, getWritingConfig, buildSystemPrompt, memoryAgent, useMemoryAgent]);
 
     const wordCount = useMemo(() => {
         if (!activeBook) return 0;
@@ -582,6 +787,180 @@ export default function Module12ChatWriting() {
                             </div>
                         </div>
                     )}
+                    
+                    {showMemoryInfo && memoryAgent && (
+                        <div className="fixed inset-0 z-50">
+                            <button
+                                className="absolute inset-0 bg-black/20"
+                                onClick={() => setShowMemoryInfo(false)}
+                                aria-label="关闭记忆信息"
+                            />
+                            <div className="absolute right-3 top-3 bottom-3 w-[78vw] max-w-[320px] glass-card rounded-xl overflow-hidden flex flex-col">
+                                <div className="p-3 border-b border-ink/5 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+                                    <div className="flex items-center gap-2">
+                                        <Brain className="w-4 h-4 text-purple-600" />
+                                        <span className="font-semibold text-ink/80">记忆信息</span>
+                                    </div>
+                                    <button
+                                        onClick={() => setShowMemoryInfo(false)}
+                                        className="p-1 hover:bg-purple-50 text-ink/40 hover:text-purple-600 rounded"
+                                    >
+                                        <X className="w-4 h-4" />
+                                    </button>
+                                </div>
+                                <div className="flex-1 overflow-auto p-4 space-y-4">
+                                    <div>
+                                        <div className="text-xs text-ink/50 mb-2">理解度</div>
+                                        <div className="bg-ink/5 rounded-lg p-2">
+                                            <div className="text-sm font-semibold text-ink/80">{(agentProgress?.understandingScore || 0)}%</div>
+                                            <div className="w-full bg-ink/10 rounded-full h-1.5 mt-1">
+                                                <div 
+                                                    className="bg-purple-600 h-1.5 rounded-full transition-all duration-300" 
+                                                    style={{ width: `${(agentProgress?.understandingScore || 0)}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-ink/50 mb-2">已知角色</div>
+                                        <div className="bg-ink/5 rounded-lg p-2">
+                                            <div className="text-sm font-semibold text-ink/80">{agentProgress?.knownCharacters || 0} 个</div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-xs text-ink/50 mb-2">场景设定</div>
+                                        <div className="bg-ink/5 rounded-lg p-2">
+                                            <div className="text-sm font-semibold text-ink/80">{agentProgress?.knownSettings || 0} 个</div>
+                                        </div>
+                                    </div>
+                                    {agentProgress?.understanding && (
+                                        <div>
+                                            <div className="text-xs text-ink/50 mb-2">理解信息</div>
+                                            <div className="bg-ink/5 rounded-lg p-2">
+                                                {agentProgress.understanding.plot?.goal && (
+                                                    <div className="text-xs text-ink/60 mb-1">
+                                                        <span className="font-semibold">目标:</span> {agentProgress.understanding.plot.goal}
+                                                    </div>
+                                                )}
+                                                {agentProgress.understanding.plot?.conflict && (
+                                                    <div className="text-xs text-ink/60 mb-1">
+                                                        <span className="font-semibold">冲突:</span> {agentProgress.understanding.plot.conflict}
+                                                    </div>
+                                                )}
+                                                {agentProgress.understanding.scene?.setting && (
+                                                    <div className="text-xs text-ink/60 mb-1">
+                                                        <span className="font-semibold">场景:</span> {agentProgress.understanding.scene.setting}
+                                                    </div>
+                                                )}
+                                                {agentProgress.understanding.style?.tone && (
+                                                    <div className="text-xs text-ink/60">
+                                                        <span className="font-semibold">基调:</span> {agentProgress.understanding.style.tone}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 云端作品面板 */}
+                    {showCloudPanel && (
+                        <div className="fixed inset-0 z-50">
+                            <button
+                                className="absolute inset-0 bg-black/20"
+                                onClick={() => setShowCloudPanel(false)}
+                                aria-label="关闭云端面板"
+                            />
+                            <div className="absolute right-3 top-3 bottom-3 w-[78vw] max-w-[360px] glass-card rounded-xl overflow-hidden flex flex-col">
+                                <div className="p-3 border-b border-ink/5 flex items-center justify-between bg-white/50 backdrop-blur-sm">
+                                    <div className="flex items-center gap-2">
+                                        <Cloud className="w-4 h-4 text-blue-600" />
+                                        <span className="font-semibold text-ink/80">云端作品</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <button
+                                            onClick={loadCloudBooks}
+                                            disabled={isLoadingCloud}
+                                            className="p-1 hover:bg-blue-50 text-ink/40 hover:text-blue-600 rounded transition-colors"
+                                            title="刷新"
+                                        >
+                                            <RefreshCw className={`w-4 h-4 ${isLoadingCloud ? 'animate-spin' : ''}`} />
+                                        </button>
+                                        <button
+                                            onClick={() => setShowCloudPanel(false)}
+                                            className="p-1 hover:bg-blue-50 text-ink/40 hover:text-blue-600 rounded"
+                                        >
+                                            <X className="w-4 h-4" />
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="flex-1 overflow-auto p-4">
+                                    {isLoadingCloud ? (
+                                        <div className="flex items-center justify-center py-8 text-ink/40">
+                                            <RefreshCw className="w-6 h-6 animate-spin mr-2" />
+                                            加载中...
+                                        </div>
+                                    ) : cloudBooks.length === 0 ? (
+                                        <div className="flex flex-col items-center justify-center py-8 text-ink/40">
+                                            <CloudOff className="w-10 h-10 mb-2" />
+                                            <span>云端暂无作品</span>
+                                            <span className="text-xs mt-1">点击同步按钮将作品保存到云端</span>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {cloudBooks.map(cloudBook => {
+                                                const isLocal = books.some(b => b.id === cloudBook.id);
+                                                return (
+                                                    <div
+                                                        key={cloudBook.id}
+                                                        className="p-3 rounded-lg border border-ink/10 bg-white/50 hover:bg-white/80 transition-colors"
+                                                    >
+                                                        <div className="flex items-start justify-between">
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="font-medium text-ink/80 truncate">{cloudBook.title}</div>
+                                                                <div className="text-xs text-ink/50 mt-1">
+                                                                    {cloudBook.documents.length} 章 · 
+                                                                    {cloudBook.documents.reduce((sum, d) => sum + d.content.length, 0)} 字
+                                                                </div>
+                                                                <div className="text-[10px] text-ink/40 mt-1">
+                                                                    更新于 {new Date(cloudBook.updatedAt).toLocaleString('zh-CN')}
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-1 ml-2">
+                                                                {isLocal && (
+                                                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">
+                                                                        本地
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2 mt-3">
+                                                            <button
+                                                                onClick={() => handleRestoreFromCloud(cloudBook)}
+                                                                className="flex-1 px-3 py-1.5 text-xs rounded-md bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center justify-center gap-1"
+                                                            >
+                                                                <Download className="w-3 h-3" />
+                                                                {isLocal ? '更新本地' : '恢复到本地'}
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDeleteCloudBook(cloudBook.id)}
+                                                                className="p-1.5 rounded-md text-ink/40 hover:text-red-600 hover:bg-red-50 transition-colors"
+                                                                title="删除云端"
+                                                            >
+                                                                <Trash2 className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex-1 flex flex-col glass-card rounded-xl transition-all duration-300 w-full relative z-10">
                         <div className="p-3 border-b border-ink/5 flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-t-xl">
@@ -613,16 +992,84 @@ export default function Module12ChatWriting() {
                                 <span className="text-xs text-ink/40">{wordCount} 字</span>
                             </div>
                             <div className="flex items-center gap-2">
+                            {useMemoryAgent && agentProgress && (
+                                <div className="flex items-center gap-1 text-xs">
+                                    <Brain className="w-3 h-3 text-purple-600" />
+                                    <span className="text-ink/60">理解度: {agentProgress.understandingScore}%</span>
+                                </div>
+                            )}
+                            {useMemoryAgent && (
                                 <button
-                                    onClick={createNewFile}
-                                    className="px-2 py-1 text-xs rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-1"
+                                    onClick={() => setShowProgressBar(!showProgressBar)}
+                                    className={`p-1.5 rounded-lg transition-colors ${showProgressBar ? 'bg-purple-50 text-purple-600' : 'text-ink/40 hover:bg-purple-50 hover:text-purple-600'}`}
+                                    title={showProgressBar ? "隐藏进度条" : "显示进度条"}
                                 >
-                                    <Plus className="w-3.5 h-3.5" />
-                                    新建章节
+                                    <span className="text-xs font-medium">{contextProgress}%</span>
                                 </button>
-                            </div>
+                            )}
+                            <button
+                                onClick={() => setShowMemoryInfo(!showMemoryInfo)}
+                                className="p-1.5 hover:bg-purple-50 text-ink/40 hover:text-purple-600 rounded-lg transition-colors"
+                                title="记忆信息"
+                            >
+                                <Info className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={() => setUseMemoryAgent(!useMemoryAgent)}
+                                className={`p-1.5 rounded-lg transition-colors ${useMemoryAgent ? 'bg-purple-50 text-purple-600' : 'text-ink/40 hover:bg-purple-50 hover:text-purple-600'}`}
+                                title={useMemoryAgent ? "关闭记忆Agent" : "打开记忆Agent"}
+                            >
+                                <Brain className="w-4 h-4" />
+                            </button>
+                            {/* 云端同步按钮 */}
+                            <button
+                                onClick={handleManualSync}
+                                disabled={syncStatus === 'syncing'}
+                                className={`p-1.5 rounded-lg transition-colors flex items-center gap-1 ${
+                                    syncStatus === 'syncing' ? 'text-blue-400' :
+                                    syncStatus === 'synced' ? 'text-green-600 bg-green-50' :
+                                    syncStatus === 'error' ? 'text-red-600 bg-red-50' :
+                                    'text-ink/40 hover:bg-blue-50 hover:text-blue-600'
+                                }`}
+                                title={syncStatus === 'syncing' ? '同步中...' : syncStatus === 'synced' ? '已同步' : syncStatus === 'error' ? '同步失败' : '点击同步到云端'}
+                            >
+                                {syncStatus === 'syncing' ? <RefreshCw className="w-4 h-4 animate-spin" /> :
+                                 syncStatus === 'synced' ? <Cloud className="w-4 h-4" /> :
+                                 syncStatus === 'error' ? <CloudOff className="w-4 h-4" /> :
+                                 <Cloud className="w-4 h-4" />}
+                                {lastSyncedAt && (
+                                    <span className="text-[10px]">
+                                        {new Date(lastSyncedAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                                    </span>
+                                )}
+                            </button>
+                            <button
+                                onClick={() => { setShowCloudPanel(true); loadCloudBooks(); }}
+                                className="p-1.5 hover:bg-purple-50 text-ink/40 hover:text-purple-600 rounded-lg transition-colors"
+                                title="云端作品"
+                            >
+                                <Download className="w-4 h-4" />
+                            </button>
+                            <button
+                                onClick={createNewFile}
+                                className="px-2 py-1 text-xs rounded-lg bg-purple-50 text-purple-700 hover:bg-purple-100 transition-colors flex items-center gap-1"
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                新建章节
+                            </button>
+                        </div>
                         </div>
                         <div className="flex-1 flex flex-col">
+                            {/* 章节进度条 - 仅在记忆Agent模式下显示 */}
+                            {useMemoryAgent && showProgressBar && (
+                                <div className="px-4 pt-4">
+                                    <ChapterProgressBar
+                                        progress={contextProgress}
+                                        dimensions={contextDimensions}
+                                        className="shadow-sm"
+                                    />
+                                </div>
+                            )}
                             <div className="flex-1 overflow-auto custom-scrollbar p-6 space-y-4">
                                 {chatMessages.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-ink/40 gap-2">
