@@ -3,8 +3,9 @@
 import React, { useEffect } from 'react';
 import { GodModeProvider, useGodMode } from './store/GodModeContext';
 import { GodCanvas } from './components/GodCanvas';
+import { WorldListPanel } from './components/WorldListPanel';
 import { useEditorAgent } from '@/contexts/EditorAgentContext';
-import { Settings, Share2, Save, RotateCcw, Check, Shield } from 'lucide-react';
+import { Settings, Share2, Save, RotateCcw, Check, Shield, Globe } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ModelConfigPanel, ModelConfig } from '@/app/components/ModelConfigPanel';
@@ -14,7 +15,8 @@ import { useState } from 'react';
 function GodModePageContent() {
     const pathname = usePathname();
     const { isAiOpen } = useEditorAgent();
-    const { state, dispatch, saveWorld } = useGodMode();
+    const { state, dispatch, saveWorld, currentWorldName } = useGodMode();
+    const [isWorldListOpen, setIsWorldListOpen] = useState(false);
 
     const [modelConfig, setModelConfig] = useState<ModelConfig>({
         provider: 'siliconflow',
@@ -68,10 +70,15 @@ function GodModePageContent() {
                         <Link href="/module/module_max/godmode" className={`px-3 py-1.5 text-xs rounded-md transition-colors shrink-0 ${isMaxGodMode ? 'bg-max-accent/20 text-max-accent' : 'text-max-text-muted hover:text-max-text'}`}>上帝模式</Link>
                     </div>
                     <div className="h-4 w-[1px] bg-white/10"></div>
-                    <h1 className="text-sm font-bold text-max-text flex items-center gap-2">
+                    <button
+                        onClick={() => setIsWorldListOpen(true)}
+                        className="flex items-center gap-2 text-sm font-bold text-max-text hover:text-purple-400 transition-colors"
+                        title="打开世界列表"
+                    >
                         <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse"></div>
-                        上帝模式
-                    </h1>
+                        <span className="max-w-[150px] truncate">{currentWorldName}</span>
+                        <Globe className="w-3.5 h-3.5 text-max-text-muted" />
+                    </button>
                     <div className="ml-4">
                         <ModelConfigPanel moduleKey="godmode" onConfigChange={setModelConfig} />
                     </div>
@@ -118,6 +125,12 @@ function GodModePageContent() {
             <div className="flex-1 relative overflow-hidden">
                 <GodCanvas modelConfig={modelConfig} />
             </div>
+
+            {/* World List Panel */}
+            <WorldListPanel 
+                isOpen={isWorldListOpen} 
+                onClose={() => setIsWorldListOpen(false)} 
+            />
         </div>
     );
 }

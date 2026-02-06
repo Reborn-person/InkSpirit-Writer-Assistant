@@ -50,10 +50,10 @@ export default function HumanizerPage() {
     
     // Model Config
     const [modelConfig, setModelConfig] = useState<ModelConfig>({
-        provider: 'siliconflow',
-        model: 'deepseek-ai/DeepSeek-V3',
+        provider: 'vectorengine',
+        model: 'gpt-5.1',
         apiKey: '',
-        baseUrl: 'https://api.siliconflow.cn/v1'
+        baseUrl: 'https://api.vectorengine.cn/v1'
     });
     
     // useEffect(() => {
@@ -254,7 +254,7 @@ export default function HumanizerPage() {
                                                 )}
                                             </div>
                                             <textarea
-                                                value={systemPrompt || aiRewriter.buildSystemPrompt(score, rewriteMode, customPrompt)}
+                                                value={systemPrompt || (score ? aiRewriter.getSystemPrompt(score, rewriteMode, { customPrompt }) : '')}
                                                 onChange={(e) => setSystemPrompt(e.target.value)}
                                                 className="w-full h-48 p-2 bg-max-surface border border-max-border rounded-lg text-[10px] font-mono leading-relaxed resize-y focus:outline-none focus:border-max-accent transition-all custom-scrollbar text-max-text"
                                                 spellCheck={false}
@@ -438,13 +438,13 @@ export default function HumanizerPage() {
                                     </div>
                                     <textarea
                                         readOnly
-                                        value={result.rewritten}
+                                        value={result.rewritten || ''}
                                         className="flex-1 w-full p-6 bg-transparent outline-none text-max-text font-mono text-sm leading-relaxed resize-none custom-scrollbar"
                                     />
                                 </div>
 
                                 {/* Changes Log */}
-                                {result.changes.length > 0 && (
+                                {result.changes && result.changes.length > 0 && (
                                     <div className="h-1/3 bg-max-bg border border-max-border rounded-xl p-4 flex flex-col">
                                         <h3 className="font-bold text-max-text-muted mb-3 text-xs uppercase tracking-wider">主要变更点</h3>
                                         <div className="flex-1 overflow-y-auto custom-scrollbar space-y-2">

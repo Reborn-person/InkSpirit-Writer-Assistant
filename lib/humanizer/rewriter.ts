@@ -149,6 +149,11 @@ export class AIRewriter {
     mode: RewriteMode,
     config?: RewriteConfig
   ): string {
+    // 处理 score 为 null 或 undefined 的情况
+    if (!score) {
+      return `你是一位专业的小说编辑和写作顾问。请帮助用户改进文本，使其更加自然、流畅、具有人类写作的风格。`;
+    }
+
     const sections: string[] = [];
 
     // 1. 角色定义
@@ -213,6 +218,15 @@ export class AIRewriter {
    * 5维评分反馈部分
    */
   private buildScoreFeedback(score: HumanizeScore): string {
+    // 处理 score 为 null 或 undefined 的情况
+    if (!score || !score.slopScore) {
+      return `## 5维评分反馈 (Stop-Slop 系统)
+
+【评分状态】等待分析... 
+
+请提供文本进行分析，系统将给出5维评分。`;
+    }
+
     const { slopScore, overall } = score;
     const { dimensions, total, needsRevision } = slopScore;
 
@@ -322,7 +336,8 @@ export class AIRewriter {
    * 问题列表部分
    */
   private buildIssuesSection(issues: Issue[]): string {
-    if (issues.length === 0) {
+    // 处理 issues 为 null 或 undefined 的情况
+    if (!issues || issues.length === 0) {
       return `## 检测到的问题\n\n✓ 未发现明显AI特征，进行常规润色即可`;
     }
 
@@ -599,6 +614,13 @@ export class AIRewriter {
     });
 
     return changes;
+  }
+
+  /**
+   * 获取系统提示词（公共方法）
+   */
+  getSystemPrompt(score: HumanizeScore, mode: RewriteMode, config?: RewriteConfig): string {
+    return this.buildSystemPrompt(score, mode, config);
   }
 }
 

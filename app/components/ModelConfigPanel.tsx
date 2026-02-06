@@ -23,7 +23,7 @@ export function ModelConfigPanel({ moduleKey, onConfigChange, className = '' }: 
         return 'big';
     }, [moduleKey]);
 
-    const [provider, setProvider] = useState('siliconflow');
+    const [provider, setProvider] = useState('vectorengine');
     const [model, setModel] = useState('');
     const [options, setOptions] = useState<string[]>([]);
 
@@ -43,7 +43,7 @@ export function ModelConfigPanel({ moduleKey, onConfigChange, className = '' }: 
                 apiKey: STORAGE_KEYS.WRITING_API_KEY,
                 baseUrl: STORAGE_KEYS.WRITING_BASE_URL,
                 model: STORAGE_KEYS.WRITING_MODEL,
-                defaultModel: 'deepseek-ai/DeepSeek-R1'
+                defaultModel: 'gpt-5.1'
             };
         }
         return {
@@ -59,7 +59,7 @@ export function ModelConfigPanel({ moduleKey, onConfigChange, className = '' }: 
         let cancelled = false;
 
         const load = async () => {
-            const providerKey = StorageManager.get(storageKeys.providerKey) || 'siliconflow';
+            const providerKey = StorageManager.get(storageKeys.providerKey) || 'vectorengine';
             const currentModel = StorageManager.get(storageKeys.model) || storageKeys.defaultModel;
             const providerKeys = StorageManager.getJSON('novel_writer_chat_provider_keys') || {};
             const apiKey = providerKeys[providerKey] || StorageManager.get(storageKeys.apiKey) || StorageManager.get('novel_writer_api_key') || '';
@@ -90,7 +90,7 @@ export function ModelConfigPanel({ moduleKey, onConfigChange, className = '' }: 
 
     const updateModel = async (newModel: string) => {
         const customMap = (await StorageManager.getJSONAsync(STORAGE_KEYS.CUSTOM_MODELS)) || StorageManager.getJSON(STORAGE_KEYS.CUSTOM_MODELS) || {};
-        let nextProvider = provider || (StorageManager.get(storageKeys.providerKey) || 'siliconflow');
+        let nextProvider = provider || (StorageManager.get(storageKeys.providerKey) || 'vectorengine');
 
         Object.keys(PROVIDER_MODELS).some(key => {
             const list = PROVIDER_MODELS[key] || [];
@@ -130,11 +130,12 @@ export function ModelConfigPanel({ moduleKey, onConfigChange, className = '' }: 
         <div className={`flex items-center gap-2 ${className}`}>
             <span className="text-xs text-max-text-muted whitespace-nowrap">{providerLabel}</span>
             <select
-                value={model}
+                value={model || ''}
                 onChange={(e) => { void updateModel(e.target.value); }}
                 className="text-xs text-max-text bg-max-surface border border-max-border rounded-lg px-2 py-1 outline-none focus:border-max-accent max-w-[220px]"
                 title="选择模型"
             >
+                {!model && <option value="">请选择模型</option>}
                 {options.map(m => (
                     <option key={m} value={m}>
                         {m}

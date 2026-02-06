@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react';
 import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange } from 'reactflow';
 import { WorldLayer, GodNode, GodLink, LayerVisibility, LAYER_CONFIG, Coordinates, GodNodeData } from '../types';
 import { StorageManager } from '@/lib/storage';
@@ -92,6 +92,22 @@ const DEMO_NODES: Node<GodNodeData>[] = [
     }
 ];
 
+// --- World List Types ---
+
+export interface WorldInfo {
+    id: string;
+    name: string;
+    createdAt: number;
+    updatedAt: number;
+    nodeCount: number;
+}
+
+export interface WorldData {
+    nodes: Node<GodNodeData>[];
+    edges: Edge[];
+    updatedAt: number;
+}
+
 // --- State Definition ---
 
 interface GodModeState {
@@ -114,6 +130,7 @@ interface GodModeState {
     // Meta
     hasLoaded: boolean;
     lastSaved: number | null;
+    currentWorldId: string | null;
 }
 
 // --- Action Definition ---
@@ -134,7 +151,8 @@ type Action =
     | { type: 'ADD_NODE'; payload: Node<GodNodeData> }
     | { type: 'DELETE_NODE'; payload: string }
     | { type: 'RESET_WORLD' }
-    | { type: 'SET_LAST_SAVED'; payload: number };
+    | { type: 'SET_LAST_SAVED'; payload: number }
+    | { type: 'SET_CURRENT_WORLD'; payload: string | null };
 
 // --- Initial State ---
 
@@ -163,7 +181,8 @@ const INITIAL_STATE: GodModeState = {
     selectedNodeId: null,
     isSidebarOpen: true,
     hasLoaded: false,
-    lastSaved: null
+    lastSaved: null,
+    currentWorldId: null
 };
 
 // --- Reducer ---
@@ -234,6 +253,8 @@ function godModeReducer(state: GodModeState, action: Action): GodModeState {
             return { ...INITIAL_STATE, nodes: DEMO_NODES, hasLoaded: true };
         case 'SET_LAST_SAVED':
             return { ...state, lastSaved: action.payload };
+        case 'SET_CURRENT_WORLD':
+            return { ...state, currentWorldId: action.payload };
         default:
             return state;
     }
@@ -246,64 +267,186 @@ interface GodModeContextType {
     dispatch: React.Dispatch<Action>;
     visibleNodes: Node[];
     saveWorld: () => Promise<void>;
+    // World List Management
+    worldList: WorldInfo[];
+    createWorld: (name: string) => Promise<string>;
+    loadWorld: (worldId: string) => Promise<void>;
+    deleteWorld: (worldId: string) => Promise<void>;
+    renameWorld: (worldId: string, newName: string) => Promise<void>;
+    currentWorldName: string;
 }
 
 const GodModeContext = createContext<GodModeContextType | null>(null);
 
-// --- Provider ---
+// --- Storage Keys ---
 
-const STORAGE_KEY = 'godmode_active_world';
+const WORLDS_LIST_KEY = 'godmode_worlds_list';
+const WORLD_DATA_PREFIX = 'godmode_world_data_';
+
+// --- Provider ---
 
 export function GodModeProvider({ children }: { children: React.ReactNode }) {
     const [state, dispatch] = useReducer(godModeReducer, INITIAL_STATE);
+    const [worldList, setWorldList] = useState<WorldInfo[]>([]);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+    // Load world list
+    const loadWorldList = useCallback(async () => {
+        try {
+            const list = await StorageManager.getJSONAsync(WORLDS_LIST_KEY) || [];
+            setWorldList(Array.isArray(list) ? list : []);
+        } catch (e) {
+            console.error("Failed to load world list:", e);
+            setWorldList([]);
+        }
+    }, []);
+
+    // Save world list
+    const saveWorldList = useCallback(async (list: WorldInfo[]) => {
+        try {
+            await StorageManager.setJSON(WORLDS_LIST_KEY, list);
+            setWorldList(list);
+        } catch (e) {
+            console.error("Failed to save world list:", e);
+        }
+    }, []);
 
     // 1. Load on Mount
     useEffect(() => {
         const load = async () => {
-            try {
-                const savedData = await StorageManager.getJSONAsync(STORAGE_KEY);
-                if (savedData && typeof savedData === 'object' && Array.isArray(savedData.nodes)) {
-                    dispatch({
-                        type: 'LOAD_STATE',
-                        payload: {
-                            nodes: savedData.nodes,
-                            edges: savedData.edges || [],
-                            // Optional: load history/level if we want to restore exact view
-                            // For now we reset view to root to avoid confusion if IDs changed or complex path
-                            currentLevel: 0,
-                            currentParentId: null,
-                            history: [{ level: 0, parentId: null, name: '世界全景' }]
-                        }
-                    });
-                } else {
-                    // Initialize with Demo Data if no save found
-                    dispatch({ type: 'RESET_WORLD' });
-                }
-            } catch (e) {
-                console.error("Failed to load GodMode world:", e);
+            await loadWorldList();
+            
+            // Try to load last active world
+            const lastWorldId = await StorageManager.getAsync('godmode_last_active_world');
+            if (lastWorldId) {
+                await loadWorld(lastWorldId);
+            } else {
+                // Initialize with Demo Data if no save found
                 dispatch({ type: 'RESET_WORLD' });
             }
         };
         load();
     }, []);
 
+    // Create new world
+    const createWorld = useCallback(async (name: string): Promise<string> => {
+        const worldId = crypto.randomUUID();
+        const now = Date.now();
+        
+        const newWorld: WorldInfo = {
+            id: worldId,
+            name: name || `新世界 ${worldList.length + 1}`,
+            createdAt: now,
+            updatedAt: now,
+            nodeCount: 0
+        };
+
+        const newList = [...worldList, newWorld];
+        await saveWorldList(newList);
+
+        // Initialize empty world data
+        const worldData: WorldData = {
+            nodes: [],
+            edges: [],
+            updatedAt: now
+        };
+        await StorageManager.setJSON(`${WORLD_DATA_PREFIX}${worldId}`, worldData);
+
+        // Load the new world
+        await loadWorld(worldId);
+
+        return worldId;
+    }, [worldList, saveWorldList]);
+
+    // Load world
+    const loadWorld = useCallback(async (worldId: string) => {
+        try {
+            const worldData = await StorageManager.getJSONAsync(`${WORLD_DATA_PREFIX}${worldId}`);
+            if (worldData && typeof worldData === 'object') {
+                dispatch({
+                    type: 'LOAD_STATE',
+                    payload: {
+                        nodes: worldData.nodes || [],
+                        edges: worldData.edges || [],
+                        currentWorldId: worldId,
+                        currentLevel: 0,
+                        currentParentId: null,
+                        history: [{ level: 0, parentId: null, name: '世界全景' }]
+                    }
+                });
+                await StorageManager.setAsync('godmode_last_active_world', worldId);
+            }
+        } catch (e) {
+            console.error("Failed to load world:", e);
+        }
+    }, []);
+
+    // Delete world
+    const deleteWorld = useCallback(async (worldId: string) => {
+        try {
+            // Remove from list
+            const newList = worldList.filter(w => w.id !== worldId);
+            await saveWorldList(newList);
+
+            // Remove world data
+            await StorageManager.removeAsync(`${WORLD_DATA_PREFIX}${worldId}`);
+
+            // If deleting current world, reset to demo
+            if (state.currentWorldId === worldId) {
+                dispatch({ type: 'RESET_WORLD' });
+                await StorageManager.removeAsync('godmode_last_active_world');
+            }
+        } catch (e) {
+            console.error("Failed to delete world:", e);
+        }
+    }, [worldList, saveWorldList, state.currentWorldId]);
+
+    // Rename world
+    const renameWorld = useCallback(async (worldId: string, newName: string) => {
+        try {
+            const newList = worldList.map(w => 
+                w.id === worldId ? { ...w, name: newName, updatedAt: Date.now() } : w
+            );
+            await saveWorldList(newList);
+        } catch (e) {
+            console.error("Failed to rename world:", e);
+        }
+    }, [worldList, saveWorldList]);
+
     // 2. Auto-Save Logic
     const saveWorld = useCallback(async () => {
-        if (!state.hasLoaded) return; // Don't save before loading
+        if (!state.hasLoaded) return;
+        if (!state.currentWorldId) {
+            // Auto-create a world if none exists
+            if (worldList.length === 0) {
+                await createWorld('默认世界');
+                return;
+            }
+            return;
+        }
 
         try {
-            const dataToSave = {
+            const worldData: WorldData = {
                 nodes: state.nodes,
                 edges: state.edges,
                 updatedAt: Date.now()
             };
-            StorageManager.setJSON(STORAGE_KEY, dataToSave);
+            
+            await StorageManager.setJSON(`${WORLD_DATA_PREFIX}${state.currentWorldId}`, worldData);
+            
+            // Update world list
+            const newList = worldList.map(w => 
+                w.id === state.currentWorldId 
+                    ? { ...w, updatedAt: Date.now(), nodeCount: state.nodes.length } 
+                    : w
+            );
+            await saveWorldList(newList);
+            
             dispatch({ type: 'SET_LAST_SAVED', payload: Date.now() });
         } catch (e) {
             console.error("Failed to save GodMode world:", e);
         }
-    }, [state.nodes, state.edges, state.hasLoaded]);
+    }, [state.nodes, state.edges, state.hasLoaded, state.currentWorldId, worldList, createWorld, saveWorldList]);
 
     useEffect(() => {
         if (!state.hasLoaded) return;
@@ -315,7 +458,7 @@ export function GodModeProvider({ children }: { children: React.ReactNode }) {
 
         saveTimeoutRef.current = setTimeout(() => {
             saveWorld();
-        }, 3000); // Increase to 3 seconds for better performance
+        }, 3000);
 
         return () => {
             if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
@@ -343,8 +486,25 @@ export function GodModeProvider({ children }: { children: React.ReactNode }) {
         });
     }, [state.nodes, state.visibleLayers, state.currentParentId, state.currentChapter]);
 
+    // Get current world name
+    const currentWorldName = React.useMemo(() => {
+        const world = worldList.find(w => w.id === state.currentWorldId);
+        return world?.name || '未命名世界';
+    }, [worldList, state.currentWorldId]);
+
     return (
-        <GodModeContext.Provider value={{ state, dispatch, visibleNodes, saveWorld }}>
+        <GodModeContext.Provider value={{ 
+            state, 
+            dispatch, 
+            visibleNodes, 
+            saveWorld,
+            worldList,
+            createWorld,
+            loadWorld,
+            deleteWorld,
+            renameWorld,
+            currentWorldName
+        }}>
             {children}
         </GodModeContext.Provider>
     );

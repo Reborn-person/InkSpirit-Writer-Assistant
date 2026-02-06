@@ -20,6 +20,10 @@ export {
   triggerMemoryCleanup 
 } from './memory-monitor';
 
+export { MemoryAwareAgent } from './agent';
+
+export { ProgressiveContextManager } from './progressive-context';
+
 /**
  * 初始化所有内存管理功能
  * 应在应用启动时调用
