@@ -2,7 +2,7 @@
 // 每个步骤使用指定的硅基流动模型
 
 import { generateAIContentStream, generateAIContent } from './ai';
-import { StorageManager } from './storage';
+import { StorageManager, STORAGE_KEYS } from './storage';
 
 // 网文写作步骤类型
 export type NovelWritingStep = 
@@ -196,6 +196,7 @@ export function updateStepModel(
  */
 function getSiliconFlowApiKey(): string | null {
   return StorageManager.get('SILICONFLOW_API_KEY') ||
+         StorageManager.get(STORAGE_KEYS.WRITING_API_KEY) ||
          StorageManager.get('novel_writer_api_key') ||
          StorageManager.get('writing_api_key') ||
          null;

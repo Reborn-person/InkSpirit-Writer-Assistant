@@ -69,10 +69,15 @@ export default function HumanizerPage() {
         setLoading(true);
         // Simulate slight delay for "processing" feel if local, or just run it
         setTimeout(() => {
-            const analyzed = aiDetector.analyze(inputText);
-            setScore(analyzed);
-            setResult(null);
-            setLoading(false);
+            try {
+                const analyzed = aiDetector.analyze(inputText);
+                setScore(analyzed);
+                setResult(null);
+            } catch (error: any) {
+                alert(error?.message || '分析失败');
+            } finally {
+                setLoading(false);
+            }
         }, 500);
     };
 

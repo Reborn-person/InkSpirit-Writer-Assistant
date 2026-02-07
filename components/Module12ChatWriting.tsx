@@ -770,7 +770,7 @@ export default function Module12ChatWriting() {
             )}
 
             {view === 'editor' && (
-                <div className={`flex h-full overflow-hidden relative ${isFilePanelCollapsed ? 'gap-0' : 'gap-4'}`}>
+                <div className={`flex h-full min-h-0 overflow-hidden relative ${isFilePanelCollapsed ? 'gap-0' : 'gap-4'}`}>
                     <div className={`shrink-0 hidden md:flex flex-col glass-card rounded-xl overflow-hidden transition-[width] duration-300 ${isFilePanelCollapsed ? 'w-0 border-transparent' : 'w-[220px]'}`} aria-hidden={isFilePanelCollapsed}>
                         {FilePanel}
                     </div>
@@ -962,7 +962,7 @@ export default function Module12ChatWriting() {
                         </div>
                     )}
 
-                    <div className="flex-1 flex flex-col glass-card rounded-xl transition-all duration-300 w-full relative z-10">
+                    <div className="flex-1 min-h-0 flex flex-col glass-card rounded-xl transition-all duration-300 w-full relative z-10">
                         <div className="p-3 border-b border-ink/5 flex justify-between items-center bg-white/50 backdrop-blur-sm rounded-t-xl">
                             <div className="flex items-center gap-2 min-w-0">
                                 <button
@@ -1059,7 +1059,7 @@ export default function Module12ChatWriting() {
                             </button>
                         </div>
                         </div>
-                        <div className="flex-1 flex flex-col">
+                        <div className="flex-1 min-h-0 flex flex-col">
                             {/* 章节进度条 - 仅在记忆Agent模式下显示 */}
                             {useMemoryAgent && showProgressBar && (
                                 <div className="px-4 pt-4">
@@ -1070,7 +1070,7 @@ export default function Module12ChatWriting() {
                                     />
                                 </div>
                             )}
-                            <div className="flex-1 overflow-auto custom-scrollbar p-6 space-y-4">
+                            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden custom-scrollbar p-6 space-y-4">
                                 {chatMessages.length === 0 ? (
                                     <div className="h-full flex flex-col items-center justify-center text-ink/40 gap-2">
                                         <Bot className="w-8 h-8" />

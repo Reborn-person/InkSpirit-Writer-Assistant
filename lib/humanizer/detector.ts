@@ -344,7 +344,7 @@ export class AIDetector {
     const issues: Issue[] = [];
 
     for (const pattern of ALL_PATTERNS) {
-      const matches = [...text.matchAll(pattern.regex)];
+      const matches = [...text.matchAll(this.ensureMatchAllRegex(pattern.regex))];
       
       if (matches.length > 0) {
         // 对于累积型模式，根据匹配次数计算严重程度
@@ -576,7 +576,7 @@ export class AIDetector {
     const issues: Issue[] = [];
 
     for (const item of WEIRD_SINGLE_CHAR_ADJECTIVES) {
-      const matches = [...text.matchAll(item.pattern)];
+      const matches = [...text.matchAll(this.ensureMatchAllRegex(item.pattern))];
       matches.forEach((match, idx) => {
         issues.push({
           id: `weird_single_char-${idx}`,
@@ -596,6 +596,12 @@ export class AIDetector {
   }
 
   // ============ 辅助方法 ============
+
+  private ensureMatchAllRegex(regex: RegExp): RegExp {
+    if (regex.global || regex.sticky) return regex;
+    const flags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
+    return new RegExp(regex.source, flags);
+  }
 
   private calculatePhraseSeverity(phrase: string, type: IssueType): IssueSeverity {
     // 开场白和AI陈词通常更严重

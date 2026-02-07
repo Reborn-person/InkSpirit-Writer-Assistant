@@ -242,10 +242,10 @@ export const FALSE_OBJECTIVITY = [
 
 // ============ 单字形容词（诡异用法） ============
 export const WEIRD_SINGLE_CHAR_ADJECTIVES = [
-  { pattern: /训练成乖[^\u4e00-\u9fa5]/, suggestion: '训练得只会卖乖' },
-  { pattern: /变得乖[^\u4e00-\u9fa5]/, suggestion: '变得很乖/变得乖巧' },
-  { pattern: /表现乖[^\u4e00-\u9fa5]/, suggestion: '表现得很乖' },
-  { pattern: /长得乖[^\u4e00-\u9fa5]/, suggestion: '长得很乖/长得乖巧' },
+  { pattern: /训练成乖[^\u4e00-\u9fa5]/g, suggestion: '训练得只会卖乖' },
+  { pattern: /变得乖[^\u4e00-\u9fa5]/g, suggestion: '变得很乖/变得乖巧' },
+  { pattern: /表现乖[^\u4e00-\u9fa5]/g, suggestion: '表现得很乖' },
+  { pattern: /长得乖[^\u4e00-\u9fa5]/g, suggestion: '长得很乖/长得乖巧' },
 ];
 
 // ============ 写作风格原则 ============
